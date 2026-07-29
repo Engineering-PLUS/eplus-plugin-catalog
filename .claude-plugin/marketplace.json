@@ -1,5 +1,6 @@
 {
   "name": "eplus-claude-plugins",
+  "description": "Claude Code plugins for Engineering Plus AEC workflows",
   "owner": {
     "name": "Victor Ortega",
     "email": "victor.ortega@eplusadvisors.com"
@@ -10,8 +11,8 @@
       "displayName": "EPLUS simple plugin testing",
       "description": "Test plugin for Engineering Plus",
       "source": {
-        "source": "github",
-        "repo": "Engineering-PLUS/eplus-simple-plugin"
+        "source": "url",
+        "url": "https://github.com/Engineering-PLUS/eplus-simple-plugin.git"
       },
       "category": "Drafting & Engineering"
     }
