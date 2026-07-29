@@ -1,0 +1,21 @@
+{
+  "name": "eplus-claude-plugins",
+  "owner": {
+    "name": "Victor Ortega",
+    "email": "victor.ortega@eplusadvisors.com"
+  },
+  "plugins": [
+    {
+      "name": "eplus-simple-plugin",
+      "displayName": "EPLUS simple plugin testing",
+      "description": "Test plugin for Engineering Plus",
+      "source": {
+        "github": {
+          "repo": "Engineering-PLUS/eplus-simple-plugin",
+          "sha": "198f5def0a02826b82268d3ddc7108705d6756c2"
+        }
+      },
+      "category": "Drafting & Engineering"
+    }
+  ]
+}
