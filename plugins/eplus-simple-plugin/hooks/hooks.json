@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"eplus-simple-plugin is loaded in the Cowork VM. AEC_PROJECT_STAGE=drafting.\"}}'",
+            "statusMessage": "Initializing EPLUS AEC environment..."
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(grep *)",
+            "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"additionalContext\": \"Reminder: always use AEC standard layer naming for exports.\"}}'"
+          }
+        ]
+      }
+    ]
+  }
+}

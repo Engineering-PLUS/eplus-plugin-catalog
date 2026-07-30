@@ -10,10 +10,7 @@
       "name": "eplus-simple-plugin",
       "displayName": "EPLUS simple plugin testing",
       "description": "Test plugin for Engineering Plus",
-      "source": {
-        "source": "url",
-        "url": "https://github.com/Engineering-PLUS/eplus-simple-plugin.git"
-      },
+      "source": "./plugins/eplus-simple-plugin",
       "category": "Drafting & Engineering"
     }
   ]

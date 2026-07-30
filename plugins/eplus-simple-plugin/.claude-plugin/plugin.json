@@ -1,0 +1,9 @@
+{
+  "name": "eplus-simple-plugin",
+  "version": "1.0.0",
+  "description": "Test plugin for Engineering Plus",
+  "author": {
+    "name": "Victor Ortega",
+    "email": "victor.ortega@eplusadvisors.com"
+  }
+}
