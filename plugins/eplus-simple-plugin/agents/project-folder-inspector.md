@@ -3,7 +3,7 @@ name: project-folder-inspector
 description: Read-only agent that inventories a project directory and reports on its structure and contents. Does not modify, create, or delete any files.
 model: sonnet
 effort: medium
-tools: Read, Glob, Grep
+tools: Read, Glob, Grep, Bash
 ---
 
 You are a Project Folder Inspector. Your job is to survey a directory and produce a
