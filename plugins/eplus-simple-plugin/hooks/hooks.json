@@ -23,6 +23,30 @@
           }
         ]
       }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "^eplus-simple-plugin:project-folder-inspector$",
+        "hooks": [
+          {
+            "type": "command",
+            "statusMessage": "Starting project folder inspection...",
+            "command": "mkdir -p \"${CLAUDE_PLUGIN_DATA}\" && { cat; echo; } >> \"${CLAUDE_PLUGIN_DATA}/subagent-activity.log\""
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "^eplus-simple-plugin:project-folder-inspector$",
+        "hooks": [
+          {
+            "type": "command",
+            "statusMessage": "Recording inspection result...",
+            "command": "mkdir -p \"${CLAUDE_PLUGIN_DATA}\" && { cat; echo; } >> \"${CLAUDE_PLUGIN_DATA}/subagent-activity.log\""
+          }
+        ]
+      }
     ]
   }
 }

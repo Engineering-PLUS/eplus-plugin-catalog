@@ -10,7 +10,37 @@ installation and activation in Claude Cowork's sandboxed VM.
 | Manifest  | [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) | Plugin identity and metadata |
 | Skill     | [`skills/aec-verify/SKILL.md`](skills/aec-verify/SKILL.md) | Confirms the plugin is loaded and reports the AEC project stage |
 | Subagent  | [`agents/project-folder-inspector.md`](agents/project-folder-inspector.md) | Read-only: inventories a directory and reports findings |
-| Hooks     | [`hooks/hooks.json`](hooks/hooks.json) | `SessionStart` env prep + `PreToolUse` layer-naming reminder |
+| Hooks     | [`hooks/hooks.json`](hooks/hooks.json) | `SessionStart` env prep, `PreToolUse` layer-naming reminder, `SubagentStart`/`SubagentStop` activity logging |
+| Settings  | [`settings.json`](settings.json) | Ships a default `subagentStatusLine` |
+| Script    | [`scripts/subagent-statusline.sh`](scripts/subagent-statusline.sh) | Renders the per-subagent row in the agent panel |
+
+## Subagent observability
+
+The default agent-panel row (`name · description · token count`) says little about what a
+subagent is actually doing. Two mechanisms address that, and they cover different halves:
+
+**Live** — [`settings.json`](settings.json) ships a `subagentStatusLine`. Plugin
+`settings.json` supports only the `agent` and `subagentStatusLine` keys, and this is the
+latter. The script receives every visible row as one JSON object on stdin and writes one
+`{"id": ..., "content": ...}` line per row it wants to override; rows it skips keep the
+default rendering. It degrades to silence when no JSON parser is present, so a missing
+`python3`/`jq` costs you the custom row, not the panel.
+
+**After the fact** — `SubagentStart` and `SubagentStop` append their full hook payloads to
+`${CLAUDE_PLUGIN_DATA}/subagent-activity.log`, one JSON object per line. `SubagentStop`
+carries `agent_transcript_path`, which points at the subagent's own transcript — the
+complete record of what it did.
+
+Two things worth knowing before you extend this:
+
+- **Anchor plugin-scoped matchers.** A plugin subagent's `agent_type` contains a colon,
+  which puts the matcher on the regular-expression path. Write
+  `^eplus-simple-plugin:project-folder-inspector$`, not the bare name.
+- **`hooks` in agent frontmatter is ignored for plugin subagents.** Subagent hooks have to
+  live here in `hooks/hooks.json`. Note also that every hook event fires *inside* subagents
+  — `PreToolUse`/`PostToolUse` included, with `agent_type` present in the payload — so
+  per-tool-call tracing is available without any subagent-specific event. A `Stop` hook
+  inside a subagent is automatically converted to `SubagentStop`; don't declare both.
 
 ## Installation
 
