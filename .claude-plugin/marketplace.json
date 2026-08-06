@@ -12,6 +12,13 @@
       "description": "Test plugin for Engineering Plus",
       "source": "./plugins/eplus-simple-plugin",
       "category": "Drafting & Engineering"
+    },
+    {
+      "name": "eplus-autocad",
+      "displayName": "EPLUS AutoCAD toolkit",
+      "description": "AutoCAD MCP server bundled with the EPLUS CAD workflow skill and session guardrail hooks",
+      "source": "./plugins/eplus-autocad",
+      "category": "Drafting & Engineering"
     }
   ]
 }

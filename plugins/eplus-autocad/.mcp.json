@@ -1,0 +1,6 @@
+{
+  "autocad": {
+    "command": "C:\\Users\\vortega\\Documents\\Working Folder\\AutoCAD\\civil-3d-mcp\\.venv\\Scripts\\python.exe",
+    "args": ["-m", "autocad_mcp"]
+  }
+}
