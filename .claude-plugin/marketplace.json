@@ -19,6 +19,13 @@
       "description": "AutoCAD MCP server bundled with the EPLUS CAD workflow skill and session guardrail hooks",
       "source": "./plugins/eplus-autocad",
       "category": "Drafting & Engineering"
+    },
+    {
+      "name": "eplus-office-skills",
+      "displayName": "EPLUS Office document skills",
+      "description": "Anthropic's official docx, pdf, pptx, and xlsx skills bundled for the Chat/Cowork fleet",
+      "source": "./plugins/eplus-office-skills",
+      "category": "Documents & Productivity"
     }
   ]
 }
