@@ -1,6 +1,14 @@
 {
   "autocad": {
-    "command": "C:\\Users\\vortega\\Documents\\Working Folder\\AutoCAD\\civil-3d-mcp\\.venv\\Scripts\\python.exe",
-    "args": ["-m", "autocad_mcp"]
+    "command": "C:\\Windows\\System32\\cmd.exe",
+    "args": [
+      "/c",
+      "C:\\Program Files\\uv\\uvx.exe",
+      "--python",
+      "3.12",
+      "--from",
+      "git+https://x-access-token:${user_config.autocad_mcp_pat}@github.com/Engineering-PLUS/autocad-mcp@v0.2.0",
+      "autocad-mcp"
+    ]
   }
 }

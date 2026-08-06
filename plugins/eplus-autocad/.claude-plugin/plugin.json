@@ -1,9 +1,17 @@
 {
   "name": "eplus-autocad",
-  "version": "0.1.0",
   "description": "AutoCAD MCP server plus the skills and hooks that teach Claude the EPLUS CAD workflow",
   "author": {
     "name": "Victor Ortega",
     "email": "victor.ortega@eplusadvisors.com"
+  },
+  "userConfig": {
+    "autocad_mcp_pat": {
+      "type": "string",
+      "title": "AutoCAD MCP GitHub token",
+      "description": "Fine-grained PAT with Contents: Read scoped to only Engineering-PLUS/autocad-mcp; used to fetch the MCP server code",
+      "sensitive": true,
+      "required": true
+    }
   }
 }

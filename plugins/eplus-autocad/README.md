@@ -25,34 +25,33 @@ prefixes — keep it that way when adding hooks:
 ^mcp__(plugin_eplus-autocad_)?autocad__(select_in_session|open_for_editing)$
 ```
 
-## MCP wiring — current state and target state
+## MCP wiring
 
-**Current (dev, this machine only):** [`.mcp.json`](.mcp.json) points at the
-local venv of the server checkout
-(`...\AutoCAD\civil-3d-mcp\.venv\Scripts\python.exe -m autocad_mcp`). It
-works immediately on Victor's workstation and nowhere else.
+[`.mcp.json`](.mcp.json) launches the server with the same `cmd.exe`-wrapped
+`uvx` command the fleet bootstrap uses (see the server repo's
+`DEPLOYMENT.md`): pinned tag, read-only PAT in the `--from` URL. Machine
+prerequisites are the same as the fleet's: `uv` at `C:\Program Files\uv`,
+`git` on PATH, and github.com reachable on first run.
 
-**Target (portable):** swap the command for the same `cmd.exe`-wrapped
-`uvx` launch the fleet bootstrap uses (see the server repo's
-`DEPLOYMENT.md`), with the read-only PAT supplied via env-var expansion —
-**never commit a literal PAT to this repo**:
+The PAT is supplied through the plugin's `userConfig`: Claude Code prompts
+for **AutoCAD MCP GitHub token** when the plugin is enabled (or take it
+non-interactively with `--config autocad_mcp_pat=<token>` on install),
+stores it in secure storage — never in `settings.json` or this repo — and
+substitutes `${user_config.autocad_mcp_pat}` into the server args at
+launch. Use a fine-grained token scoped to only the `autocad-mcp` repo
+with Contents: Read; it grants nothing but the ability to fetch that code.
+Rotate by re-entering it in the `/plugin` configuration dialog. When
+shipping a server update, bump `@v0.X.Y` here **and** in the fleet
+bootstrap config in the same change.
 
-```json
-{
-  "autocad": {
-    "command": "C:\\Windows\\System32\\cmd.exe",
-    "args": [
-      "/c", "C:\\Program Files\\uv\\uvx.exe",
-      "--python", "3.12",
-      "--from", "git+https://x-access-token:${AUTOCAD_MCP_PAT}@github.com/Engineering-PLUS/autocad-mcp@v0.2.0",
-      "autocad-mcp"
-    ]
-  }
-}
-```
+`plugin.json` deliberately omits `version`, so the git commit SHA is the
+version: every push to the catalog is an update that machines pick up with
+`/plugin update` (or auto-update) — no version bump needed while
+iterating. Pin a semver version once the plugin stabilizes.
 
-When shipping a server update, bump the pinned tag here **and** in the
-fleet bootstrap config in the same change.
+Plugin `.mcp.json` does not support `toolPolicy` or `startupTimeoutSec` —
+those live in the Desktop managed config. Here, the session-touching gate is
+enforced by the `PreToolUse` hook instead.
 
 ## Known caveats
 
