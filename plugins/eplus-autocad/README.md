@@ -1,83 +1,67 @@
 # eplus-autocad
 
-Bundles the [autocad-mcp](https://github.com/Engineering-PLUS/autocad-mcp)
-server together with the skill and hooks that teach Claude the EPLUS CAD
-workflow, so tools, doctrine, and guardrails always ship as one unit.
+Skills and hooks that teach Claude the EPLUS CAD workflow. The `autocad`
+MCP server itself is **not** bundled — it is delivered separately as a
+managed connection (see the
+[autocad-mcp](https://github.com/Engineering-PLUS/autocad-mcp) repo's
+`DEPLOYMENT.md`). This plugin makes the model use those tools correctly
+and report connector failures instead of improvising.
 
 ## Contents
 
 | Component | Path | Purpose |
 |-----------|------|---------|
 | Manifest  | [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) | Plugin identity and metadata |
-| MCP       | [`.mcp.json`](.mcp.json) | Launches the `autocad` stdio server when the plugin is enabled |
 | Skill     | [`skills/cad-workflow/SKILL.md`](skills/cad-workflow/SKILL.md) | Umbrella: three-lane doctrine, clone rules, tool selection guide |
-| Skills    | [`skills/`](skills/) | One skill per MCP tool (9 total) so the model reliably reaches for the right tool and reports failures instead of improvising: `get-cad-status`, `check-cad-installation`, `inspect-drawing`, `analyze-size-distribution`, `inspect-entities`, `render-view`, `capture-session-view`, `select-in-session`, `open-for-editing` |
+| Skills    | [`skills/`](skills/) | One skill per MCP tool (9 total): `get-cad-status`, `check-cad-installation`, `inspect-drawing`, `analyze-size-distribution`, `inspect-entities`, `render-view`, `capture-session-view`, `select-in-session`, `open-for-editing` |
 | Hooks     | [`hooks/hooks.json`](hooks/hooks.json) | `SessionStart` context; `PreToolUse` ask-gate on the two session-touching tools |
 
 Every per-tool skill ends with the same failure protocol: if the `autocad`
 connector is missing or the call errors, the model tells the user exactly
 that (with the real error) instead of silently skipping or fabricating
-results. The MCP server itself is expected to be delivered outside the
-plugin (managed/direct connector); the bundled `.mcp.json` is a fallback.
+results. Skill descriptions are the discovery surface — the model invokes
+them on its own from task context; slash commands are just the manual
+override. If testers find a natural phrasing that fails to trigger a
+skill, add it to that skill's `description` and bump the version.
 
 ## Tool naming
 
-Plugin-bundled server tools are scoped as
-`mcp__plugin_eplus-autocad_autocad__<tool>`. The fleet's managed connector
-exposes the same server as `mcp__autocad__<tool>`. The skill references
-tools by bare name and the hook matcher is a regex covering **both**
-prefixes — keep it that way when adding hooks:
+The managed connection must keep the server name `autocad` so tools appear
+as `mcp__autocad__<tool>` — the skills and hooks reference that name. The
+hook matcher also tolerates the plugin-scoped prefix
+(`mcp__plugin_eplus-autocad_autocad__*`) in case the server is ever
+bundled again:
 
 ```
 ^mcp__(plugin_eplus-autocad_)?autocad__(select_in_session|open_for_editing)$
 ```
 
-## MCP wiring
+## Versioning
 
-[`.mcp.json`](.mcp.json) launches the server with the same `cmd.exe`-wrapped
-`uvx` command the fleet bootstrap uses (see the server repo's
-`DEPLOYMENT.md`): pinned tag, read-only PAT in the `--from` URL. Machine
-prerequisites are the same as the fleet's: `uv` at `C:\Program Files\uv`,
-`git` on PATH, and github.com reachable on first run.
+Explicit semver in `plugin.json` — bump `version` whenever a change should
+reach installed machines; pushing commits alone does nothing while a
+version is pinned. Server updates are coordinated separately in the
+managed connection config (the pinned `@v0.X.Y` uvx tag).
 
-The PAT is supplied via env-var expansion: each machine sets
-`AUTOCAD_MCP_PAT` (provisioned by the deployment utility, not handed to
-users) to a fine-grained token scoped to only the `autocad-mcp` repo with
-Contents: Read — it grants nothing but the ability to fetch that code. No
-token is committed to this repo. Rotate by updating the env var on each
-machine.
+## Do not bundle the server here
 
-Versioning is explicit: bump `version` in `plugin.json` whenever a change
-should reach installed machines — pushing commits alone does nothing once
-a version is pinned. When shipping a server update, bump `@v0.X.Y` in
-`.mcp.json` **and** the fleet bootstrap config in the same change, plus
-the plugin version.
-
-Plugin `.mcp.json` does not support `toolPolicy` or `startupTimeoutSec` —
-those live in the Desktop managed config. Here, the session-touching gate is
-enforced by the `PreToolUse` hook instead.
-
-## Known caveats
-
-- **Windows hosts only.** The server needs Win32 COM and AutoCAD; the
-  bundled `.mcp.json` cannot work inside Cowork's Linux VM. Cowork fleet
-  machines get the server via the managed connector instead; this plugin's
-  skill and hooks still apply there. Deliberately deferred for now.
-- **Duplicate server risk:** if a machine also has a user-level or managed
-  connector for the same server (e.g. `civil3d` or `autocad`), enabling
-  this plugin runs a second copy. Harmless for reads, but pick one wiring
-  per machine when you notice doubled tools.
-- **Collision behavior unverified:** whether the managed `autocad`
-  connector blocks the plugin-scoped copy (or vice versa) has not been
-  tested on a fleet machine.
+A bundled `.mcp.json` was removed deliberately (v0.2.1). Verified behavior
+on fleet machines: an admin-managed connector named `autocad` wins the
+name and the app drops the plugin's copy with "collides with an
+admin-managed direct-pool connector"; inside the Cowork VM the Windows
+launch command cannot run at all. The managed connection is the single
+delivery path for the server.
 
 ## Installation
 
-From the `eplus-claude-plugins` marketplace:
+From the `eplus-claude-plugins` marketplace (registered fleet-wide via the
+managed deployment; manually: `claude plugin marketplace add
+Engineering-PLUS/eplus-plugin-catalog`):
 
 ```bash
 claude plugin install eplus-autocad@eplus-claude-plugins
 ```
 
-Verify with `/mcp` (server `autocad` connected, 9 tools) and by asking
-*"What's the status of my CAD session?"*.
+Verify: the skills list shows the ten skills above, and with the managed
+`autocad` connection active, asking *"what's the status of my CAD
+session?"* triggers `get-cad-status` and returns live session data.
