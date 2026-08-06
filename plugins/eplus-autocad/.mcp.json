@@ -7,7 +7,7 @@
       "--python",
       "3.12",
       "--from",
-      "git+https://x-access-token:${user_config.autocad_mcp_pat}@github.com/Engineering-PLUS/autocad-mcp@v0.2.0",
+      "git+https://x-access-token:${AUTOCAD_MCP_PAT}@github.com/Engineering-PLUS/autocad-mcp@v0.2.0",
       "autocad-mcp"
     ]
   }

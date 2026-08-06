@@ -33,21 +33,18 @@ prefixes — keep it that way when adding hooks:
 prerequisites are the same as the fleet's: `uv` at `C:\Program Files\uv`,
 `git` on PATH, and github.com reachable on first run.
 
-The PAT is supplied through the plugin's `userConfig`: Claude Code prompts
-for **AutoCAD MCP GitHub token** when the plugin is enabled (or take it
-non-interactively with `--config autocad_mcp_pat=<token>` on install),
-stores it in secure storage — never in `settings.json` or this repo — and
-substitutes `${user_config.autocad_mcp_pat}` into the server args at
-launch. Use a fine-grained token scoped to only the `autocad-mcp` repo
-with Contents: Read; it grants nothing but the ability to fetch that code.
-Rotate by re-entering it in the `/plugin` configuration dialog. When
-shipping a server update, bump `@v0.X.Y` here **and** in the fleet
-bootstrap config in the same change.
+The PAT is supplied via env-var expansion: each machine sets
+`AUTOCAD_MCP_PAT` (provisioned by the deployment utility, not handed to
+users) to a fine-grained token scoped to only the `autocad-mcp` repo with
+Contents: Read — it grants nothing but the ability to fetch that code. No
+token is committed to this repo. Rotate by updating the env var on each
+machine.
 
-`plugin.json` deliberately omits `version`, so the git commit SHA is the
-version: every push to the catalog is an update that machines pick up with
-`/plugin update` (or auto-update) — no version bump needed while
-iterating. Pin a semver version once the plugin stabilizes.
+Versioning is explicit: bump `version` in `plugin.json` whenever a change
+should reach installed machines — pushing commits alone does nothing once
+a version is pinned. When shipping a server update, bump `@v0.X.Y` in
+`.mcp.json` **and** the fleet bootstrap config in the same change, plus
+the plugin version.
 
 Plugin `.mcp.json` does not support `toolPolicy` or `startupTimeoutSec` —
 those live in the Desktop managed config. Here, the session-touching gate is
