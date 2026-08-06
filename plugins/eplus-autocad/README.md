@@ -10,8 +10,15 @@ workflow, so tools, doctrine, and guardrails always ship as one unit.
 |-----------|------|---------|
 | Manifest  | [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) | Plugin identity and metadata |
 | MCP       | [`.mcp.json`](.mcp.json) | Launches the `autocad` stdio server when the plugin is enabled |
-| Skill     | [`skills/cad-workflow/SKILL.md`](skills/cad-workflow/SKILL.md) | Three-lane doctrine, clone rules, tool selection guide |
+| Skill     | [`skills/cad-workflow/SKILL.md`](skills/cad-workflow/SKILL.md) | Umbrella: three-lane doctrine, clone rules, tool selection guide |
+| Skills    | [`skills/`](skills/) | One skill per MCP tool (9 total) so the model reliably reaches for the right tool and reports failures instead of improvising: `get-cad-status`, `check-cad-installation`, `inspect-drawing`, `analyze-size-distribution`, `inspect-entities`, `render-view`, `capture-session-view`, `select-in-session`, `open-for-editing` |
 | Hooks     | [`hooks/hooks.json`](hooks/hooks.json) | `SessionStart` context; `PreToolUse` ask-gate on the two session-touching tools |
+
+Every per-tool skill ends with the same failure protocol: if the `autocad`
+connector is missing or the call errors, the model tells the user exactly
+that (with the real error) instead of silently skipping or fabricating
+results. The MCP server itself is expected to be delivered outside the
+plugin (managed/direct connector); the bundled `.mcp.json` is a fallback.
 
 ## Tool naming
 
