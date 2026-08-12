@@ -1,6 +1,6 @@
 {
   "name": "eplus-office-skills",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Anthropic's official document skills (docx, pdf, pptx, xlsx) plus the EPLUS branding (default fonts) skill, bundled for the EPLUS Chat/Cowork fleet",
   "author": {
     "name": "Victor Ortega",

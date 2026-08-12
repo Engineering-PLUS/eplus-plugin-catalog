@@ -18,7 +18,7 @@ A `.docx` is a ZIP archive of XML files. Choose your approach by task:
 
 ## Creating with docx-js — gotchas
 
-`docx` is preinstalled — do not run `npm install` first; write the script and `require('docx')` directly. Only if that require fails: `npm install docx`. The model knows the API; these are the footguns:
+`docx` may or may not be preinstalled (Cowork VMs observed without it) — write the script and `require('docx')` directly; if the require fails: `npm install docx`. The model knows the API; these are the footguns:
 
 - **Page size defaults to A4.** For US Letter set `page: { size: { width: 12240, height: 15840 } }` (DXA; 1440 = 1″).
 - **Landscape:** pass portrait dimensions and `orientation: PageOrientation.LANDSCAPE` — docx-js swaps width/height internally.
@@ -88,4 +88,4 @@ The script writes `comments.xml`, `commentsExtended.xml`, `commentsIds.xml`, `co
 
 ## Dependencies
 
-`docx` (npm, preinstalled — install only if `require('docx')` fails) · `pandoc` · LibreOffice (`soffice`) · `pdftoppm` (Poppler)
+`docx` (npm, install if `require('docx')` fails) · `pandoc` · LibreOffice (`soffice`) · `pdftoppm` (Poppler)

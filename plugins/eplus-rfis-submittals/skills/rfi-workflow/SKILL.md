@@ -62,6 +62,16 @@ query_hermes_rfi(query=..., project_id=..., csi_section=...)
 
 Run additional refined queries if the first report leaves gaps.
 
+**Inspect the payload, not the status field.** A stubbed or empty Hermes
+backend still returns `status: "success"` — the scaffold/stub marker is
+buried inside the nested `result` string. Before synthesizing anything,
+verify the response contains real retrieved content: actual spec clause
+text, code section excerpts, or document citations. If the result is a
+scaffold marker, placeholder, or empty context, treat the query as
+**failed** and enter degraded mode (below). Synthesizing from an empty
+context produces a fully fabricated RFI response — the most dangerous
+failure mode in this workflow.
+
 ### Step 3 — Synthesis & draft generation
 
 Synthesize the raw context returned by Hermes into a formal, professional
@@ -93,3 +103,23 @@ If the `eplus-rfi-engine` connector is missing or a tool call errors,
 tell the user exactly that (with the real error) instead of silently
 skipping the query or fabricating spec/code citations. Never substitute
 pre-training knowledge for a failed Hermes query.
+
+## Degraded mode (Hermes down, stubbed, or returning empty context)
+
+When Hermes is unavailable or returns no real content, still deliver a
+consistent artifact instead of improvising:
+
+1. Tell the user Hermes is unavailable/stubbed and show the evidence
+   (error or the stub payload).
+2. Produce a **PENDING VERIFICATION** response shell with the same
+   structure as a normal response:
+   - Restated question and parsed attributes (Step 1 output)
+   - The determination section marked
+     `[PENDING VERIFICATION — Hermes retrieval unavailable]`
+   - Placeholder citation lines naming what must be verified (e.g.,
+     "Spec section 26 05 00 — clause TBD") — never invented clause or
+     code numbers
+   - The Hermes queries you attempted, so the run can be replayed when
+     the backend is restored
+3. **Never call `commit_approved_rfi` with a PENDING VERIFICATION
+   shell** — degraded-mode output must not enter the knowledge graph.

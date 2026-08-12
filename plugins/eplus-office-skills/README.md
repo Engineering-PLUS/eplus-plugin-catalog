@@ -34,7 +34,9 @@ vendored.
    `git config core.longpaths true` first — the OOXML schema paths exceed
    MAX_PATH).
 2. Replace `skills/<name>` here with the upstream `skills/<name>` folder.
-3. Bump `version` in `.claude-plugin/plugin.json` — machines only receive
+3. Re-apply local patches: `docx/SKILL.md` softens upstream's "`docx` is
+   preinstalled" claim — Cowork VMs were observed without it.
+4. Bump `version` in `.claude-plugin/plugin.json` — machines only receive
    the update on a version bump.
 
 ## Installation

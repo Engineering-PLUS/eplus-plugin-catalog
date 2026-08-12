@@ -12,10 +12,32 @@
 ## 1. Color Palette
 Always use these exact HEX codes when styling components:
 - **Primary Blue:** `#666f89`
-- **Primary Green:** `#3c7d7f`
+- **Accent Green:** `#3c7d7f`
 - **Dark Grey:** `#58595b`
 - **Light Grey:** `#a6a6a5`
 *(Note: Colors can be tinted from 100% down to 5% if needed for backgrounds/accents).*
+
+### Color Roles & Proportions (mandatory)
+The palette is **blue-and-grey led**. As a rule of thumb: ~60% neutral
+(white/greys), ~30% Primary Blue, **≤10% Accent Green**.
+
+| Color | Role |
+|-------|------|
+| Primary Blue `#666f89` | The workhorse: headlines, title bars, primary buttons, links, table headers, emphasis |
+| Dark Grey `#58595b` | Body text and standard UI text |
+| Light Grey `#a6a6a5` | Borders, dividers, secondary/muted text, subtle backgrounds |
+| Accent Green `#3c7d7f` | **Sparingly only.** Reserved for (a) making a special section or callout stand out, and (b) graphic elements in headers and footers |
+
+**Green restrictions — do NOT use green for:**
+- Body text, headings, or sub-headings (use Blue or Dark Grey)
+- Links, buttons, or general interactive elements (use Blue)
+- Table headers, bullets, or list markers (use Blue or greys)
+- Large fills or full backgrounds outside header/footer graphics
+
+If a design already contains a green element on the page/slide/view,
+default every additional element to Blue or grey. When in doubt, use
+Blue — a deliverable with no green at all is on-brand; one with green
+everywhere is not.
 
 ## 2. Typography Rules (Default-Font Mapping)
 The brand hierarchy is preserved exactly — only the typefaces change. The differentiation
@@ -24,7 +46,7 @@ across Windows, macOS, web, and PDF reviewers.
 
 - **Primary font:** `Arial`.
 - **Cross-application font stack:** `Arial, Helvetica, "Liberation Sans", sans-serif`.
-- **Headlines:** `Arial Black` (fall back to `Arial Bold` if Black is unavailable).
+- **Headlines:** `Arial Bold`, differentiated from sub-headlines by **size**, not face. Do NOT use `Arial Black` — its fallback cannot be expressed in OOXML or CSS, and renderers without it substitute their own face (LibreOffice picks a *serif*), which is exactly the cross-application failure this edition exists to prevent.
 - **Sub-Headlines:** `Arial Bold`.
 - **Section Headings (in body):** `Arial Bold`. Title Case or ALL CAPS. Must not exceed Headline size.
 - **Body Copy:** `Arial Regular` (Sentence case only).
