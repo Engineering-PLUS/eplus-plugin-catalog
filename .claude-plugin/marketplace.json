@@ -9,23 +9,38 @@
     {
       "name": "eplus-simple-plugin",
       "displayName": "EPLUS simple plugin testing",
-      "description": "Test plugin for Engineering Plus",
+      "description": "Test plugin for Engineering Plus — kept for reference, disabled by default",
       "source": "./plugins/eplus-simple-plugin",
-      "category": "Drafting & Engineering"
+      "category": "Drafting & Engineering",
+      "tags": ["test", "example", "internal"],
+      "defaultEnabled": false
     },
     {
       "name": "eplus-autocad",
       "displayName": "EPLUS AutoCAD toolkit",
       "description": "AutoCAD MCP server bundled with the EPLUS CAD workflow skill and session guardrail hooks",
       "source": "./plugins/eplus-autocad",
-      "category": "Drafting & Engineering"
+      "category": "Drafting & Engineering",
+      "tags": ["autocad", "cad", "civil3d", "dwg", "drafting", "mcp"],
+      "keywords": ["aec", "drawing-inspection", "map3d"]
     },
     {
       "name": "eplus-office-skills",
       "displayName": "EPLUS Office document skills",
-      "description": "Anthropic's official docx, pdf, pptx, and xlsx skills bundled for the Chat/Cowork fleet",
+      "description": "Anthropic's official docx, pdf, pptx, and xlsx skills plus the EPLUS branding (default fonts) skill — required install for the Chat/Cowork fleet",
       "source": "./plugins/eplus-office-skills",
-      "category": "Documents & Productivity"
+      "category": "Documents & Productivity",
+      "tags": ["docx", "pdf", "pptx", "xlsx", "branding", "office", "documents"],
+      "keywords": ["word", "excel", "powerpoint", "brand-guidelines", "eplus"]
+    },
+    {
+      "name": "eplus-rfis-submittals",
+      "displayName": "EPLUS RFI & Submittal engine",
+      "description": "RFI & Submittal Processing Engine — Hermes Graph-RAG workflow with /rfi command and HITL-gated knowledge-base write-back",
+      "source": "./plugins/eplus-rfis-submittals",
+      "category": "Documents & Productivity",
+      "tags": ["rfi", "submittals", "aec", "graph-rag", "mcp"],
+      "keywords": ["hermes", "csi", "specifications", "knowledge-base"]
     }
   ]
 }

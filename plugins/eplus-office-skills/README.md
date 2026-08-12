@@ -14,10 +14,14 @@ config declares, so this plugin closes that gap.
 | `pdf`  | Create, merge, split, fill forms, encrypt/decrypt PDFs |
 | `pptx` | Create/edit PowerPoint decks and templates |
 | `xlsx` | Create/edit spreadsheets (.xlsx, .xlsm, .csv, .tsv), formulas, cleaning |
+| `eplus-branding-default-fonts` | EPLUS brand guidelines (colors, logos, typography) using portable system fonts — for deliverables that must survive PDF round-trips and cross-app editing |
 
-Each skill folder is copied verbatim from the upstream repo, including its
-`LICENSE.txt` and bundled scripts. Do not hand-edit the vendored content —
-re-vendor from upstream instead (see below).
+The four document skills are copied verbatim from the upstream repo,
+including their `LICENSE.txt` and bundled scripts. Do not hand-edit the
+vendored content — re-vendor from upstream instead (see below).
+`eplus-branding-default-fonts` is EPLUS-authored (brand summary, logo
+assets, and the Brand Guidelines PDF live inside the skill folder) and is
+maintained here directly.
 
 **Not included:** `file-reading` and `pdf-reading` (the upload-routing and
 PDF-extraction strategy skills seen in consumer Chat) are internal
@@ -35,9 +39,24 @@ vendored.
 
 ## Installation
 
-```bash
-claude plugin install eplus-office-skills@eplus-claude-plugins
-```
+**This plugin is a required install for the Cowork fleet.** The fleet is
+Cowork-only (Claude Code CLI is disabled), so distribution goes through
+the claude.ai admin console, not managed settings:
+
+1. Go to [Organization settings > Plugins](https://claude.ai/admin-settings/plugins)
+   (Owner/Primary Owner, Team/Enterprise plan; Cowork and Skills must be
+   enabled).
+2. Connect this repository as a GitHub-synced marketplace (repo must stay
+   private/internal; the Claude GitHub App handles sync).
+3. Set this plugin's installation preference to **Required** — it
+   auto-installs for all org members and cannot be disabled or
+   uninstalled.
+
+**Sync behavior:** automatic sync runs only when a PR containing a plugin
+**version bump** merges to the default branch. Direct pushes do not
+trigger a sync — bump `version` in `.claude-plugin/plugin.json` in every
+release PR, or trigger manually via "Update" on the marketplace.
 
 Verify by asking Claude to create a small .docx or .xlsx — the matching
-skill should fire on its own.
+skill should fire on its own. For branding, ask Claude to "style this
+deck with EPLUS branding" — `eplus-branding-default-fonts` should load.
