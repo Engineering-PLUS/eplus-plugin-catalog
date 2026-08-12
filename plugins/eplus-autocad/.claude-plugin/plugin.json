@@ -1,9 +1,0 @@
-{
-  "name": "eplus-autocad",
-  "version": "0.2.1",
-  "description": "AutoCAD MCP server plus the skills and hooks that teach Claude the EPLUS CAD workflow",
-  "author": {
-    "name": "Victor Ortega",
-    "email": "victor.ortega@eplusadvisors.com"
-  }
-}

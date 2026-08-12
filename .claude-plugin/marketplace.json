@@ -7,24 +7,6 @@
   },
   "plugins": [
     {
-      "name": "eplus-simple-plugin",
-      "displayName": "EPLUS simple plugin testing",
-      "description": "Test plugin for Engineering Plus — kept for reference, disabled by default",
-      "source": "./plugins/eplus-simple-plugin",
-      "category": "Drafting & Engineering",
-      "tags": ["test", "example", "internal"],
-      "defaultEnabled": false
-    },
-    {
-      "name": "eplus-autocad",
-      "displayName": "EPLUS AutoCAD toolkit",
-      "description": "AutoCAD MCP server bundled with the EPLUS CAD workflow skill and session guardrail hooks",
-      "source": "./plugins/eplus-autocad",
-      "category": "Drafting & Engineering",
-      "tags": ["autocad", "cad", "civil3d", "dwg", "drafting", "mcp"],
-      "keywords": ["aec", "drawing-inspection", "map3d"]
-    },
-    {
       "name": "eplus-office-skills",
       "displayName": "EPLUS Office document skills",
       "description": "Anthropic's official docx, pdf, pptx, and xlsx skills plus the EPLUS branding (default fonts) skill — required install for the Chat/Cowork fleet",
