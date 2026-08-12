@@ -1,0 +1,9 @@
+{
+  "name": "eplus-rfis-submittals",
+  "version": "0.1.0",
+  "description": "RFI & Submittal Processing Engine — Hermes Graph-RAG query workflow, formal RFI response drafting, and HITL-gated knowledge-base write-back",
+  "author": {
+    "name": "Victor Ortega",
+    "email": "victor.ortega@eplusadvisors.com"
+  }
+}
