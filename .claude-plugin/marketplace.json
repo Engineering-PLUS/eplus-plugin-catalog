@@ -9,20 +9,18 @@
     {
       "name": "eplus-office-skills",
       "displayName": "EPLUS Office document skills",
-      "description": "Anthropic's official docx, pdf, pptx, and xlsx skills plus the EPLUS branding (default fonts) skill — required install for the Chat/Cowork fleet",
+      "description": "Anthropic's official docx, pdf, pptx, and xlsx skills plus the EPLUS branding (default fonts) skill, an interactive PDF viewer/annotator, and a workflow-packager skill that turns document-heavy conversations into reusable skills — required install for the Chat/Cowork fleet",
       "source": "./plugins/eplus-office-skills",
       "category": "Documents & Productivity",
-      "tags": ["docx", "pdf", "pptx", "xlsx", "branding", "office", "documents"],
-      "keywords": ["word", "excel", "powerpoint", "brand-guidelines", "eplus"]
+      "tags": ["word", "excel", "powerpoint", "pdf", "docx", "xlsx", "pptx", "documents", "branding", "markup", "signature", "office"]
     },
     {
       "name": "eplus-rfis-submittals",
       "displayName": "EPLUS RFI & Submittal engine",
-      "description": "RFI & Submittal Processing Engine — Hermes Graph-RAG workflow with /rfi command and HITL-gated knowledge-base write-back",
+      "description": "Draft spec-backed RFI responses and log approved ones to the EPLUS knowledge base — nothing is saved without your sign-off.",
       "source": "./plugins/eplus-rfis-submittals",
       "category": "Documents & Productivity",
-      "tags": ["rfi", "submittals", "aec", "graph-rag", "mcp"],
-      "keywords": ["hermes", "csi", "specifications", "knowledge-base"]
+      "tags": ["rfi", "rfis", "submittals", "specifications", "specs", "csi", "knowledge-base", "aec"]
     }
   ]
 }
