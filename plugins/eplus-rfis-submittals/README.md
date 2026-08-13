@@ -1,6 +1,6 @@
 # eplus-rfis-submittals
 
-Skill and `/rfi` command that teach Claude the EPLUS RFI & Submittal
+Skill that teaches Claude the EPLUS RFI & Submittal
 Processing workflow. The backend is the **Hermes Knowledge Engine** — a
 dedicated Azure VM running a FastMCP server over HTTP/SSE with native
 file access to 82,000+ pages of extracted AEC technical documents (Core &
@@ -20,8 +20,7 @@ the `npx supergateway` snippet below in `claude_desktop_config.json`.
 | Component | Path | Purpose |
 |-----------|------|---------|
 | Manifest  | [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) | Plugin identity and metadata |
-| Skill     | [`skills/rfi-workflow/SKILL.md`](skills/rfi-workflow/SKILL.md) | 4-step doctrine: deconstruct → query Hermes → draft → HITL write-back gate |
-| Command   | [`commands/rfi.md`](commands/rfi.md) | `/rfi` manual trigger for the workflow (`/eplus-rfis-submittals:rfi`) |
+| Skill     | [`skills/rfi/SKILL.md`](skills/rfi/SKILL.md) | 4-step doctrine: deconstruct → query Hermes → draft → HITL write-back gate, plus the return path for logging final RFI responses issued outside the chat |
 | MCP       | [`.mcp.json`](.mcp.json) | Bundled remote SSE connection to the Hermes VM with Bearer auth |
 
 ## MCP tools (server name: `eplus-rfi-engine`)
@@ -101,7 +100,7 @@ From the `eplus-claude-plugins` marketplace:
 claude plugin install eplus-rfis-submittals@eplus-claude-plugins
 ```
 
-Verify: the skills list shows `rfi-workflow`, `/rfi` appears in the
-command list, and with the `eplus-rfi-engine` connection active, `/rfi
-review this request and draft a response` runs the 4-step workflow and
-queries Hermes instead of answering from memory.
+Verify: the skills list shows `rfi`, and with the `eplus-rfi-engine`
+connection active, asking Claude to "review this RFI and draft a
+response" runs the 4-step workflow and queries Hermes instead of
+answering from memory.
