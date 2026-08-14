@@ -1,101 +1,69 @@
 # document-extraction-engine
 
 Enterprise document extraction for the EPLUS fleet. The backend is the
-**Document Analysis engine** — a FastMCP server over HTTP/SSE on port
-8651 of the same Azure VM that hosts the Hermes RFI engine (same bearer
-token). Jobs are asynchronous: submission returns a `job_id`
-immediately, results are fetched when the job completes.
+**Document Analysis engine** — an HTTP service on port 8651 of the same
+Azure VM that hosts the Hermes RFI engine (8650) and the Error
+Reporting engine (8652), same bearer token. Jobs are asynchronous:
+submission returns a `job_id` immediately (jobs take 30 seconds to 10
+minutes), results are fetched when the job completes.
 
-Like `eplus-rfis-submittals`, the server is **remote** SSE — safe to
-bundle. The plugin ships an `.mcp.json` at the plugin root; no local
-process is launched, so it works in Claude Code, Cowork, and managed
-fleets alike.
+Unlike the SSE-based RFI and error-reporting plugins, this plugin has
+**no MCP server and no hooks**: all engine access goes through a
+bundled stdlib-only Python client that the model shells out to. Raw
+file bytes go straight from disk to the engine and extracted markdown
+lands in a scratchpad file — nothing bulky ever enters the model
+transcript.
+
+> **Egress requirement:** the deployment must allow outbound traffic to
+> `20.9.42.66`. If the client reports "cannot reach server", that is an
+> egress configuration issue to fix in the deployment settings — the
+> skill instructs the model to say so and stop, not retry.
 
 ## Contents
 
 | Component | Path | Purpose |
 |-----------|------|---------|
 | Manifest  | [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) | Plugin identity and metadata |
-| Skill     | [`skills/document-extraction/SKILL.md`](skills/document-extraction/SKILL.md) | Enterprise extraction doctrine: async job workflow, upload-hook contract, subagent delegation, failure protocol |
-| Agent     | [`agents/doc-extractor.md`](agents/doc-extractor.md) | Haiku subagent that runs submit → poll → fetch and returns a distilled result |
-| Hook      | [`hooks/hooks.json`](hooks/hooks.json) + [`hooks/upload_document.py`](hooks/upload_document.py) | PreToolUse on `analyze_document`: uploads raw file bytes out-of-band, denies the call with the `{status, job_id}` payload |
-| MCP       | [`.mcp.json`](.mcp.json) | Bundled remote SSE connection to the Document Analysis VM with Bearer auth |
+| Client    | [`scripts/eplus_docs_client.py`](scripts/eplus_docs_client.py) | Stdlib-only HTTP client: submit / status / wait / result / report |
+| Skill     | [`skills/document-extraction/SKILL.md`](skills/document-extraction/SKILL.md) | Extraction doctrine: shell-out workflow, no-base64 rule, subagent delegation, failure/egress protocol |
+| Agent     | [`agents/doc-extractor.md`](agents/doc-extractor.md) | Haiku subagent that runs submit → wait → result and returns a distilled report |
 
-## MCP tools (server name: `document-analysis`)
-
-1. `analyze_document(filename: str, file_base64: str = "", file_path: str = "", note: str = "") -> dict`
-   — submits an extraction job, returns `{status, job_id, ...}` immediately.
-2. `get_job_status(job_id: str) -> dict` — job progress.
-3. `get_job_result(job_id: str) -> dict` — finished extraction output.
-4. `list_jobs(limit: int = 20) -> dict` — recent jobs.
-
-## The upload hook
-
-Base64-encoding a document into `analyze_document`'s `file_base64` field
-would put the entire payload into the model transcript and burn the
-context window. Instead, the bundled PreToolUse hook intercepts any
-`analyze_document` call whose `file_path` exists locally and uploads the
-raw bytes directly:
+## Client usage
 
 ```
-POST http://20.9.42.66:8651/upload
-Authorization: Bearer <token>
-X-Filename: <basename>
-<raw file bytes>
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/eplus_docs_client.py" submit <file_path> [--note TEXT]
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/eplus_docs_client.py" status <job_id>
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/eplus_docs_client.py" wait <job_id> [--timeout 720]
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/eplus_docs_client.py" result <job_id> [--out FILE]
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/eplus_docs_client.py" report --message TEXT [--category ...] [--details ...]
 ```
 
-The endpoint returns the same `{status, job_id, ...}` JSON as the tool.
-The hook then denies the tool call with that JSON in the denial reason;
-the model (per the skill) treats a job-carrying denial as success and
-proceeds to `get_job_status(job_id)`. If the path doesn't exist locally
-or the upload fails, the hook stays silent and the tool call proceeds
-untouched.
+Every command prints exactly one JSON object to stdout; a non-zero exit
+code means the JSON carries `status: "error"`. `submit` uploads raw
+bytes (never base64); `wait` polls every 20s up to a default 12-minute
+timeout, after which the job continues server-side; `result --out`
+writes the extracted markdown to a file and keeps only metadata
+(including `pages`) on stdout; `report` files a fire-and-forget issue
+to the Error Reporting engine (8652).
 
-The hook script is Linux/python3 (Cowork VM deployment target).
+## Agent tool policy
 
-## Claude Code / Cowork configuration
-
-Bundled in [`.mcp.json`](.mcp.json):
-
-```json
-{
-  "mcpServers": {
-    "document-analysis": {
-      "type": "sse",
-      "url": "http://20.9.42.66:8651/sse",
-      "headers": {
-        "Authorization": "Bearer af19f84270b9b2ff993fa7246c08067d84188ac01ae4fa4134c695ba4aa36de7"
-      }
-    }
-  }
-}
-```
-
-> **Security note:** the bearer token is the shared static credential
-> also used by the Hermes RFI engine, sent over plain HTTP. Rotate both
-> together if it leaks, and prefer fronting the VM with HTTPS before
-> wide deployment.
-
-## Tool naming
-
-Tools appear as
-`mcp__plugin_document-extraction-engine_document-analysis__<tool>` when
-loaded from this plugin, or `mcp__document-analysis__<tool>` from a
-desktop/managed connection. The skill and the hook matcher
-(`^mcp__.*__analyze_document$`) tolerate both.
-
-This is also why the `doc-extractor` agent **deliberately omits**
-`tools` frontmatter and inherits everything: an allowlist would have to
-name both MCP variants exactly, and a mismatch silently blinds the
-agent depending on delivery. Inheriting trades minimal-privilege (a
-Haiku agent holding Write/Edit it never uses) for guaranteed access to
-the MCP tools plus Bash for poll sleeps. If the fleet ever standardizes
-on one delivery path, tighten it then.
+The `doc-extractor` agent is restricted to `Bash, Glob, Read`. Earlier
+versions inherited all tools because a `tools` allowlist would have had
+to name both MCP tool-name variants and a mismatch silently blinded the
+agent; with the MCP server gone that rationale is gone too, so the
+agent now holds only what the shell-out workflow needs.
 
 ## Versioning
 
 Explicit semver in `plugin.json` — bump `version` whenever a change
-should reach installed machines.
+should reach installed machines. v0.2.0 is the restructure from
+MCP+hook to the bundled client script.
+
+> **Security note:** the bearer token is the shared static credential
+> used by all three EPLUS engines (8650/8651/8652), hardcoded in the
+> client script and sent over plain HTTP. Rotate them together if it
+> leaks, and prefer fronting the VM with HTTPS before wide deployment.
 
 ## Installation
 
@@ -106,6 +74,6 @@ claude plugin install document-extraction-engine@eplus-claude-plugins
 ```
 
 Verify: the skills list shows `document-extraction`, the agents list
-shows `doc-extractor`, and submitting a local PDF via `analyze_document`
-gets intercepted by the hook (denial containing a `job_id`) rather than
-transferring base64 through the transcript.
+shows `doc-extractor`, and submitting a local PDF via the client's
+`submit` command returns `{status, job_id, ...}` with the follow-up
+`wait`/`result --out` producing a markdown file in the scratchpad.

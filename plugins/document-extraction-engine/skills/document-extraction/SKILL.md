@@ -1,81 +1,92 @@
 ---
 name: document-extraction
-description: Use this skill whenever a task needs enterprise-level document extraction or analysis — pulling structured data, text, tables, or metadata out of PDFs, Word documents, spreadsheets, scanned drawing sets, submittal packages, or spec books — or whenever the Document Analysis MCP tools (analyze_document, get_job_status, get_job_result, list_jobs) are involved. Encodes the async job workflow (submit → poll → fetch), the upload-hook contract (a denied analyze_document call carrying a job_id means the file was already uploaded), and the rule to delegate bulk extraction to the doc-extractor subagent. Always load it before calling any Document Analysis tool.
+description: Use this skill whenever a task needs enterprise-level document extraction or analysis — pulling structured data, text, tables, or metadata out of PDFs, Word documents, spreadsheets, scanned drawing sets, submittal packages, or spec books via the EPLUS Document Analysis engine. The engine is driven by the bundled eplus_docs_client.py script (submit → wait → result), not MCP tools. Encodes the shell-out workflow, the no-base64 rule, delegation to the doc-extractor subagent, and the failure/egress protocol. Always load it before running the client.
 ---
 
-# EPLUS enterprise document extraction (Document Analysis MCP)
+# EPLUS enterprise document extraction (eplus_docs_client.py)
 
-Rules for running document extraction through the `document-analysis`
-MCP server. Depending on delivery, its tools appear as
-`mcp__document-analysis__<tool>` (managed/desktop connector) or
-`mcp__plugin_document-extraction-engine_document-analysis__<tool>`
-(this plugin). Same server, same rules.
+Rules for running document extraction through the EPLUS Document
+Analysis engine. All access goes through the bundled stdlib-only client
+script — there are no MCP tools for this engine:
+
+```
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/eplus_docs_client.py" <command> ...
+```
+
+Every command prints exactly one JSON object to stdout. A non-zero exit
+code means that JSON has `status: "error"` — read its `message`.
 
 ## Backend
 
 The Document Analysis engine is an enterprise extraction service on a
-dedicated VM (FastMCP over HTTP/SSE, port 8651 — sibling of the Hermes
-RFI engine). It ingests PDFs, Office documents, scanned drawings, and
-submittal packages, and runs asynchronous extraction jobs: submission
-returns a `job_id` immediately; results are fetched when the job
-completes.
+dedicated VM (port 8651 — sibling of the Hermes RFI engine). It ingests
+PDFs, Office documents, scanned drawings, and submittal packages, and
+runs asynchronous extraction jobs: submission returns a `job_id`
+immediately; results are fetched when the job completes. Jobs take
+anywhere from 30 seconds to 10 minutes.
 
-## Available tools
+**Egress requirement:** the deployment must have `20.9.42.66` in its
+allowed egress hosts. If the client errors with "cannot reach server",
+say exactly that to the user and stop — that is an egress configuration
+issue for the deployment admin, **not a retry case**.
 
-- `analyze_document(filename, file_base64="", file_path="", note="")` —
-  submits an extraction job; returns `{status, job_id, ...}`
-  immediately. `filename` must keep the file's real extension.
-- `get_job_status(job_id)` — poll job progress.
-- `get_job_result(job_id)` — fetch the finished extraction.
-- `list_jobs(limit=20)` — recent jobs, for finding a prior `job_id`.
+## Client commands
 
-## Submitting a document — the upload-hook contract
+- `submit <file_path> [--note TEXT]` — uploads the raw file bytes and
+  starts a job; returns `{status, job_id, ...}`. The path must be a
+  real local file; `--note` is one line of extraction intent.
+- `status <job_id>` — single progress check.
+- `wait <job_id> [--timeout 720]` — polls every 20s until the job
+  leaves `queued`/`running` or the timeout (default 12 min) expires.
+  On timeout the job **keeps running server-side** — report the
+  `job_id` so it can be checked later; nothing is lost.
+- `result <job_id> [--out FILE]` — fetches the finished extraction.
+  Always pass `--out` with a sandbox/scratchpad path: the extracted
+  markdown is written to that file and kept out of the transcript;
+  stdout carries the remaining metadata (including `pages`).
+- `report --message TEXT [...]` — files a fire-and-forget issue report
+  to the EPLUS error-reporting engine (see failure protocol).
 
-For any file that exists locally, call `analyze_document` with
-`file_path` set to the absolute path and leave `file_base64` empty.
-**Never base64-encode file content into the tool call yourself** — the
-encoded payload lands in the transcript and wastes the context window.
+## The workflow
 
-This plugin installs a PreToolUse hook on `analyze_document`: when
-`file_path` points at a real local file, the hook uploads the raw bytes
-to the engine's `/upload` endpoint out-of-band and then **denies the
-tool call with the upload response JSON in the denial reason**.
-
-**A denial that contains `{status, job_id, ...}` is a SUCCESS**, not an
-error and not a permissions problem:
-
-- take the `job_id` from the denial reason,
-- do NOT retry `analyze_document` for that file,
-- proceed straight to `get_job_status(job_id)`.
-
-Only treat a denial as a real refusal if it carries no job payload. Use
-`file_base64` only as a last resort for very small files (roughly under
-100 KB) when no local path exists.
-
-## The job workflow
-
-1. **Submit** — one `analyze_document` call per file, with a `note`
-   describing the extraction intent.
-2. **Poll** — `get_job_status(job_id)` until complete; wait between
-   polls rather than hammering the endpoint.
-3. **Fetch** — `get_job_result(job_id)` and work from what the engine
-   actually returned.
+1. **Submit** — one `submit` per file, with a `--note`. **Never
+   base64-encode file content** — into the client, into a transcript,
+   anywhere; the client uploads raw bytes itself. Never open the
+   document with Read to "help".
+2. **Wait** — `wait <job_id>` for each submitted job. For multi-file
+   batches, submit ALL files first, then wait on each job in turn: the
+   server runs jobs concurrently, so wall time is the slowest job, not
+   the sum.
+3. **Fetch** — `result <job_id> --out <scratchpad_path>.md`, then work
+   from the saved markdown (Read it, selectively). Check the `pages`
+   field against the document's size as a sanity signal that the whole
+   document was covered.
 
 ## Delegate bulk work to the doc-extractor subagent
 
 For any real extraction job — and especially multi-document batches or
-large results — dispatch the `doc-extractor` agent (Haiku) with the file
-path(s) and the extraction goal. It runs submit → poll → fetch and
-returns a distilled result, keeping raw engine output out of the parent
-context. Reserve direct tool calls in the main conversation for quick
-one-offs like `list_jobs` or checking a known `job_id`.
+large results — dispatch the `doc-extractor` agent (Haiku) with the
+file path(s) and the extraction goal. It runs submit → wait → result
+and returns a distilled report, keeping raw engine output out of the
+parent context. Reserve direct client calls in the main conversation
+for quick one-offs like a `status` check on a known `job_id`.
 
 ## Failure protocol
 
-If the `document-analysis` connector is missing or a tool call errors,
-say exactly that (with the real error) instead of silently reading the
-document yourself and presenting it as engine output. If a job fails or
-returns empty/placeholder content, report the status verbatim — never
-fabricate extracted data, tables, or citations. If the engine is down,
-offer a plain best-effort read of the document, clearly labeled as NOT
-engine-verified.
+- Work only from what the engine actually returned. If a job fails or
+  the result is empty/placeholder content, report the status verbatim —
+  **never fabricate extracted data, tables, or citations**, and never
+  substitute your own reading of the document for engine output while
+  presenting it as such. If the engine is down, you may offer a plain
+  best-effort read of the document, clearly labeled as NOT
+  engine-verified.
+- On a real failure (job error, malformed result, clearly wrong
+  output), file one report via the client:
+  `report --message "..." --category tool_failure --server-name
+  document-analysis --details "<exact error JSON, job_id, what was
+  tried>"` — one report per distinct issue, no secrets or file contents
+  in the report, and never let reporting block the user's task.
+- "cannot reach server" is the exception: it is an egress configuration
+  issue — tell the user and stop. Do not retry, and do not attempt to
+  file a report (the reporting engine sits on the same host and is
+  equally unreachable).

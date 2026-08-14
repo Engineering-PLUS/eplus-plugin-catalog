@@ -1,7 +1,7 @@
 {
   "name": "document-extraction-engine",
-  "version": "0.1.1",
-  "description": "Enterprise document extraction — async Document Analysis MCP (SSE) with a raw-bytes upload hook, a Haiku extraction subagent, and the document-extraction skill",
+  "version": "0.2.0",
+  "description": "Enterprise document extraction — bundled HTTP client for the Document Analysis engine, a Haiku extraction subagent, and the document-extraction skill",
   "author": {
     "name": "Victor Ortega",
     "email": "victor.ortega@eplusadvisors.com"
