@@ -84,6 +84,14 @@ loaded from this plugin, or `mcp__document-analysis__<tool>` from a
 desktop/managed connection. The skill and the hook matcher
 (`^mcp__.*__analyze_document$`) tolerate both.
 
+This is also why the `doc-extractor` agent **deliberately omits**
+`tools` frontmatter and inherits everything: an allowlist would have to
+name both MCP variants exactly, and a mismatch silently blinds the
+agent depending on delivery. Inheriting trades minimal-privilege (a
+Haiku agent holding Write/Edit it never uses) for guaranteed access to
+the MCP tools plus Bash for poll sleeps. If the fleet ever standardizes
+on one delivery path, tighten it then.
+
 ## Versioning
 
 Explicit semver in `plugin.json` — bump `version` whenever a change

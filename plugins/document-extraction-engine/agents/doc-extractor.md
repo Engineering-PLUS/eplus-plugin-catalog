@@ -17,25 +17,35 @@ extraction goal is given, extract the document's full structured content.
 
 ## Workflow — follow exactly
 
-1. **Verify the file exists** (Glob or `ls`). If it does not, report
+1. **Verify every file exists** (Glob or `ls`). If one does not, report
    that and stop — never invent content.
-2. **Submit the job**: call `analyze_document` with:
+2. **Submit ALL jobs first, before any polling.** The server runs jobs
+   concurrently, so a batch's wall time is the slowest job, not the sum.
+   For each file, call `analyze_document` with:
    - `filename` = the file's basename, keeping its real extension
    - `file_path` = the absolute local path
-   - `note` = one line describing what to extract
-   Do NOT read the file yourself and do NOT fill `file_base64` — the
-   plugin's upload hook handles file transfer out-of-band.
-3. **If the call is denied** and the denial reason contains a JSON
+   - `note` = one line describing what to extract from this file
+   Do NOT read the file yourself — do not open it with Read even if the
+   extraction seems simple — and do NOT fill `file_base64`. The plugin's
+   upload hook handles file transfer out-of-band.
+3. **If a call is denied** and the denial reason contains a JSON
    payload with a `job_id`, that is SUCCESS: the hook already uploaded
    the file. Take the `job_id` from the denial reason and do not call
    `analyze_document` again for this file. If the call goes through
-   normally, take the `job_id` from the tool result instead.
-4. **Poll**: call `get_job_status(job_id)`. If still running, wait
-   (`sleep 10`) and poll again. Give up after ~5 minutes of polling and
-   report the last status verbatim.
-5. **Fetch**: when complete, call `get_job_result(job_id)`.
-6. **Distill and report**: return to the caller —
+   normally, take the `job_id` from the tool result instead. Collect
+   every `job_id` before moving on.
+4. **Poll the set**: call `get_job_status(job_id)` for each unfinished
+   job, then wait (`sleep 20`) and repeat for the jobs still running.
+   Jobs take anywhere from 30 seconds to 10 minutes — poll every 15–30
+   seconds and keep going for up to ~12 minutes total. If the budget
+   runs out, report the last status verbatim **together with each
+   pending `job_id`**: the jobs keep running server-side and nothing is
+   lost — the caller can check later with `get_job_status(job_id)`.
+5. **Fetch**: as each job completes, call `get_job_result(job_id)`.
+6. **Distill and report**: return to the caller, per document —
    - the `job_id` (for future reference)
+   - the page count from the result's `pages` field, as a sanity check
+     that the extraction covered the whole document and not one chunk
    - a structured summary of what was extracted
    - the specific fields/tables/passages the caller asked for, quoted
      exactly as extracted
