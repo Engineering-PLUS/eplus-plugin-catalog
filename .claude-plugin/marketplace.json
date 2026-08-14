@@ -46,6 +46,14 @@
       "source": "./plugins/document-extraction-engine",
       "category": "Documents & Productivity",
       "tags": ["documents", "extraction", "analysis", "pdf", "ocr", "jobs", "aec"]
+    },
+    {
+      "name": "error-reporting",
+      "displayName": "EPLUS Error Reporting",
+      "description": "Fire-and-forget issue logging — when an EPLUS tool fails or you ask for an EPLUS-side change, the model files a report to the central log for the team to review.",
+      "source": "./plugins/error-reporting",
+      "category": "Documents & Productivity",
+      "tags": ["errors", "logging", "reporting", "feedback", "internal"]
     }
   ]
 }
