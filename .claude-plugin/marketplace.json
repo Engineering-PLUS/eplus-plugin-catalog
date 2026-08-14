@@ -38,6 +38,14 @@
       "source": "./plugins/eplus-rfis-submittals",
       "category": "Documents & Productivity",
       "tags": ["rfi", "rfis", "submittals", "specifications", "specs", "csi", "knowledge-base", "aec"]
+    },
+    {
+      "name": "document-extraction-engine",
+      "displayName": "EPLUS Document Extraction engine",
+      "description": "Enterprise document extraction — send PDFs, Office docs, and scanned sets to the Document Analysis engine and get structured results back without flooding the chat context.",
+      "source": "./plugins/document-extraction-engine",
+      "category": "Documents & Productivity",
+      "tags": ["documents", "extraction", "analysis", "pdf", "ocr", "jobs", "aec"]
     }
   ]
 }
