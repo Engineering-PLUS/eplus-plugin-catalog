@@ -130,6 +130,32 @@ def extract_page_images(page, out_dir: Path, min_dim=200):
 - `Photos` — the site photos (trap 3) and/or the drawing clip (traps 1-2)
 - Footer: `Prepared by <author>`, page number, `Created with PlanGrid`
 
+## The per-item annotated sheet clip (Task Report PDF only)
+
+Distinct from — and fiddlier than — the three photo traps above. The clip
+showing a drawing with the item's pin stamp exists **only in the PlanGrid
+Task Report PDF export**. `sheet_packets/*.pdf` from an API pull contains the
+raw drawings with **no pin stamps**; do not look there.
+
+Three traps, all field-hit:
+
+1. **Skip the Table of Contents.** The first ~3 pages repeat every item
+   heading with dot leaders and page numbers, so a naive text search for an
+   item's `#N` heading matches the ToC entry before the real block.
+2. **The reported image bbox is bigger than what is visible.** A clip path in
+   the content stream is not exposed through `get_image_info`, so cropping to
+   the reported bounds captures far too much. Anchor the crop off the
+   position of the "Sheet" text label instead — an empirically tuned offset,
+   not a derivable one.
+3. **Clips overflow to the next page.** When an item's block sits near the
+   bottom of a page its clip is pushed onto the following page with no
+   repeated heading. Detect it (no image near the expected crop region) and
+   fall back to taking the image off the next page.
+
+Also note: photos exported through the **API** carry EXIF orientation, so
+trap 3 above applies to them too — `ImageOps.exif_transpose()` before any
+resize, not just for images pulled out of PDFs.
+
 ## Caveats
 
 - Filter images under ~200 px on either side: repeated logos and icons.

@@ -89,8 +89,12 @@ trades, run separate queries rather than dropping the filter.
    everything into the query string — the filters are exact, the text
    search is fuzzy.
 2. **Query.** Keep queries intent-rich but let filters do the narrowing.
-   If a filtered query returns nothing, widen one filter at a time (drop
-   `status` first, then `sheet_ref`) and say what you widened.
+   **When a filtered query returns nothing, drop `trade` FIRST.** Field-tested
+   2026-08-17: `trade: "Telecom"` with the text "conduit missing bushings
+   connector" returned zero results, while the identical query with no trade
+   filter returned good hits. The free-text search does the real work; `trade`
+   narrows too aggressively on specific phrasing. After `trade`, widen
+   `status`, then `sheet_ref`. Say what you widened.
 3. **Ground every claim in returned items.** Never answer a "what do we
    usually find" question from general construction knowledge — the value
    here is that it reflects what EPLUS engineers actually wrote up. Cite

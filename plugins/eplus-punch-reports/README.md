@@ -32,11 +32,18 @@ Both are read-only — this plugin cannot modify the punch database.
   project codes, statuses, sheet references), so queries hit real values.
   Also covers building a per-trade punch-walk checklist from what EPLUS has
   actually written up, rather than from generic construction knowledge.
+- **`punch-report-generation`** — **produces** a new report from raw field
+  material: photos, walk notes, a PlanGrid pull. Assumes the input is messy
+  (no room data, untagged notes, misfire pins, unreadable photos) because it
+  always is, and surfaces what it cannot determine instead of inventing it.
+  Bundles `scripts/consolidate.py` and carries the hard-won rendering
+  defaults — one item per page with dynamic photo-grid sizing, EXIF rotation,
+  thumbnail downscaling, and the DXA-vs-pixel trap.
 - **`plangrid-extraction`** — how PlanGrid PDFs store their data, for when
-  someone drops a raw punch report into the chat. Covers the three traps:
-  the full drawing is embedded behind a clipped view, markup lives only in
-  vector annotations, and photos are stored camera-native with the rotation
-  applied at display time.
+  someone drops a raw punch report into the chat. Covers the three photo
+  traps (full drawing behind a clipped view, markup only in vector
+  annotations, camera-native rotation) plus extracting the per-item
+  annotated sheet clip from a Task Report PDF.
 
 ## Typical asks
 

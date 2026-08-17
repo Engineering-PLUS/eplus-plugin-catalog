@@ -42,7 +42,7 @@
     {
       "name": "eplus-punch-reports",
       "displayName": "EPLUS Punch Reports",
-      "description": "Search four years of EPLUS punch walks — find recurring deficiencies by trade, project, or drawing sheet, pull the field photos, and export filtered punch lists.",
+      "description": "Draft punch reports from field photos and notes, and search four years of EPLUS punch walks for precedent, recurring deficiencies, and the evidence photos behind them.",
       "source": "./plugins/eplus-punch-reports",
       "category": "Documents & Productivity",
       "tags": ["punch", "punchlist", "field", "site-inspection", "deficiencies", "qaqc", "commissioning", "photos", "aec"]
