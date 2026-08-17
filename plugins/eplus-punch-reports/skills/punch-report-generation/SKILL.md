@@ -115,31 +115,60 @@ unchecked.
 ### Step 5 — Sheet clips (optional but expected in a finished report)
 
 Per-item annotated clips — the drawing with the pin stamp — come only from the
-**PlanGrid Task Report PDF**. Three traps, all of which cost real time:
+**PlanGrid Task Report PDF**. Use the bundled script:
 
-1. **The first ~3 pages are a Table of Contents** repeating every item heading
-   with dot leaders and page numbers. A naive text search for `#N` matches the
-   ToC entry first. Skip those pages explicitly.
-2. **The reported image bbox is larger than the visible region.** There is a
-   clip path in the content stream that `get_image_info` does not expose, so
-   crop by anchoring off the "Sheet" text label's position instead of the
-   image's own bounds.
-3. **An item near a page bottom pushes its clip to the next page**, with no
-   repeated heading. Detect (no image near the expected crop region) and fall
-   back to taking the image off the following page.
+```bash
+pip install pymupdf
+python scripts/extract_sheet_clips.py "<Task Report>.pdf" clips/ --items-from items.json
+```
+
+It handles the three traps that make this fiddly, all of them already solved —
+do not reimplement:
+
+1. **Table of Contents.** The first pages repeat every item heading with dot
+   leaders and page numbers, so a naive search for `#N` matches the ToC entry.
+   The script detects where content starts rather than hardcoding a page.
+2. **The reported image bbox is larger than the visible region** — a clip path
+   in the content stream is not exposed via `get_image_info`. The crop is
+   anchored off the "Sheet" label's position with a tuned offset.
+3. **Overflow.** An item near a page bottom pushes its clip to the next page
+   with no repeated heading; detected and handled by falling back to the
+   following page.
+
+Verified end to end on the NVA06B Task Report: **52/52 clips**, one via the
+overflow fallback. It reports which items used the fallback and which are
+missing — check that output rather than assuming.
 
 ### Step 6 — Render the document
 
-Use the `docx` skill for mechanics and `eplus-branding-default-fonts` for
-styling. Non-negotiable defaults, all learned the hard way:
+**Use the bundled generator — it already implements everything below.**
+
+```bash
+npm install docx          # ^9.7.1
+node scripts/gen_report.js <buildDir> [out.docx]
+OMIT_NUMBERS=1,2 node scripts/gen_report.js <buildDir>   # drop confirmed misfires
+```
+
+`buildDir` must contain `master_report_items.json` (one record per item with
+description, location, sheet fields, `photo_paths`, `origin`, `confidence`,
+and optional `reviewer_flag` / `precedent_note` / `cross_ref`), plus
+`thumb_dims.json`, `sheet_clip_dims_jpg.json`, `assets/logos/`, and the
+thumbnail and clip images. It writes to a new filename rather than
+overwriting.
+
+Read the `docx` skill for mechanics and `eplus-branding-default-fonts` for
+styling if you need to modify it. The defaults it encodes, all learned the
+hard way — **do not re-derive these**:
 
 **One item per page.** Not cosmetic — a walk-down report is read a page at a
-time. Force a page break before each item heading and mark table rows
-`cantSplit`. To make a 1-photo item and a 21-photo item both look intentional,
-size the photo grid *dynamically*: estimate the item's text height (heading +
-meta table + description + flags, via a chars-per-line model for Arial at the
-usable page width), then choose a column count (3 up to 8) and thumbnail size
-that fits the photos in the remaining vertical space.
+time. Page break before each item heading, table rows marked `cantSplit`. To
+make a 1-photo item and a 21-photo item both look intentional, the photo grid
+is sized *dynamically*: `estimateOverheadDXA()` sums the heading, meta table
+(the taller of the text rows vs. the sheet clip in its `rowSpan` cell),
+description, flags and labels; `layoutForItem()` then walks column counts 3→8
+and picks the first that fits the photos in the remaining vertical space at a
+minimum thumbnail width, falling back to 8 columns compressed if nothing fits.
+1- and 2-photo items get fixed larger sizes so they do not balloon.
 
 **Rotate photos before embedding.** PIL does **not** apply EXIF orientation on
 save. Call `ImageOps.exif_transpose()` before resizing or every portrait photo
