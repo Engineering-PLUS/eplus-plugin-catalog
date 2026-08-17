@@ -40,6 +40,14 @@
       "tags": ["rfi", "rfis", "submittals", "specifications", "specs", "csi", "knowledge-base", "aec"]
     },
     {
+      "name": "eplus-punch-reports",
+      "displayName": "EPLUS Punch Reports",
+      "description": "Search four years of EPLUS punch walks — find recurring deficiencies by trade, project, or drawing sheet, pull the field photos, and export filtered punch lists.",
+      "source": "./plugins/eplus-punch-reports",
+      "category": "Documents & Productivity",
+      "tags": ["punch", "punchlist", "field", "site-inspection", "deficiencies", "qaqc", "commissioning", "photos", "aec"]
+    },
+    {
       "name": "document-extraction-engine",
       "displayName": "EPLUS Document Extraction engine",
       "description": "Enterprise document extraction — send PDFs, Office docs, and scanned sets to the Document Analysis engine and get structured results back without flooding the chat context.",

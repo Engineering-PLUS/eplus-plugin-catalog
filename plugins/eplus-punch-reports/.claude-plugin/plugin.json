@@ -1,0 +1,10 @@
+{
+  "name": "eplus-punch-reports",
+  "version": "0.1.0",
+  "description": "Search four years of EPLUS punch walks — find recurring deficiencies by trade, project, or drawing sheet, pull the field photos, and export filtered punch lists.",
+  "keywords": ["mcp", "graph-rag", "hermes", "punch", "field"],
+  "author": {
+    "name": "Victor Ortega",
+    "email": "victor.ortega@eplusadvisors.com"
+  }
+}
