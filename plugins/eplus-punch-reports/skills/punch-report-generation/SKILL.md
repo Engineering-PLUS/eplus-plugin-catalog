@@ -196,6 +196,47 @@ inline bolded label inside body text. Body text stays Blue/Dark Grey.
 refuse in-place overwrite ("Operation not permitted"), and some libraries
 unlink-then-write internally. Version-stamp output directories.
 
+### Step 6b — The report must stay editable by a human
+
+A rendered .docx is a compiled artifact. Without care, the only thing that can
+revise it is another model run — which is a trap, because reports get edited
+by whoever is holding them at 5pm. Two escape hatches exist and both must keep
+working:
+
+**Small edits: directly in Word.** Item headings use **Word's own numbering**,
+not text like `Item #7`. Delete an item and the rest renumber themselves;
+paste one in and it takes the right number. Do not "fix" this by writing the
+number into the heading text.
+
+The PlanGrid ID is deliberately **not** in the heading — it is a `PlanGrid ref`
+row in each item's meta table. The printed item number is presentational and
+will change; the PlanGrid ref is the permanent link back to the source and is
+**never renumbered**. Anyone reconciling the report against PlanGrid uses that
+row.
+
+Because every item occupies exactly one page and is self-contained, inserting
+an item by hand is copy a page, paste, edit.
+
+**Bulk edits: the review spreadsheet.** For rewording, dropping, reordering, or
+adding several items, do not hand-edit the docx:
+
+```bash
+python scripts/review_sheet.py export <build_dir> -o Report-Review.xlsx
+#   ... reviewer edits the yellow columns in Excel ...
+python scripts/review_sheet.py import <build_dir> Report-Review.xlsx
+node scripts/gen_report.js <build_dir>
+```
+
+One row per item. Yellow cells are editable, grey are generated. `Include?`
+= `N` drops an item; `Order` (spaced by 10) reorders; adding a row with no
+PlanGrid ref inserts a new item. Import only reads the reviewer-owned columns,
+so photo paths and sheet clips cannot be corrupted by editing the sheet, and it
+writes a timestamped `.bak.json` before touching anything.
+
+Verified round-trip on the 52-item NVA06B set: dropped an item, reworded one,
+moved the last item to the front, and inserted a new one — all applied, with
+every generated field on the surviving items intact.
+
 ### Step 7 — Deliver the draft plus the issues list
 
 The issues list is a first-class deliverable, not an appendix. Include:
@@ -222,6 +263,16 @@ particular report:
   evidence a shot was missed and are worth seeing.
 - **Suspected misfire pins are surfaced as questions**, never deleted and never
   force-described.
+
+## Known gap
+
+`master_report_items.json` — the file the generator renders from — has no
+builder script yet. It is currently assembled ad hoc from `items.json`, the
+drafted descriptions, precedent notes, thumbnails and sheet clips. Its
+`sheetClipPath` field in particular is injected at render time rather than
+being present in the file. If you assemble one cleanly this run, promote that
+step into `scripts/` — it is the last piece of the pipeline still living in
+scratch.
 
 ## What good looks like
 

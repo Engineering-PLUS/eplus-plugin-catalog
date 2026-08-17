@@ -78,13 +78,16 @@ function estimateOverheadDXA(item) {
   let h = 0;
   h += 360; // "Item #N" heading line
 
-  // Meta table height = max(the 4 text rows, the sheet-clip image), since the clip sits in a
+  // Meta table height = max(the text rows, the sheet-clip image), since the clip sits in a
   // rowSpan cell alongside them rather than adding its own separate block.
+  // KEEP THIS LIST IN SYNC WITH metaTable()'s rowsData -- if they diverge the
+  // page-fit estimate is wrong and items silently spill onto a second page.
   const rowsData = [
     item.location || 'Not specified in source data — see sheet reference and photos',
     `${item.sheet_name || '—'}${item.sheet_description ? ' (' + item.sheet_description + ')' : ''}`,
     (item.status || 'open').toUpperCase(),
     item.confidence,
+    `#${item.number}`,   // PlanGrid ref row
   ];
   const textRowsHeight = rowsData.reduce((sum, v) => sum + estimateTextHeightDXA(String(v), 19, META_VALUE_W) + 100, 0);
   const clipH = clipHeightForItem(item) + 120;
@@ -218,6 +221,10 @@ function metaTable(item) {
     ['Drawing Sheet', `${item.sheet_name || '—'}${item.sheet_description ? ' (' + item.sheet_description + ')' : ''}`],
     ['Status', (item.status || 'open').toUpperCase()],
     ['Confidence / Source', item.confidence],
+    // Fixed identifier back to PlanGrid. The heading number above is a Word
+    // auto-number that changes when items are added or removed; THIS does not.
+    // Never renumber it -- it is how a finding is reconciled with PlanGrid.
+    ['PlanGrid ref', `#${item.number}`],
   ];
 
   // Sheet-clip cell: the PlanGrid drawing snip (sheet + red pin stamp) for this item,
@@ -275,13 +282,17 @@ function metaTable(item) {
 function itemSection(item) {
   const layout = layoutForItem(item);
   const children = [];
+  // The visible number comes from WORD'S numbering, not baked-in text, so
+  // deleting or inserting an item in Word renumbers the rest automatically.
+  // The PlanGrid ID is deliberately NOT in the heading -- it is a row in the
+  // meta table below, so traceability survives any renumber or reorder.
   children.push(new Paragraph({
     heading: HeadingLevel.HEADING_2,
+    numbering: { reference: 'item-numbering', level: 0 },
     pageBreakBefore: true,
     keepNext: true,
     spacing: { before: 0, after: 90 },
     children: [
-      run(`Item #${item.number}`, { bold: true, size: 26, color: BLUE }),
       run(
         item.origin === 'jim_described' ? '' : '  [Draft — see confidence/reviewer note]',
         { italics: true, size: 18, color: item.origin === 'undeterminable' ? ALERT_RED : BLUE }
@@ -508,6 +519,25 @@ const doc = new Document({
     default: {
       document: { run: { font: FONT, color: DARKGREY, size: 21 } },
     },
+  },
+  // Item headings use WORD'S OWN numbering, not baked-in text, so that
+  // deleting or inserting an item in Word renumbers the rest automatically.
+  // The PlanGrid ID never changes and lives in the meta table instead --
+  // never renumber that, it is the link back to PlanGrid.
+  numbering: {
+    config: [{
+      reference: 'item-numbering',
+      levels: [{
+        level: 0,
+        format: 'decimal',
+        text: 'Item %1',
+        alignment: AlignmentType.LEFT,
+        style: {
+          run: { bold: true, size: 26, color: BLUE, font: FONT },
+          paragraph: { indent: { left: 0, hanging: 0 } },
+        },
+      }],
+    }],
   },
   sections: [
     {
