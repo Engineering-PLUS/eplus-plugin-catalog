@@ -9,10 +9,10 @@
     {
       "name": "eplus-office-skills",
       "displayName": "EPLUS Office document skills",
-      "description": "Anthropic's official docx, pdf, pptx, and xlsx skills plus the EPLUS branding (default fonts) skill, an interactive PDF viewer/annotator, and a workflow-packager skill that turns document-heavy conversations into reusable skills — required install for the Chat/Cowork fleet",
+      "description": "Anthropic's official docx, pdf, pptx, and xlsx skills plus the EPLUS branding (default fonts) skill and a workflow-packager skill that turns document-heavy conversations into reusable skills — required install for the Chat/Cowork fleet",
       "source": "./plugins/eplus-office-skills",
       "category": "Documents & Productivity",
-      "tags": ["word", "excel", "powerpoint", "pdf", "docx", "xlsx", "pptx", "documents", "branding", "markup", "signature", "office"]
+      "tags": ["word", "excel", "powerpoint", "pdf", "docx", "xlsx", "pptx", "documents", "branding", "office"]
     },
     {
       "name": "eplus-rfis-submittals",
