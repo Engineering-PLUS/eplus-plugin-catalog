@@ -14,7 +14,6 @@ config declares, so this plugin closes that gap.
 | `pdf`  | Create, merge, split, fill forms, encrypt/decrypt PDFs |
 | `pptx` | Create/edit PowerPoint decks and templates |
 | `xlsx` | Create/edit spreadsheets (.xlsx, .xlsm, .csv, .tsv), formulas, cleaning |
-| `view-pdf` | Interactive PDF viewer — open, collaboratively annotate, fill forms, and place signatures with live visual feedback, via a local MCP server |
 | `eplus-branding-default-fonts` | EPLUS brand guidelines (colors, logos, typography) using portable system fonts — for deliverables that must survive PDF round-trips and cross-app editing |
 | `workflow-packager` | Detects document-heavy conversations and, after completing the task, offers to package the prompt and reference documents into a reusable personal skill |
 
@@ -23,9 +22,13 @@ including their `LICENSE.txt` and bundled scripts. Do not hand-edit the
 vendored content — re-vendor from upstream instead (see below).
 `eplus-branding-default-fonts` is EPLUS-authored (brand summary, logo
 assets, and the Brand Guidelines PDF live inside the skill folder) and is
-maintained here directly. `view-pdf` is also EPLUS-authored and requires
-the local MCP server described in [CONNECTORS.md](CONNECTORS.md).
-`workflow-packager` is also EPLUS-authored and has no server dependency.
+maintained here directly. `workflow-packager` is also EPLUS-authored and
+has no server dependency. Nothing in this plugin needs a server or a
+local process: all PDF work — creation, merging, splitting, form fill,
+annotation via markup — goes through the vendored Anthropic `pdf` skill.
+(An earlier version bundled a `view-pdf` skill backed by a local stdio
+MCP viewer; it was removed because local processes cannot run in the
+Cowork VM.)
 
 **Not included:** `file-reading` and `pdf-reading` (the upload-routing and
 PDF-extraction strategy skills seen in consumer Chat) are internal
@@ -66,8 +69,7 @@ release PR, or trigger manually via "Update" on the marketplace.
 Verify by asking Claude to create a small .docx or .xlsx — the matching
 skill should fire on its own. For branding, ask Claude to "style this
 deck with EPLUS branding" — `eplus-branding-default-fonts` should load.
-For the viewer, ask Claude to "open this PDF" — `view-pdf` should load
-and launch the local MCP server (requires Node.js >= 18; see
-[CONNECTORS.md](CONNECTORS.md)). For the packager, attach 3+ office
-files with a structured prompt and confirm the workflow-packaging offer
-appears after the task is delivered.
+For PDF work, ask Claude to fill a form or merge two PDFs — the `pdf`
+skill should fire. For the packager, attach 3+ office files with a
+structured prompt and confirm the workflow-packaging offer appears
+after the task is delivered.

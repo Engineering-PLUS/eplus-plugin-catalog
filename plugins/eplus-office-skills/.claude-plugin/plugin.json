@@ -1,8 +1,8 @@
 {
   "name": "eplus-office-skills",
-  "version": "0.4.0",
-  "description": "Anthropic's official document skills (docx, pdf, pptx, xlsx) plus the EPLUS branding (default fonts) skill, an interactive PDF viewer/annotator, and the workflow-packager skill, bundled for the EPLUS Chat/Cowork fleet",
-  "keywords": ["mcp", "annotate", "sign", "brand-guidelines", "eplus", "viewer", "workflow-packager", "skill-authoring"],
+  "version": "0.5.0",
+  "description": "Anthropic's official document skills (docx, pdf, pptx, xlsx) plus the EPLUS branding (default fonts) skill and the workflow-packager skill, bundled for the EPLUS Chat/Cowork fleet",
+  "keywords": ["brand-guidelines", "eplus", "workflow-packager", "skill-authoring"],
   "author": {
     "name": "Victor Ortega",
     "email": "victor.ortega@eplusadvisors.com"
