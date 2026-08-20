@@ -1,6 +1,6 @@
 {
   "name": "eplus-rfis-submittals",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Draft spec-backed RFI responses and log approved ones to the EPLUS knowledge base — nothing is saved without your sign-off.",
   "keywords": ["mcp", "graph-rag", "hermes"],
   "author": {
