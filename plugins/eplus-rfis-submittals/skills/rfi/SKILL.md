@@ -107,6 +107,13 @@ keyword angles** (synonyms, the counterpart trade's vocabulary, the
 governing standard's terms — e.g. `ductbank` vs `duct bank` vs
 `underground pathways`), rather than lengthening one query.
 
+**At most 2–3 queries per batch — review the results before querying
+again.** Each report can run thousands of tokens and stays in the
+conversation for every subsequent turn, so a broad exploratory batch
+burns the daily token budget even when each response is fine on its
+own. Read what came back, keep only the angle that's working, and let
+that decide whether another query is needed at all.
+
 **"No relevant content found in retrieved documents." is a keyword
 miss, not an outage.** The database reached real documents but none
 matched the topic. Retry 1–2 times with different keyword angles
