@@ -37,14 +37,28 @@ with native file access to 82,000+ pages of extracted AEC technical
 documents — Core & Shell specs, TFO documentation, product submittals,
 historical RFIs, and TIA/NEC codebooks — indexed via Graphify
 (Graph-RAG). It can traverse graph dependencies across specs, drawings,
-and building codes. Give it clear, intent-rich queries; it does the
-retrieval and returns a synthesized context report.
+and building codes.
+
+**The graph matcher is LITERAL — it matches query words against node
+labels, with no semantic understanding.** Query quality lives or dies
+on keyword choice: topic nouns that would appear in document titles
+and spec language. Intent phrasing ("spec requirements", "prior RFI
+precedent", "clarification on"), project names, and CSI numbers in the
+query text seed the search on the wrong nodes and poison retrieval.
 
 ## Available tools
 
 - `query_hermes_rfi(query, project_id="default", csi_section=None)` —
   dispatches a search query to the Hermes Graph-RAG engine and returns a
   synthesized context report. Read-only; call freely.
+  - `query`: **topic keywords only** — equipment, materials, systems,
+    and the technical subject (e.g. `"telecom ductbank fiber routing
+    separation outside plant"`). Never put project names, CSI/section
+    numbers, or meta-words like "spec requirements" / "RFI precedent"
+    in it.
+  - `project_id`: the project name goes HERE (e.g. `"STACK_NVA05D"`,
+    `"Miner_-_Building_A"`) — it biases which documents are read.
+  - `csi_section`: the CSI section goes HERE (e.g. `"27 05 26"`).
 - `commit_approved_rfi(rfi_id, markdown_content, metadata, project_id="default")` —
   writes a human-approved final RFI response to the VM database and
   triggers an incremental background update to the knowledge graph.
@@ -73,14 +87,31 @@ before querying.
 **Do NOT answer the RFI from general pre-training memory.** All
 substantive technical claims must be grounded in Hermes-returned context.
 
-Construct a detailed, domain-specific query capturing the intent of the
-RFI — include the equipment/materials, the spec context, and what kind of
-authority is needed (spec clause, code section, prior RFI precedent).
+Build the query as **4–10 topic keywords**, not a sentence. Pick the
+nouns a spec writer or submittal title would use: equipment, materials,
+systems, standards bodies, and the technical subject. Pass project and
+CSI section through their own parameters — never inside the query text.
+
+- Good: `query="IDF rack dedicated circuit UPS receptacle power",
+  project_id="STACK_NVA06A", csi_section="26 05 00"`
+- Bad: `query="NVA06 spec requirements and prior RFI precedent for
+  UPS-backed circuits (CSI 26 05 00)"` — the project name, CSI number,
+  and intent words match the wrong graph nodes and poison retrieval.
+
 Then execute:
 
 query_hermes_rfi(query=..., project_id=..., csi_section=...)
 
-Run additional refined queries if the first report leaves gaps.
+If the report leaves gaps, run additional queries with **different
+keyword angles** (synonyms, the counterpart trade's vocabulary, the
+governing standard's terms — e.g. `ductbank` vs `duct bank` vs
+`underground pathways`), rather than lengthening one query.
+
+**"No relevant content found in retrieved documents." is a keyword
+miss, not an outage.** The database reached real documents but none
+matched the topic. Retry 1–2 times with different keyword angles
+before treating the lookup as failed; only enter degraded mode if
+retries also come back empty or the tool itself errors.
 
 **Inspect the payload, not the status field.** A stubbed or empty Hermes
 backend still returns `status: "success"` — the scaffold/stub marker is
