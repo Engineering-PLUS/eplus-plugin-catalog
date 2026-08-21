@@ -1,6 +1,6 @@
 {
   "name": "document-extraction-engine",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Enterprise document extraction — bundled HTTP client for the Document Analysis engine, a Haiku extraction subagent, and the document-extraction skill",
   "author": {
     "name": "Victor Ortega",

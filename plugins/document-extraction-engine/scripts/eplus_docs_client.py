@@ -23,12 +23,21 @@ import urllib.request
 
 DOCS_BASE = "http://20.9.42.66:8651"
 REPORT_BASE = "http://20.9.42.66:8652"
-TOKEN = "af19f84270b9b2ff993fa7246c08067d84188ac01ae4fa4134c695ba4aa36de7"
+# Bearer token is read from the environment, never hardcoded, so this script
+# can live in any repo without carrying the shared EPLUS credential. Provide it
+# via EPLUS_API_TOKEN (e.g. a SessionStart hook writing to CLAUDE_ENV_FILE, or
+# the deployment's environment).
+TOKEN = os.environ.get("EPLUS_API_TOKEN", "")
 POLL_S = 20
 
 
 def call(url: str, data: bytes | None = None, headers: dict | None = None,
          method: str = "GET", timeout: int = 310) -> dict:
+    if not TOKEN:
+        return {"status": "error",
+                "message": "EPLUS_API_TOKEN is not set in the environment; the "
+                           "document-extraction client cannot authenticate to "
+                           "the EPLUS VM. Set EPLUS_API_TOKEN and retry."}
     req = urllib.request.Request(
         url, data=data, method=method,
         headers={"Authorization": "Bearer " + TOKEN, **(headers or {})})

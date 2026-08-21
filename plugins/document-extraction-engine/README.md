@@ -57,13 +57,22 @@ agent now holds only what the shell-out workflow needs.
 ## Versioning
 
 Explicit semver in `plugin.json` — bump `version` whenever a change
-should reach installed machines. v0.2.0 is the restructure from
-MCP+hook to the bundled client script.
+should reach installed machines. v0.2.0 was the restructure from
+MCP+hook to the bundled client script; v0.3.0 externalizes the bearer
+token to the environment.
 
-> **Security note:** the bearer token is the shared static credential
-> used by all three EPLUS engines (8650/8651/8652), hardcoded in the
-> client script and sent over plain HTTP. Rotate them together if it
-> leaks, and prefer fronting the VM with HTTPS before wide deployment.
+> **Auth:** the client reads its bearer token from the `EPLUS_API_TOKEN`
+> environment variable — it is **not** hardcoded, so this plugin carries
+> no credential in source and is safe to relocate between repos. Provide
+> `EPLUS_API_TOKEN` at runtime (e.g. a SessionStart hook writing to
+> `CLAUDE_ENV_FILE`, or the deployment environment). Without it the
+> client returns a clear "EPLUS_API_TOKEN is not set" error instead of
+> calling the VM.
+>
+> **Security note:** `EPLUS_API_TOKEN` is the shared static credential
+> used by all three EPLUS engines (8650/8651/8652), sent over plain HTTP.
+> Rotate them together if it leaks, and prefer fronting the VM with HTTPS
+> before wide deployment.
 
 ## Installation
 
