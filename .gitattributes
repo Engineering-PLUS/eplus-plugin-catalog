@@ -1,0 +1,5 @@
+# Shell scripts must stay LF everywhere. Cowork's sandbox runs hook scripts
+# under dash, which aborts on CRLF line endings — with core.autocrlf=true a
+# Windows checkout would otherwise rewrite bundled *.sh to CRLF and break every
+# hook that ships one.
+*.sh text eol=lf

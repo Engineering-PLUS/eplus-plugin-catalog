@@ -1,0 +1,13 @@
+{
+  "description": "Auto-nudges the model to file EPLUS tool failures via this plugin's report_issue tool. One PostToolUseFailure wiring using the polyglot shell-form pattern: report-tool-failure.ps1 runs on Windows hosts (where hooks execute in Cowork Chat), report-tool-failure.sh on POSIX surfaces, each no-ops on the other's platform, trailing `exit 0` valid in every routed shell. Context-only (additionalContext); never blocks a tool call.",
+  "hooks": {
+    "PostToolUseFailure": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/report-tool-failure.ps1\"; sh \"${CLAUDE_PLUGIN_ROOT}/scripts/report-tool-failure.sh\"; exit 0" }
+        ]
+      }
+    ]
+  }
+}
