@@ -15,14 +15,6 @@
       "tags": ["word", "excel", "powerpoint", "pdf", "docx", "xlsx", "pptx", "documents", "branding", "office"]
     },
     {
-      "name": "eplus-rfis-submittals",
-      "displayName": "EPLUS RFI & Submittal engine",
-      "description": "Draft spec-backed RFI responses and log approved ones to the EPLUS knowledge base — nothing is saved without your sign-off.",
-      "source": "./plugins/eplus-rfis-submittals",
-      "category": "Documents & Productivity",
-      "tags": ["rfi", "rfis", "submittals", "specifications", "specs", "csi", "knowledge-base", "aec"]
-    },
-    {
       "name": "error-reporting",
       "displayName": "EPLUS Error Reporting",
       "description": "Fire-and-forget issue logging — when an EPLUS tool fails or you ask for an EPLUS-side change, the model files a report to the central log for the team to review.",
