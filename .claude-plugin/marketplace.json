@@ -7,23 +7,6 @@
   },
   "plugins": [
     {
-      "name": "eplus-simple-plugin",
-      "displayName": "EPLUS simple plugin testing",
-      "description": "Test plugin for Engineering Plus — kept for reference, disabled by default",
-      "source": "./plugins/eplus-simple-plugin",
-      "category": "Drafting & Engineering",
-      "tags": ["test", "example", "internal"],
-      "defaultEnabled": false
-    },
-    {
-      "name": "eplus-autocad",
-      "displayName": "EPLUS AutoCAD toolkit",
-      "description": "AutoCAD MCP server bundled with the EPLUS CAD workflow skill and session guardrail hooks",
-      "source": "./plugins/eplus-autocad",
-      "category": "Drafting & Engineering",
-      "tags": ["autocad", "cad", "civil3d", "map3d", "dwg", "drafting", "drawings", "aec"]
-    },
-    {
       "name": "eplus-office-skills",
       "displayName": "EPLUS Office document skills",
       "description": "Anthropic's official docx, pdf, pptx, and xlsx skills plus the EPLUS branding (default fonts) skill and a workflow-packager skill that turns document-heavy conversations into reusable skills — required install for the Chat/Cowork fleet",
@@ -46,14 +29,6 @@
       "source": "./plugins/eplus-punch-reports",
       "category": "Documents & Productivity",
       "tags": ["punch", "punchlist", "field", "site-inspection", "deficiencies", "qaqc", "commissioning", "photos", "aec"]
-    },
-    {
-      "name": "document-extraction-engine",
-      "displayName": "EPLUS Document Extraction engine",
-      "description": "Enterprise document extraction — send PDFs, Office docs, and scanned sets to the Document Analysis engine and get structured results back without flooding the chat context.",
-      "source": "./plugins/document-extraction-engine",
-      "category": "Documents & Productivity",
-      "tags": ["documents", "extraction", "analysis", "pdf", "ocr", "jobs", "aec"]
     },
     {
       "name": "error-reporting",
