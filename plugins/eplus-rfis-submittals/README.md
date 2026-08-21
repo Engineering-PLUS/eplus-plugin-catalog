@@ -32,6 +32,18 @@ the `npx supergateway` snippet below in `claude_desktop_config.json`.
    — writes back human-approved final RFI responses to the VM database
    and triggers an incremental background update to the knowledge graph.
    Gated behind explicit user approval by the skill.
+3. `list_sources(category=None, project=None, pattern=None, spec_version=None, max_results=100) -> ...`
+   — browses the corpus file listing (categories: codebooks,
+   specifications, rfis_historical, submittals, rfis_approved); returns
+   paths usable with `read_source`.
+4. `read_source(src, offset=0, max_chars=20000) -> ...`
+   — returns the verbatim text of one corpus document, with paging and
+   the file's spec `version`, for pulling exact clauses and verifying
+   excerpts before citing.
+5. `grep_corpus(pattern, category=None, project=None, spec_version=None, max_hits=20) -> ...`
+   — exact keyword/phrase/regex search across the raw corpus with
+   context lines, for locating a part number, spec clause, or RFI
+   number across all projects.
 
 ## Claude Code / Cowork configuration
 

@@ -1,6 +1,6 @@
 ---
 name: rfi
-description: Use this skill whenever a task involves RFIs (Requests for Information), submittals, submittal review, RFI response drafting, spec clause lookups, CSI division/section questions, logging or committing a finalized/issued RFI response to the knowledge base, or the eplus-rfi-engine MCP tools (query_hermes_rfi, commit_approved_rfi). Encodes the EPLUS 4-step RFI workflow — deconstruct the request, query Hermes, draft the response, then gate the knowledge-base write-back behind an explicit AskUserQuestion approval — plus the return path for logging a final RFI that was edited and issued outside the chat. Always load it before calling any eplus-rfi-engine tool.
+description: Use this skill whenever a task involves RFIs (Requests for Information), submittals, submittal review, RFI response drafting, spec clause lookups, CSI division/section questions, logging or committing a finalized/issued RFI response to the knowledge base, or the eplus-rfi-engine MCP tools (query_hermes_rfi, commit_approved_rfi, list_sources, read_source, grep_corpus). Encodes the EPLUS 4-step RFI workflow — deconstruct the request, query Hermes, draft the response, then gate the knowledge-base write-back behind an explicit AskUserQuestion approval — plus the return path for logging a final RFI that was edited and issued outside the chat. Always load it before calling any eplus-rfi-engine tool.
 argument-hint: <RFI text, attached document reference, or instructions — e.g. "review this request and draft a response">
 ---
 
@@ -37,14 +37,64 @@ with native file access to 82,000+ pages of extracted AEC technical
 documents — Core & Shell specs, TFO documentation, product submittals,
 historical RFIs, and TIA/NEC codebooks — indexed via Graphify
 (Graph-RAG). It can traverse graph dependencies across specs, drawings,
-and building codes. Give it clear, intent-rich queries; it does the
-retrieval and returns a synthesized context report.
+and building codes.
+
+**The graph matcher is LITERAL — it matches query words against node
+labels, with no semantic understanding.** Query quality lives or dies
+on keyword choice: topic nouns that would appear in document titles
+and spec language. Intent phrasing ("spec requirements", "prior RFI
+precedent", "clarification on"), project names, and CSI numbers in the
+query text seed the search on the wrong nodes and poison retrieval.
 
 ## Available tools
 
 - `query_hermes_rfi(query, project_id="default", csi_section=None)` —
   dispatches a search query to the Hermes Graph-RAG engine and returns a
   synthesized context report. Read-only; call freely.
+  - `query`: **topic keywords only** — equipment, materials, systems,
+    and the technical subject (e.g. `"telecom ductbank fiber routing
+    separation outside plant"`). Never put project names, CSI/section
+    numbers, or meta-words like "spec requirements" / "RFI precedent"
+    in it.
+  - `project_id`: the project name goes HERE (e.g. `"STACK_NVA05D"`,
+    `"Miner_Building_A"`) — it biases which documents are read. When
+    set, the engine runs a second project-scoped retrieval pass; each
+    entry in the response's `sources` is labeled `"pass": "general"`
+    or `"pass": "project"` so you can see where coverage came from.
+  - `csi_section`: the CSI section goes HERE (e.g. `"27 05 26"`).
+  - The response's `additional_candidates` lists relevant documents
+    that were found but NOT read this time. If the answer looks
+    incomplete, draw the next query's keywords from those titles — or
+    read them directly with `read_source` — instead of guessing.
+
+**Direct corpus tools — no synthesis models involved, instant, zero
+token cost on the backend.** Prefer these over `query_hermes_rfi`
+whenever you already know WHAT document you need; use the graph query
+when you need to DISCOVER what exists on a topic.
+
+- `list_sources(category=None, project=None, pattern=None,
+  spec_version=None, max_results=100)` — browse the corpus file
+  listing. `category`: codebooks | specifications | rfis_historical |
+  submittals | rfis_approved. `pattern`: case-insensitive substring on
+  the path ("270526", "RFI_254", "ductbank"). Returns paths usable
+  with `read_source`.
+- `read_source(src, offset=0, max_chars=20000)` — the exact text of
+  one document, verbatim ground truth. Use it to pull a specific spec
+  part or clause, to page through a long document (`total_chars` in
+  the response tells you when to page), and to VERIFY any excerpt from
+  a query report before citing it in a draft.
+- `grep_corpus(pattern, category=None, project=None, spec_version=None,
+  max_hits=20)` — exact keyword/phrase/regex search across the raw
+  corpus with context lines. The fastest way to find every mention of
+  a part number, spec clause ("27 05 26-2.4"), RFI number, or device
+  model across all projects.
+
+**Spec versions:** specification files exist as the baseline issue and
+an authoritative 2025-08 update. All three direct tools accept
+`spec_version`: `"latest"` (the 2025-08 update where one exists —
+default choice for determinations), `"baseline"` (the current issue),
+`"all"` (both — use when the user asks what changed between versions).
+`read_source` reports the file's `version` so citations can name it.
 - `commit_approved_rfi(rfi_id, markdown_content, metadata, project_id="default")` —
   writes a human-approved final RFI response to the VM database and
   triggers an incremental background update to the knowledge graph.
@@ -73,14 +123,57 @@ before querying.
 **Do NOT answer the RFI from general pre-training memory.** All
 substantive technical claims must be grounded in Hermes-returned context.
 
-Construct a detailed, domain-specific query capturing the intent of the
-RFI — include the equipment/materials, the spec context, and what kind of
-authority is needed (spec clause, code section, prior RFI precedent).
+**Pick the right retrieval path first.** If the RFI already names the
+authority you need — a spec section ("27 05 26 part 2.4"), an RFI
+number, a device/part number — go DIRECT: `grep_corpus` to locate it,
+`read_source` to pull the exact text (`spec_version="latest"` for
+determinations). That's verbatim ground truth at zero backend cost and
+counts fully as grounding. Use `query_hermes_rfi` when you need to
+discover what the corpus holds on a topic: precedent, related
+submittals, cross-project practice.
+
+Build the query as **4–10 topic keywords**, not a sentence. Pick the
+nouns a spec writer or submittal title would use: equipment, materials,
+systems, standards bodies, and the technical subject. Pass project and
+CSI section through their own parameters — never inside the query text.
+
+- Good: `query="IDF rack dedicated circuit UPS receptacle power",
+  project_id="STACK_NVA06A", csi_section="26 05 00"`
+- Bad: `query="NVA06 spec requirements and prior RFI precedent for
+  UPS-backed circuits (CSI 26 05 00)"` — the project name, CSI number,
+  and intent words match the wrong graph nodes and poison retrieval.
+
 Then execute:
 
 query_hermes_rfi(query=..., project_id=..., csi_section=...)
 
-Run additional refined queries if the first report leaves gaps.
+If the report leaves gaps, check its `additional_candidates` first —
+those are documents the engine found but didn't read. Reading the
+promising ones with `read_source` is cheaper and more precise than
+another graph query. Only then run additional queries with **different
+keyword angles** (synonyms, the counterpart trade's vocabulary, the
+governing standard's terms — e.g. `ductbank` vs `duct bank` vs
+`underground pathways`), rather than lengthening one query.
+
+**Verify before you cite.** Before a quoted clause, number, or
+determination goes into the draft, confirm it against the source with
+`read_source` (the report names each excerpt's source path). The
+synthesis stage is instructed to quote verbatim, but the source file is
+the authority — a ten-second read beats a wrong citation in an issued
+RFI.
+
+**At most 2–3 queries per batch — review the results before querying
+again.** Each report can run thousands of tokens and stays in the
+conversation for every subsequent turn, so a broad exploratory batch
+burns the daily token budget even when each response is fine on its
+own. Read what came back, keep only the angle that's working, and let
+that decide whether another query is needed at all.
+
+**"No relevant content found in retrieved documents." is a keyword
+miss, not an outage.** The database reached real documents but none
+matched the topic. Retry 1–2 times with different keyword angles
+before treating the lookup as failed; only enter degraded mode if
+retries also come back empty or the tool itself errors.
 
 **Inspect the payload, not the status field.** A stubbed or empty Hermes
 backend still returns `status: "success"` — the scaffold/stub marker is
@@ -248,8 +341,16 @@ knowledge for a failed Hermes query.
 
 ## Degraded mode (Hermes down, stubbed, or returning empty context)
 
-When Hermes is unavailable or returns no real content, still deliver a
-consistent artifact instead of improvising:
+**Try the direct corpus tools before declaring degraded mode.** The
+synthesis pipeline and the direct tools fail independently: when
+`query_hermes_rfi` errors or returns empty synthesis, `grep_corpus` +
+`read_source` usually still work, and a draft grounded in verbatim
+`read_source` text is a NORMAL response with real citations — not a
+PENDING VERIFICATION shell. Enter degraded mode only when the direct
+tools are also unavailable or the corpus genuinely lacks the material.
+
+When the backend is truly unreachable, still deliver a consistent
+artifact instead of improvising:
 
 1. Tell the user in plain language that the spec database couldn't be
    reached, so citations are pending verification. Put the raw error
