@@ -1,8 +1,18 @@
 {
   "name": "eplus-punch-reports",
-  "version": "0.3.0",
-  "description": "Draft punch reports from field photos and notes, and search four years of EPLUS punch walks for precedent, recurring deficiencies, and the evidence photos behind them.",
-  "keywords": ["mcp", "graph-rag", "hermes", "punch", "field", "reports"],
+  "version": "0.4.0",
+  "description": "Draft punch reports end to end from a PlanGrid pull, and search four years of EPLUS punch walks for precedent, recurring deficiencies, and the evidence photos behind them.",
+  "keywords": [
+    "mcp",
+    "graph-rag",
+    "hermes",
+    "punch",
+    "field",
+    "reports",
+    "plangrid",
+    "docx",
+    "workflow"
+  ],
   "author": {
     "name": "Victor Ortega",
     "email": "victor.ortega@eplusadvisors.com"

@@ -80,6 +80,33 @@ Search + synthesis:
 All six are read-only. There is no write-back path in this plugin; nothing
 a user says can modify the punch database.
 
+## Response sizes, and the two rules that follow from them
+
+Measured live against the corpus. The spread is wide enough to change how you
+route a question:
+
+| Call | Returns | ≈ tokens |
+|---|---|---|
+| `punch_stats`, trade x status | 466 ch | 120 |
+| `grep_punch`, 30 hits | 3.1k ch | 780 |
+| `get_punch_item`, one item | 3.9k ch | 970 |
+| `list_punch`, 50 rows | 13.0k ch | 3,250 |
+| `query_hermes_punch`, limit=10 | 25.5k ch | 6,400 |
+| `query_hermes_punch`, limit=25 | 39.2k ch | 9,800 |
+
+**1. Route to the cheapest tool that answers the question.** A count is
+`punch_stats` at 120 tokens, not a search at 6,400. The routing table under
+"How to answer" is not a style preference.
+
+**2. Cap `limit` at 25 yourself on the search tool.** It is **not** clamped
+server-side, so a limit of 100 returns roughly 150k characters.
+
+**Quote wording only from `get_punch_item`.** Search results today carry full
+item bodies, but that is scheduled to be replaced by short snippets, and a
+quote taken from a truncated description is a misquote of an engineer's own
+defect wording that no reviewer will catch. Search to find candidates, then
+fetch the ones you intend to cite.
+
 ## Filter vocabulary — use these exact values
 
 Guessing filter values returns empty results. These are the only values in
@@ -88,6 +115,13 @@ the corpus:
 **trade** (one per item, rule-derived from the item text and sheet):
 `Telecom` (432 items) · `Security` (263) · `AV` (13) · `General` (11) ·
 `Electrical` (4) · `Mechanical` (1)
+
+**Trade labels are single-valued, and that is the one real footgun here.**
+Each item carries exactly one rule-derived trade, so a cross-trade defect
+gets one label and it may not be the one you would guess: a search for
+"missing conduit bushing" returns hits labelled **both** `Security` and
+`Telecom`, because conduit serving a security device is labelled `Security`.
+See "The trade filter" below before using it on a search.
 
 **project_id**: `NVA02E` (207) · `NVA05A` (159) · `POR03B` (147) ·
 `POR03C` (71) · `CHI01A` (45) · `NVA05D` (42) · `SVY01D` (27) ·
@@ -110,8 +144,35 @@ also works when a project is given.
 Map the user's words onto these before querying: "cameras," "card readers,"
 "badge readers," "door hardware" → `Security`. "Cable tray," "basket tray,"
 "conduit," "IDF," "fiber," "patch panel," "J-hook," "bushings" → `Telecom`.
-"Displays," "speakers," "room schedulers" → `AV`. When a request spans
-trades, run separate queries rather than dropping the filter.
+"Displays," "speakers," "room schedulers" → `AV`.
+
+## The trade filter
+
+Worth stating precisely, because it has been misdiagnosed before as a broken
+filter.
+
+**The filter itself is exact SQL on every tool, search included.** The trade
+condition is ANDed into the same WHERE clause as the FTS match at every
+fallback tier, so a filtered search ranks over the full filtered population
+rather than filtering an already-ranked, already-limited set. It returns rows.
+
+**The failure mode is the labels, not the filter.** Because each item carries
+exactly one rule-derived trade, the items that match your text may all sit
+under a label you did not filter for. Combined with the first tier's strict
+AND-all-tokens matching, adding one more token to a query can leave only
+hits belonging to the other trade — and the trade condition follows the query
+down through all three tiers.
+
+So:
+
+- **On `query_hermes_punch`, an empty filtered result means "the matching
+  items are labelled under another trade," not "no such items exist." Drop
+  the `trade` filter first** and let the free text do the work. Then read the
+  trades that come back — that is often the more useful answer anyway.
+- **On `punch_stats`, `list_punch` and `export_punch_report`, the filter is
+  reliable.** These browse the label space directly with no text intersection
+  to lose, so a per-trade query per trade is the right move when a request
+  spans several.
 
 ## How to answer
 

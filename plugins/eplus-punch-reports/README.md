@@ -1,62 +1,99 @@
 # EPLUS Punch Reports
 
-Search four years of EPLUS punch walks from chat — find recurring
-deficiencies by trade, project, or drawing sheet, pull the field photos that
-show them, and export filtered punch lists to a spreadsheet.
+Two halves of the same job. **Produce** a punch report from a PlanGrid pull, and
+**search** four years of EPLUS punch walks for the precedent that makes its
+wording defensible.
 
-## What it connects to
+## Producing a report
 
-The `eplus-punch-engine` MCP server (SSE, port 8653) on the Hermes VM,
-backed by a corpus of **724 punch items and 41 narrative report bodies**
-extracted from 41 published EPLUS reports (2022–2026) across nine data
-center projects: NVA02E, NVA05A, NVA05D, POR03B, POR03C, CHI01A, SVY01D,
-SVY01E, SVY01F.
+```
+/punch-report [project folder]
+```
+
+Stamps a complete pipeline into the project folder, then walks the run: intake,
+consolidate, draft in field-report voice, check precedent, extract the annotated
+sheet clips, render, verify. Output is a **.docx only** — one page per item, live
+Word table of contents, native EPLUS letterhead.
+
+The reviewer generates the PDF from Word. That is deliberate: Word recalculates
+the TOC page-number fields on open and on export, and LibreOffice does not.
+
+What lands in the project folder:
+
+```
+_pipeline/
+  CLAUDE.md              this project's operating manual, read first
+  scripts/               the nine-script pipeline + smoke test
+  data/                  items.json (facts) + drafted_items.json (judgment)
+  build/                 what the renderer reads, report.config.json, the .docx
+  ISSUES-LIST.md         open questions for the reviewer
+  PROCESS-LOG.md         inputs, decisions, review rounds, verification
+  LESSONS-LEARNED.md     what broke, and what should change in the skill
+  handoff/HANDOFF.md     entry point for the next run
+```
+
+Three deliverables come out, not one: the draft, the issues list, and the
+handoff. The issues list is where the reviewer's attention gets directed.
+
+## Searching the corpus
+
+The `eplus-punch-engine` MCP server (SSE, port 8653) on the Hermes VM, backed by
+**724 punch items and 41 narrative report bodies** from 41 published EPLUS
+reports (2022–2026) across nine data center projects: NVA02E, NVA05A, NVA05D,
+POR03B, POR03C, CHI01A, SVY01D, SVY01E, SVY01F.
 
 Each item carries the field engineer's own description, the live
-open/closed/pending status pulled from PlanGrid, the drawing sheet it was
-pinned to, and site photos with generated captions describing what each one
-shows.
-
-## Tools
-
-Four direct database reads (instant, verbatim, no synthesis model) plus a
-search+synthesis tool and a spreadsheet export:
+open/closed/pending status from PlanGrid, the drawing sheet it was pinned to, and
+site photos with generated captions.
 
 | Tool | Purpose |
 |---|---|
-| `punch_stats` | Aggregate counts grouped by status, trade, project, sheet, or a trade-by-status matrix. The tool for counts, closeout percentages, and "which sheet has the most items." |
-| `list_punch` | Filtered listing (project/trade/status/sheet) of IDs, titles, trades, sheets, statuses, with total-match count. The browse tool. |
-| `get_punch_item` | One item verbatim — full metadata, exact wording, every report occurrence, photo links. For direct ID lookups and verifying wording before quoting. |
-| `grep_punch` | Exact/regex search over titles, sheet refs, descriptions, and photo captions. For device IDs, room numbers, and part numbers that keyword search would tokenize into noise. |
-| `query_hermes_punch` | Stemmed keyword + metadata search with a synthesized summary, plus temporary download links for site photos and marked-up drawing sheets. For descriptive-language and recurring-theme questions. |
+| `punch_stats` | Aggregate counts by status, trade, project, sheet, or a trade-by-status matrix. The tool for counts and closeout percentages. |
+| `list_punch` | Filtered listing of IDs, titles, trades, sheets, statuses. The browse tool. |
+| `get_punch_item` | One item verbatim. **The only tool to quote wording from.** |
+| `grep_punch` | Exact/regex search over titles, sheet refs, descriptions, captions. For device IDs and part numbers. |
+| `query_hermes_punch` | Keyword + metadata search with a synthesized summary, plus temporary photo and sheet links. For descriptive and recurring-theme questions. |
 | `export_punch_report` | Builds a spreadsheet of matching items and returns a download link. |
 
 All six are read-only — this plugin cannot modify the punch database.
 
+Response sizes vary by more than 50x across these tools, so routing matters:
+`punch_stats` answers a count in ~120 tokens where a search costs ~6,400. The
+`punch` skill carries the routing table and the measured figures.
+
 ## Skills
 
-- **`punch`** — the query workflow and the exact filter vocabulary (trades,
-  project codes, statuses, sheet references), so queries hit real values.
-  Also covers building a per-trade punch-walk checklist from what EPLUS has
-  actually written up, rather than from generic construction knowledge.
-- **`punch-report-generation`** — **produces** a new report from raw field
-  material: photos, walk notes, a PlanGrid pull. Assumes the input is messy
-  (no room data, untagged notes, misfire pins, unreadable photos) because it
-  always is, and surfaces what it cannot determine instead of inventing it.
-  Bundles `scripts/consolidate.py` and carries the hard-won rendering
-  defaults — one item per page with dynamic photo-grid sizing, EXIF rotation,
-  thumbnail downscaling, and the DXA-vs-pixel trap.
-- **`plangrid-extraction`** — how PlanGrid PDFs store their data, for when
-  someone drops a raw punch report into the chat. Covers the three photo
-  traps (full drawing behind a clipped view, markup only in vector
-  annotations, camera-native rotation) plus extracting the per-item
-  annotated sheet clip from a Task Report PDF.
+- **`punch`** — the query workflow, the exact filter vocabulary (trades, project
+  codes, statuses, sheet references), response-size budgets, and the real
+  behaviour of the `trade` filter. Load before calling any engine tool.
+- **`punch-report-generation`** — produces a new report from raw field material.
+  Assumes the input is messy because it always is, and surfaces what it cannot
+  determine instead of inventing it. Carries the pipeline, the project template,
+  and the rendering defaults that were learned the hard way.
+- **`plangrid-extraction`** — how PlanGrid PDFs store their data, for when someone
+  drops a raw punch report into the chat.
+
+## Hooks
+
+Four, all with an `EPLUS_NO_*` escape hatch. Three are context-only and can never
+block a tool call:
+
+| Event | What it does |
+|---|---|
+| `SessionStart` | If the folder holds a `_pipeline/`, points at that project's `CLAUDE.md` and restates the standing rules. Silent otherwise. |
+| `PostToolUse` (Write/Edit) | Sweeps `drafted_items.json` for photo-narration voice, third-person self-reference, and em/en dashes — at authoring time rather than at build time. |
+| `PostToolUse` (Bash) | After `gen_report.js`, reminds you to run `verify_report.py` and to sync sources back, not just the .docx. |
+| `PreToolUse` (Bash) | **Denies** converting a punch report to PDF with LibreOffice. Deliberately narrow: it requires both a PDF conversion and a punch report path, so the `docx` skill's own soffice validation is untouched. |
+
+`PostToolUseFailure` is deliberately **not** wired here — the `error-reporting`
+plugin owns that event, and a second wiring produces a duplicate nudge for the
+same failure.
 
 ## Typical asks
 
+- "Draft the punch report from the files in this folder."
 - "What telecom issues keep coming up at NVA05A?"
 - "Show me the open security items on sheet T02-01B with photos."
-- "Build me a punch-walk checklist for the telecom scope."
 - "Export all open POR03C items to a spreadsheet."
 - "What was punch item POR03B-277?"
 
@@ -65,3 +102,6 @@ All six are read-only — this plugin cannot modify the punch database.
 Photo, drawing, and spreadsheet links are temporary (about 7 days) — save
 anything worth keeping. Status values are live from PlanGrid, so an item a
 published PDF shows as open may since have been closed.
+
+Pipeline dependencies: `npm install docx@^9.7.1` and
+`pip install pymupdf openpyxl pillow`. Run `scripts/smoke_test.sh` to check them.

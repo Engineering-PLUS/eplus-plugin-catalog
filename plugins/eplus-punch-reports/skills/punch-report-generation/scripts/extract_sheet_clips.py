@@ -1,164 +1,164 @@
-"""Extract the per-item annotated sheet clip from a PlanGrid Task Report PDF.
+#!/usr/bin/env python3
+"""
+extract_sheet_clips.py, pull the per-item annotated drawing clip (sheet + pin
+stamp) out of a PlanGrid Task Report PDF.
 
-The clip -- a crop of the drawing showing that item's pin stamp -- exists ONLY
-in the Task Report PDF export. An API pull's sheet_packets/*.pdf contains the
-raw drawings with NO pin stamps; do not look for it there.
+This is a rewrite of the NVA06B-era script, which was hardcoded to that job in
+four ways that all broke on Project Miner Building A:
+  - absolute input/output paths baked into the source
+  - the heading string literal '#N Jim2' (this report uses '#N General' and
+    other real titles)
+  - FIRST_CONTENT_PAGE = 3 hardcoded
+  - the clip image size hardcoded to 2100x1500 (this report is 2000x1500) and
+    a set of pixel offsets from the 'Sheet' label tuned to US Letter geometry
+    (this report is A4, so the offsets landed in the wrong place entirely)
 
-Three traps, all of which cost real time the first time round and are handled
-below:
+THE THREE TRAPS, and how this version handles them:
 
- 1. The first pages are a Table of Contents that repeats every item heading
-    with a dot leader and page number, so a naive search for "#N" matches the
-    ToC entry instead of the real block. Content pages are skipped past.
- 2. The image's reported bbox is LARGER than what is actually visible -- a
-    clip path in the content stream is not exposed through get_image_info --
-    so the crop is anchored off the "Sheet" text label instead, with an
-    empirically tuned offset.
- 3. An item whose block runs into the bottom margin has its clip pushed onto
-    the NEXT page with no repeated heading. Detected (no image near the
-    expected crop) and handled by taking the image off the following page.
+1. Table of Contents. The opening pages repeat every item heading with dot
+   leaders and a page number, so a naive search for '#N' matches the ToC entry
+   and every clip resolves to the wrong page. Handled by auto-detecting where
+   the ToC ends (last page carrying dot-leader lines) rather than hardcoding.
 
-Requires: pip install pymupdf
+2. The reported image bbox is LARGER than the visible region. PlanGrid draws
+   the clip through a clip path that pymupdf does not expose via
+   get_image_info(), so the reported bbox overruns the visible box, and on A4
+   it overruns the page edge entirely (x1=658 on a 595pt page). The NVA06B fix
+   was tuned pixel offsets from the 'Sheet' text label, which do not transfer
+   between page sizes. This version instead locates the CLIP BOX BORDER, which
+   PlanGrid draws as a real vector rectangle, and crops to that. No tuning, and
+   it self-corrects across page sizes and layout changes.
+
+3. Overflow. An item near a page bottom pushes its clip to the following page
+   with no repeated heading. Detected and handled by falling back to the next
+   page.
 
 Usage:
-  python extract_sheet_clips.py <task_report.pdf> <out_dir> [--items 3,4,5]
-  python extract_sheet_clips.py report.pdf clips/ --items-from master.json
+    pip install pymupdf
+    python3 extract_sheet_clips.py "<Task Report>.pdf" build/sheet_clips_jpg \
+        --items-from data/items.json --dims-out build/sheet_clip_dims_jpg.json
 """
-
-from __future__ import annotations
-
 import argparse
 import json
+import os
 import re
-from pathlib import Path
+import sys
 
-import pymupdf
+try:
+    import pymupdf
+except ImportError:
+    sys.exit("pymupdf required:  pip install pymupdf")
 
-# The heading marker on each item block. PlanGrid renders "#<number> <title>",
-# where the title is often a per-engineer marker string ("Jim2"). Matching on
-# the number alone plus a word boundary is more portable across projects.
-HEADING_RE = "#{n}"
-
-# Full-page drawing raster embedded per item, in pixels. PlanGrid is
-# consistent here, but tolerate small variation.
-CLIP_W, CLIP_H, CLIP_TOL = 2100, 1500, 5
-
-# Offsets from the "Sheet" label's top-left to the visible clip box, in points.
-LABEL_DX, LABEL_DY, CLIP_BOX_W, CLIP_BOX_H = -12, -6, 199, 200
-
-RENDER_SCALE = 4  # 4x supersample; the clip is small on the page
+LEADER_RE = re.compile(r"\.{6,}\s*\d+")
 
 
-def find_first_content_page(doc) -> int:
-    """Skip the Table of Contents. ToC lines carry dot leaders ('..... 12');
-    the first page without them is where real item blocks start."""
-    for p in range(min(len(doc), 12)):
-        text = doc[p].get_text()
-        if text.count(".....") >= 3:
+def first_content_page(doc):
+    """Last page carrying ToC dot-leader lines, plus one."""
+    last_toc = -1
+    for p in range(min(12, doc.page_count)):
+        if len(LEADER_RE.findall(doc[p].get_text())) >= 3:
+            last_toc = p
+    return last_toc + 1
+
+
+def find_heading(doc, number, start):
+    """Page index and rect of the '#<number>' heading token, skipping the ToC."""
+    token = f"#{number}"
+    for p in range(start, doc.page_count):
+        for w in doc[p].get_text("words"):
+            # words -> (x0, y0, x1, y1, text, block, line, word_no)
+            if w[4] == token:
+                return p, pymupdf.Rect(w[0], w[1], w[2], w[3])
+    return None, None
+
+
+def find_clip_box(page, below_y):
+    """
+    The clip box is a real drawn rectangle. Pick the plausible one lowest on the
+    page but still below the heading. Filtering by aspect and size keeps this
+    from matching table rules or photo frames.
+    """
+    best = None
+    for dr in page.get_drawings():
+        r = dr["rect"]
+        if r.y0 < below_y:
             continue
-        if re.search(r"#\d+", text):
-            return p
-    return min(3, len(doc) - 1)
-
-
-def extract(pdf_path: Path, out_dir: Path, numbers: list[int]) -> dict:
-    doc = pymupdf.open(pdf_path)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    first = find_first_content_page(doc)
-    print(f"content starts on page index {first} (ToC skipped)")
-
-    headings = {}
-    for n in numbers:
-        for p in range(first, len(doc)):
-            hits = doc[p].search_for(HEADING_RE.format(n=n))
-            if hits:
-                headings[n] = (p, hits[0])
-                break
-        else:
-            print(f"  WARNING: heading not found for item #{n}")
-
-    results, fallbacks = {}, []
-    for n in numbers:
-        if n not in headings:
+        if not (90 < r.width < 340 and 55 < r.height < 280):
             continue
-        page_idx, hrect = headings[n]
-        page = doc[page_idx]
-
-        page_images = [
-            i["bbox"] for i in page.get_image_info(xrefs=True)
-            if abs(i["width"] - CLIP_W) < CLIP_TOL and abs(i["height"] - CLIP_H) < CLIP_TOL
-        ]
-
-        crop_rect, crop_page, used_fallback = None, page, False
-        labels = sorted((r for r in page.search_for("Sheet") if r.y0 >= hrect.y0 - 2),
-                        key=lambda r: r.y0)
-        if labels:
-            lab = labels[0]
-            cand = pymupdf.Rect(lab.x0 + LABEL_DX, lab.y0 + LABEL_DY,
-                                lab.x0 + LABEL_DX + CLIP_BOX_W,
-                                lab.y0 + LABEL_DY + CLIP_BOX_H)
-            # Only trust the anchor if a clip image is actually near it --
-            # otherwise this is the overflow case and the box would be blank.
-            near = any(cand.intersects(pymupdf.Rect(*b)) for b in page_images)
-            if cand.y1 <= page.rect.height and near:
-                crop_rect = cand
-
-        if crop_rect is None:
-            used_fallback = True
-            cands = []
-            for pidx in (page_idx, page_idx + 1):
-                if pidx >= len(doc):
-                    continue
-                for i in doc[pidx].get_image_info(xrefs=True):
-                    if (abs(i["width"] - CLIP_W) < CLIP_TOL
-                            and abs(i["height"] - CLIP_H) < CLIP_TOL):
-                        cands.append((pidx, i["bbox"]))
-            if not cands:
-                print(f"  WARNING: no clip image anywhere for item #{n}")
-                continue
-            cands.sort(key=lambda c: (c[0] != page_idx + 1, c[0]))
-            pidx, bbox = cands[0]
-            crop_page = doc[pidx]
-            crop_rect = pymupdf.Rect(bbox[0] - 2, bbox[1] - 2, bbox[2] + 2, bbox[3] + 2)
-
-        pix = crop_page.get_pixmap(clip=crop_rect,
-                                   matrix=pymupdf.Matrix(RENDER_SCALE, RENDER_SCALE))
-        dest = out_dir / f"item_{n}.png"
-        if dest.exists():          # never overwrite in place
-            dest = out_dir / f"item_{n}_r2.png"
-        pix.save(dest)
-        results[n] = {"path": str(dest), "fallback": used_fallback}
-        if used_fallback:
-            fallbacks.append(n)
-
-    (out_dir / "_index.json").write_text(json.dumps(results, indent=1), encoding="utf-8")
-    print(f"extracted {len(results)}/{len(numbers)} clips")
-    if fallbacks:
-        print(f"  used next-page fallback for: {fallbacks}")
-    missing = [n for n in numbers if n not in results]
-    if missing:
-        print(f"  MISSING entirely: {missing}")
-    return results
+        aspect = r.width / r.height if r.height else 0
+        if not (1.1 < aspect < 2.2):
+            continue
+        if best is None or r.y0 < best.y0:
+            best = r
+    return best
 
 
-def main() -> None:
+def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("pdf")
     ap.add_argument("out_dir")
-    ap.add_argument("--items", help="comma-separated item numbers")
-    ap.add_argument("--items-from", help="JSON file: a list of objects with a 'number' key")
+    ap.add_argument("--items-from", default="data/items.json")
+    ap.add_argument("--dims-out", default="build/sheet_clip_dims_jpg.json")
+    # PlanGrid draws the clip box at a fixed 178 x 122 pt regardless of page size
+    # (verified identical on Letter 612x792 and A4 595x842), so the source is small and
+    # the render zoom is what determines print quality. The renderer now shows the clip
+    # at double its previous width, about 3.17in, so 4x would land at roughly 225 dpi.
+    # 6x gives about 337 dpi, which holds up in print. Raise this if the clip column is
+    # ever widened again: display width and zoom have to move together or the clip just
+    # gets bigger and blurrier.
+    ap.add_argument("--zoom", type=float, default=6.0)
+    ap.add_argument("--quality", type=int, default=80)
     args = ap.parse_args()
 
-    if args.items:
-        numbers = [int(x) for x in args.items.split(",") if x.strip()]
-    elif args.items_from:
-        raw = json.loads(Path(args.items_from).read_text(encoding="utf-8"))
-        rows = raw.get("items", raw) if isinstance(raw, dict) else raw
-        numbers = [r["number"] for r in rows]
-    else:
-        raise SystemExit("give --items or --items-from")
+    doc = pymupdf.open(args.pdf)
+    items = json.load(open(args.items_from))
+    targets = [i["number"] for i in items]
 
-    extract(Path(args.pdf), Path(args.out_dir), numbers)
+    start = first_content_page(doc)
+    print(f"pages={doc.page_count}  content starts at page {start + 1} (auto-detected)")
+
+    os.makedirs(args.out_dir, exist_ok=True)
+    dims, fallback, missing = {}, [], []
+
+    for n in targets:
+        pno, hrect = find_heading(doc, n, start)
+        if pno is None:
+            missing.append(n)
+            continue
+
+        page = doc[pno]
+        box = find_clip_box(page, hrect.y1)
+        used_fb = False
+
+        if box is None and pno + 1 < doc.page_count:
+            # overflow: clip pushed to the following page, no repeated heading
+            page = doc[pno + 1]
+            box = find_clip_box(page, 0)
+            used_fb = box is not None
+
+        if box is None:
+            missing.append(n)
+            continue
+
+        # inset by the border stroke so the frame line is not baked into the image
+        clip = pymupdf.Rect(box.x0 + 0.8, box.y0 + 0.8, box.x1 - 0.8, box.y1 - 0.8) & page.rect
+        pix = page.get_pixmap(clip=clip, matrix=pymupdf.Matrix(args.zoom, args.zoom))
+        name = f"item_{n}.jpg"
+        pix.pil_save(os.path.join(args.out_dir, name), format="JPEG",
+                     quality=args.quality, optimize=True)
+        dims[name] = [pix.width, pix.height]
+        if used_fb:
+            fallback.append(n)
+
+    os.makedirs(os.path.dirname(os.path.abspath(args.dims_out)) or ".", exist_ok=True)
+    json.dump(dims, open(args.dims_out, "w"), indent=1)
+
+    print(f"extracted {len(dims)}/{len(targets)} sheet clips -> {args.out_dir}")
+    print(f"  used overflow fallback : {fallback or 'none'}")
+    print(f"  missing                : {missing or 'none'}")
+    print(f"  wrote {args.dims_out}")
+    if missing:
+        print("  CHECK the missing items by hand before rendering.")
 
 
 if __name__ == "__main__":

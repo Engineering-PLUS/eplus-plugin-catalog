@@ -1,142 +1,203 @@
-"""Consolidate a PlanGrid project pull into one per-item record per punch item.
+#!/usr/bin/env python3
+"""
+consolidate.py, generalized PlanGrid pull consolidator.
 
-Input  : a PlanGrid rescue folder (tasks.json, task_details/*.json, sheets.json,
-         photos.json, photos/)
-Output : items.json -- one clean record per live item, plus a triage summary
+Replaces the NVA06B-era script, which hardcoded a single export directory.
+Two things changed in the Miner Building A pull that this handles:
 
-Written to be robust to the data actually arriving messy, because it always
-does: `room` is usually empty, titles are often a meaningless marker string,
-descriptions exist on a minority of pins, and some pins are camera misfires.
-Nothing here guesses -- it labels what is missing so the report step can
-decide what to do about it.
+  1. Delta folders. A pull may contain `delta_<from>_to_<to>/` holding a LATER,
+     SUPERSET tasks.json plus only the NEW photo binaries. The base folder keeps
+     the earlier photos. Neither folder alone is complete: you need the delta's
+     tasks.json and BOTH photo directories.
+  2. Sheet resolution lives in the base. The delta's sheets.json is an empty
+     array, so sheet names must be resolved from the base sheets.json.
 
 Usage:
-  python consolidate.py <rescue_dir> [-o items.json]
+    python3 consolidate.py <project_root> -o data/items.json [--only 11-30]
+
+`--only` accepts ranges and comma lists ("11-30", "2,5,9-12") and scopes the
+output to those PlanGrid issue numbers.
 """
-
-from __future__ import annotations
-
 import argparse
+import glob
 import json
+import os
 import re
+import sys
 from collections import Counter
-from pathlib import Path
-
-# A title that is the same string on every item carries no information (field
-# staff use it as a personal marker, e.g. "Jim2"). Detected, not hardcoded.
-MEANINGLESS_TITLE_RATIO = 0.8
-
-# Sheet number -> what that drawing covers. Populated from sheets.json; this is
-# usually the ONLY structured location signal on the whole pull.
-SHEET_HINT_RE = re.compile(r"(?i)\b(site|first|second|third|ground|roof|level\s*\d+)\b")
 
 
-def load(p: Path):
-    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else []
+def load_json(path, default=None):
+    if not os.path.exists(path):
+        return default
+    with open(path) as fh:
+        return json.load(fh)
 
 
-def live(records):
-    return [r for r in records if not r.get("deleted")]
+def parse_only(spec):
+    if not spec:
+        return None
+    keep = set()
+    for chunk in spec.split(","):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        if "-" in chunk:
+            lo, hi = chunk.split("-", 1)
+            keep.update(range(int(lo), int(hi) + 1))
+        else:
+            keep.add(int(chunk))
+    return keep
 
 
-def build(rescue: Path) -> dict:
-    tasks = live(load(rescue / "tasks.json"))
-    sheets = {s["uid"]: s for s in live(load(rescue / "sheets.json"))}
-    photos = {p["uid"]: p for p in live(load(rescue / "photos.json"))}
-
-    titles = Counter((t.get("title") or "").strip() for t in tasks)
-    junk_title = ""
-    if tasks and titles:
-        top, n = titles.most_common(1)[0]
-        if top and n / len(tasks) >= MEANINGLESS_TITLE_RATIO:
-            junk_title = top
-
-    items = []
-    for t in sorted(tasks, key=lambda x: x.get("number") or 0):
-        detail = {}
-        f = rescue / "task_details" / f"{t['uid']}.json"
-        if f.exists():
-            detail = json.loads(f.read_text(encoding="utf-8"))
-
-        # --- photos, resolved to files on disk with their capture metadata
-        item_photos = []
-        for ph in detail.get("photos") or []:
-            meta = photos.get(ph.get("uid"), ph)
-            title = meta.get("title") or ph.get("uid", "")
-            matches = list((rescue / "photos").glob(f"{ph.get('uid','')}*"))
-            item_photos.append({
-                "uid": ph.get("uid"),
-                "file": matches[0].name if matches else None,
-                "original_name": title,
-                "taken_at": meta.get("created_at"),
-                "by": (meta.get("created_by") or {}).get("email"),
-            })
-        item_photos.sort(key=lambda p: p.get("taken_at") or "")
-
-        ann = t.get("current_annotation") or {}
-        sheet = sheets.get((ann.get("sheet") or {}).get("uid"), {})
-        sheet_name = sheet.get("name") or ""
-        loc_hint = ""
-        m = SHEET_HINT_RE.search(sheet.get("description") or sheet_name)
-        if m:
-            loc_hint = m.group(1)
-
-        desc = (t.get("description") or "").strip()
-        title = (t.get("title") or "").strip()
-        items.append({
-            "number": t.get("number"),
-            "uid": t.get("uid"),
-            "title": "" if title == junk_title else title,
-            "description": desc,
-            "has_description": bool(desc),
-            "status": t.get("status"),
-            "sheet_ref": sheet_name,
-            "sheet_location_hint": loc_hint,
-            "pin_stamp": ann.get("stamp") or "",
-            "room": (t.get("room") or "").strip(),
-            "created_at": t.get("created_at"),
-            "closed_at": t.get("closed_at"),
-            "assignees": [a.get("email") for a in (t.get("assignees") or []) if a.get("email")],
-            "photo_count": len(item_photos),
-            "photos": item_photos,
-            # Triage flags -- consumed by the report step, never guessed past here.
-            "needs_description_from_photos": not desc,
-            "no_photo_evidence": len(item_photos) == 0,
-        })
-
-    summary = {
-        "items": len(items),
-        "with_description": sum(1 for i in items if i["has_description"]),
-        "photo_only": sum(1 for i in items if i["needs_description_from_photos"]),
-        "no_photos": sum(1 for i in items if i["no_photo_evidence"]),
-        "with_room": sum(1 for i in items if i["room"]),
-        "total_photos": sum(i["photo_count"] for i in items),
-        "sheets": sorted({i["sheet_ref"] for i in items if i["sheet_ref"]}),
-        "statuses": dict(Counter(i["status"] for i in items)),
-        "meaningless_title_dropped": junk_title or None,
-    }
-    return {"summary": summary, "items": items}
+def find_delta(root):
+    hits = sorted(glob.glob(os.path.join(root, "delta_*_to_*")))
+    return hits[-1] if hits else None
 
 
-def main() -> None:
+def index_photo_files(dirs):
+    """uid -> absolute path, across every photo directory in the pull."""
+    index = {}
+    for d in dirs:
+        for p in glob.glob(os.path.join(d, "*.jpg")):
+            uid = os.path.basename(p).split("__")[0]
+            index[uid] = p
+    return index
+
+
+def detect_filler_title(tasks):
+    """
+    Field staff reuse a marker string as the title on nearly every pin
+    ("Jim2" on NVA06B, "General" here). It is a personal bookmark, not content.
+    Returns the title to treat as empty, or None.
+    """
+    titles = [(t.get("title") or "").strip() for t in tasks]
+    titles = [t for t in titles if t]
+    if not titles:
+        return None
+    title, count = Counter(titles).most_common(1)[0]
+    return title if count >= max(3, 0.5 * len(titles)) else None
+
+
+def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("rescue_dir")
-    ap.add_argument("-o", "--out", default="items.json")
+    ap.add_argument("project_root")
+    ap.add_argument("-o", "--out", default="data/items.json")
+    ap.add_argument("--only", default=None, help='e.g. "11-30" or "2,5,9-12"')
     args = ap.parse_args()
 
-    data = build(Path(args.rescue_dir))
-    Path(args.out).write_text(json.dumps(data, indent=1, ensure_ascii=False),
-                              encoding="utf-8")
-    s = data["summary"]
-    print(f"items: {s['items']}  ({s['with_description']} authored, "
-          f"{s['photo_only']} photo-only, {s['no_photos']} with NO photo)")
-    print(f"photos: {s['total_photos']}   sheets: {', '.join(s['sheets']) or '(none)'}")
-    print(f"room field populated on: {s['with_room']}/{s['items']}")
-    if s["meaningless_title_dropped"]:
-        print(f"dropped uninformative title on every item: "
-              f"{s['meaningless_title_dropped']!r}")
-    print(f"statuses: {s['statuses']}")
-    print(f"-> {args.out}")
+    root = os.path.abspath(args.project_root)
+    delta = find_delta(root)
+    keep = parse_only(args.only)
+
+    # tasks: prefer the delta (superset, newer), fall back to base
+    tasks = None
+    tasks_src = None
+    if delta:
+        tasks = load_json(os.path.join(delta, "tasks.json"))
+        tasks_src = delta
+    if not tasks:
+        tasks = load_json(os.path.join(root, "tasks.json"), [])
+        tasks_src = root
+
+    # sheets: base is authoritative, delta's is typically empty
+    sheets = load_json(os.path.join(root, "sheets.json"), [])
+    if delta:
+        sheets = (load_json(os.path.join(delta, "sheets.json"), []) or []) + sheets
+    sheet_by_uid = {s["uid"]: s for s in sheets}
+
+    # photo binaries live in both folders
+    photo_dirs = [os.path.join(root, "photos")]
+    if delta:
+        photo_dirs.append(os.path.join(delta, "photos"))
+    photo_files = index_photo_files([d for d in photo_dirs if os.path.isdir(d)])
+
+    # task_details, merged, delta wins on collision
+    details = {}
+    for base_dir in [root] + ([delta] if delta else []):
+        for f in glob.glob(os.path.join(base_dir, "task_details", "*.json")):
+            d = load_json(f)
+            if d:
+                details[d["task_uid"]] = d
+
+    filler = detect_filler_title(tasks)
+
+    items, missing_photos = [], []
+    for t in sorted(tasks, key=lambda z: z.get("number", 0)):
+        num = t.get("number")
+        if keep is not None and num not in keep:
+            continue
+        if t.get("deleted"):
+            continue
+
+        title = (t.get("title") or "").strip()
+        if filler and title == filler:
+            title = ""
+
+        ann = t.get("current_annotation") or {}
+        sheet = sheet_by_uid.get((ann.get("sheet") or {}).get("uid"), {})
+        detail = details.get(t["uid"], {})
+
+        photos = []
+        for p in detail.get("photos", []):
+            path = photo_files.get(p["uid"])
+            if path is None:
+                missing_photos.append((num, p["uid"]))
+                continue
+            stamp = None
+            m = re.search(r"(\d{8})_(\d{6})", p.get("title") or "")
+            if m:
+                stamp = f"{m.group(1)}T{m.group(2)}"
+            photos.append({
+                "uid": p["uid"],
+                "title": p.get("title"),
+                "path": path,
+                "captured": stamp,
+                "photographer": (p.get("created_by") or {}).get("email"),
+            })
+
+        items.append({
+            "number": num,
+            "uid": t["uid"],
+            "title": title,
+            "description": (t.get("description") or "").strip(),
+            "status": t.get("status"),
+            "room": t.get("room", ""),
+            "sheet_name": sheet.get("name"),
+            "sheet_description": sheet.get("description"),
+            "pin_stamp": ann.get("stamp"),
+            "photo_count_field": (t.get("photos") or {}).get("total_count"),
+            "photos": photos,
+            "created_at": t.get("created_at"),
+            "updated_at": t.get("updated_at"),
+            "created_by": (t.get("created_by") or {}).get("email"),
+        })
+
+    os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
+    with open(args.out, "w") as fh:
+        json.dump(items, fh, indent=2)
+
+    # triage summary, read this before anything else
+    described = [i for i in items if i["description"]]
+    photo_only = [i for i in items if not i["description"] and i["photos"]]
+    no_content = [i for i in items if not i["description"] and not i["photos"]]
+    with_room = [i for i in items if (i["room"] or "").strip()]
+    no_sheet = [i["number"] for i in items if not i["sheet_name"]]
+
+    print(f"tasks source     : {os.path.basename(tasks_src)}")
+    print(f"filler title     : {filler!r}" if filler else "filler title     : none detected")
+    print(f"items            : {len(items)}")
+    print(f"  described      : {len(described)} -> {[i['number'] for i in described]}")
+    print(f"  photo_only     : {len(photo_only)} -> {[i['number'] for i in photo_only]}")
+    print(f"  no_photos      : {len(no_content)} -> {[i['number'] for i in no_content]}")
+    print(f"  with_room      : {len(with_room)}")
+    print(f"  no_sheet_ref   : {len(no_sheet)} -> {no_sheet}")
+    print(f"photos resolved  : {sum(len(i['photos']) for i in items)}"
+          f" (declared {sum(i['photo_count_field'] or 0 for i in items)})")
+    if missing_photos:
+        print(f"MISSING BINARIES : {missing_photos}", file=sys.stderr)
+    print("sheet usage      :", dict(Counter(i["sheet_name"] for i in items)))
+    print(f"wrote {args.out}")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,35 @@
+{
+  "description": "Enforcement for the punch report workflow. Every wiring uses the polyglot shell-form pattern proven in field testing: the .ps1 half runs on Windows hosts (where hooks execute in Cowork), the .sh half on POSIX surfaces, each no-ops on the other's platform, and the trailing `exit 0` is valid in every shell Claude Code routes to. Three of the four are context-only and can never block. The fourth is a deliberately narrow deny on converting a punch report to PDF with LibreOffice, which is the one mistake here that has already shipped to a reviewer. Each hook has its own EPLUS_NO_* escape hatch. Note that PostToolUseFailure is deliberately NOT wired here: the error-reporting plugin already owns that event, and a second wiring produces a duplicate nudge for the same failure.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/orient-punch-session.ps1\"; sh \"${CLAUDE_PLUGIN_ROOT}/scripts/orient-punch-session.sh\"; exit 0" }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/block-punch-pdf.ps1\"; sh \"${CLAUDE_PLUGIN_ROOT}/scripts/block-punch-pdf.sh\"; exit 0" }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/check-draft-voice.ps1\"; sh \"${CLAUDE_PLUGIN_ROOT}/scripts/check-draft-voice.sh\"; exit 0" }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/verify-after-render.ps1\"; sh \"${CLAUDE_PLUGIN_ROOT}/scripts/verify-after-render.sh\"; exit 0" }
+        ]
+      }
+    ]
+  }
+}
