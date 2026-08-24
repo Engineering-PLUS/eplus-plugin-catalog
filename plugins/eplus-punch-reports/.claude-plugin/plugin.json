@@ -1,6 +1,6 @@
 {
   "name": "eplus-punch-reports",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Draft punch reports from field photos and notes, and search four years of EPLUS punch walks for precedent, recurring deficiencies, and the evidence photos behind them.",
   "keywords": ["mcp", "graph-rag", "hermes", "punch", "field", "reports"],
   "author": {

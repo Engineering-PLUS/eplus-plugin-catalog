@@ -1,6 +1,6 @@
 ---
 name: punch
-description: Use this skill whenever a task involves punch lists, punch walks, punch reports, field progress or site inspection reports, security acceptance walks, pre-punch reports, construction deficiencies or defects, "what do we usually find" / recurring-issue questions, per-trade punch checklists or SOPs for a site walk, pulling field photos or marked-up drawing sheets for an issue, exporting a filtered punch list to a spreadsheet, or the eplus-punch-engine MCP tools (query_hermes_punch, export_punch_report). Encodes the exact filter vocabulary of the EPLUS punch corpus — trades, project codes, statuses, sheet references — so queries hit real values instead of guesses. Always load it before calling any eplus-punch-engine tool.
+description: Use this skill whenever a task involves punch lists, punch walks, punch reports, field progress or site inspection reports, security acceptance walks, pre-punch reports, construction deficiencies or defects, "what do we usually find" / recurring-issue questions, punch counts or closeout statistics, per-trade punch checklists or SOPs for a site walk, pulling field photos or marked-up drawing sheets for an issue, exporting a filtered punch list to a spreadsheet, or the eplus-punch-engine MCP tools (query_hermes_punch, get_punch_item, list_punch, punch_stats, grep_punch, export_punch_report). Encodes the exact filter vocabulary of the EPLUS punch corpus — trades, project codes, statuses, sheet references — so queries hit real values instead of guesses. Always load it before calling any eplus-punch-engine tool.
 argument-hint: <what to look up — e.g. "recurring telecom issues at NVA05A" or "open security items on sheet T02-01B">
 ---
 
@@ -38,18 +38,47 @@ matters.
 
 ## Available tools
 
+**Pick the cheapest tool that answers the question.** Four of the six
+tools are direct database reads — instant, no summarization model, exact
+text. Only reach for the synthesized search when the question genuinely
+needs keyword matching or thematic summary.
+
+Direct tools (no models, instant, verbatim):
+
+- `punch_stats(project_id=None, group_by="status")` — aggregate counts.
+  `group_by`: `status` | `trade` | `project` | `sheet` | `trade_status`
+  (trade-by-status matrix). THE tool for "how many open Telecom items on
+  POR03B," closeout percentages, which sheets have the most items. Never
+  count by pulling items through a search.
+- `list_punch(project_id=None, trade=None, status=None, sheet_ref=None,
+  limit=50)` — filtered listing: IDs, titles, trades, sheets, statuses.
+  The browse tool for "what's open on NVA02E" before deciding what to
+  fetch. Reports total matches alongside the returned page.
+- `get_punch_item(item_id, upload_photos=True)` — ONE item verbatim: full
+  metadata, the engineer's exact wording, every report occurrence, photo
+  links. Use for direct lookups ("what is POR03B-99") and to verify
+  wording before quoting an item in anything formal.
+- `grep_punch(pattern, project_id=None, status=None, max_hits=30)` —
+  exact/regex search over titles, sheet refs, descriptions, and photo
+  captions. The right tool for device IDs (`BR02-4204B`), room numbers,
+  and part numbers that keyword search tokenizes into noise.
+
+Search + synthesis:
+
 - `query_hermes_punch(query, project_id=None, sheet_ref=None, trade=None,
-  item_id=None, status=None, upload_photos=True, limit=10)` — hybrid
-  keyword + metadata search with a synthesized summary. Read-only; call
-  freely. Returns matching items and, when `upload_photos=True`, temporary
-  download links for the site photos and marked-up drawing sheets.
+  item_id=None, status=None, upload_photos=True, limit=10)` — stemmed
+  keyword + metadata search with a synthesized summary. Use for
+  descriptive-language matching ("missing bushings at tray penetrations")
+  and recurring-theme questions. Returns matching items and, when
+  `upload_photos=True`, temporary download links for site photos and
+  marked-up drawing sheets.
 - `export_punch_report(query, project_id=None, trade=None, status=None,
   sheet_ref=None, limit=100)` — builds a spreadsheet of matching items and
   returns a download link. Use when the user wants a list to work from,
   hand off, or file — not for answering a question in chat.
 
-Both are read-only. There is no write-back path in this plugin; nothing a
-user says can modify the punch database.
+All six are read-only. There is no write-back path in this plugin; nothing
+a user says can modify the punch database.
 
 ## Filter vocabulary — use these exact values
 
@@ -69,9 +98,11 @@ values pulled from PlanGrid, not the published PDF snapshots — a report may
 print an item as open that has since been closed. Closed items carry a
 closed date.
 
-**sheet_ref**: drawing numbers like `T02-01A`, `T02-02B`, `TI-101.4`,
-`T04-02-TF`. Present on ~92% of items and the most natural way field staff
-describe a location.
+**sheet_ref**: drawing numbers like `T02-01A`, `T03-01B`, `T05-07`, and
+phase-prefixed forms like `01E-T02-03B` / `01F-T02-02B` (85 distinct
+sheets, all `T`-series). Present on ~92% of items and the most natural way
+field staff describe a location. `sheet_ref` filtering is substring-based,
+so `T02-03` matches both `T02-03A` and `01E-T02-03B`.
 
 **item_id**: `<PROJECT>-<issue number>`, e.g. `POR03B-277`. A bare number
 also works when a project is given.
@@ -84,6 +115,14 @@ trades, run separate queries rather than dropping the filter.
 
 ## How to answer
 
+0. **Route by question type first:**
+   - Counts, percentages, closeout status → `punch_stats`. One call, done.
+   - "Show/list what's open on X" → `list_punch`.
+   - A specific item ID → `get_punch_item`.
+   - A device ID, room number, or exact string → `grep_punch`.
+   - Descriptive defect language or theme questions → `query_hermes_punch`.
+   Chaining is normal: `punch_stats` for the shape, `list_punch` to browse,
+   `get_punch_item` for the ones you'll quote.
 1. **Parse the request** into filters (project, trade, status, sheet) plus
    a free-text query for the semantic part. Prefer filters over stuffing
    everything into the query string — the filters are exact, the text
@@ -102,9 +141,9 @@ trades, run separate queries rather than dropping the filter.
 4. **Photos.** Each site photo has a caption describing what is visible, so
    you can tell which photos are worth surfacing without opening them.
    Include the links for the ones that show the deficiency, with a line
-   saying what each shows. Set `upload_photos=False` for counting, listing,
-   or summarizing questions where nobody needs to look at images — it
-   makes the query faster.
+   saying what each shows. For counting or listing questions, don't use
+   the search tool at all — `punch_stats` and `list_punch` never touch
+   photos and answer instantly.
 5. **Links expire.** Photo, drawing, and spreadsheet links are temporary
    (about 7 days). Say so when handing one over, so nobody bookmarks it.
 
@@ -114,13 +153,15 @@ A recurring ask: "what should we be looking for on a walk." Do this by
 querying the corpus per trade, not from memory — the point is that the
 checklist reflects EPLUS's actual findings across four years.
 
-Query the trade (optionally scoped to a project or phase), read the
+Start with `punch_stats(group_by="trade_status")` to see the corpus shape,
+then query the trade (optionally scoped to a project or phase), read the
 descriptions of what came back, and group them into recurring themes.
 Present the checklist grouped by theme with a representative real item
 cited for each line, so the reader can see it came from a real walk. Note
-how often a theme recurs — a deficiency written up on many projects belongs
-at the top of a walk list. Do not pad the list with generic construction
-items the corpus does not support.
+how often a theme recurs — `grep_punch` with a theme keyword gives a fast
+recurrence count across all projects — a deficiency written up on many
+projects belongs at the top of a walk list. Do not pad the list with
+generic construction items the corpus does not support.
 
 ## Reporting results
 

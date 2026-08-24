@@ -19,12 +19,19 @@ shows.
 
 ## Tools
 
+Four direct database reads (instant, verbatim, no synthesis model) plus a
+search+synthesis tool and a spreadsheet export:
+
 | Tool | Purpose |
 |---|---|
-| `query_hermes_punch` | Hybrid keyword + metadata search with a synthesized answer, plus temporary download links for the relevant site photos and marked-up drawing sheets. |
+| `punch_stats` | Aggregate counts grouped by status, trade, project, sheet, or a trade-by-status matrix. The tool for counts, closeout percentages, and "which sheet has the most items." |
+| `list_punch` | Filtered listing (project/trade/status/sheet) of IDs, titles, trades, sheets, statuses, with total-match count. The browse tool. |
+| `get_punch_item` | One item verbatim — full metadata, exact wording, every report occurrence, photo links. For direct ID lookups and verifying wording before quoting. |
+| `grep_punch` | Exact/regex search over titles, sheet refs, descriptions, and photo captions. For device IDs, room numbers, and part numbers that keyword search would tokenize into noise. |
+| `query_hermes_punch` | Stemmed keyword + metadata search with a synthesized summary, plus temporary download links for site photos and marked-up drawing sheets. For descriptive-language and recurring-theme questions. |
 | `export_punch_report` | Builds a spreadsheet of matching items and returns a download link. |
 
-Both are read-only — this plugin cannot modify the punch database.
+All six are read-only — this plugin cannot modify the punch database.
 
 ## Skills
 
