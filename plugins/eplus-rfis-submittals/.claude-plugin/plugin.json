@@ -1,8 +1,15 @@
 {
   "name": "eplus-rfis-submittals",
-  "version": "0.1.6",
-  "description": "Draft spec-backed RFI responses and log approved ones to the EPLUS knowledge base — nothing is saved without your sign-off.",
-  "keywords": ["mcp", "graph-rag", "hermes"],
+  "version": "0.2.0",
+  "description": "Draft spec-backed RFI responses, stamp submittals with the firm's Bluebeam review stamps, and log approved responses to the EPLUS knowledge base — nothing is saved without your sign-off.",
+  "keywords": [
+    "mcp",
+    "graph-rag",
+    "hermes",
+    "submittals",
+    "bluebeam",
+    "stamping"
+  ],
   "author": {
     "name": "Victor Ortega",
     "email": "victor.ortega@eplusadvisors.com"

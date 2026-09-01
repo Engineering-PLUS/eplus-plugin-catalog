@@ -1,0 +1,15 @@
+pymupdf>=1.25
+
+# 1.25 is the floor because Page.add_freetext_annot() gained `richtext` there,
+# which the comment box needs; Document.bake() needs >= 1.22. stamp_pdf.py
+# checks both capabilities at startup rather than trusting a version string.
+#
+# Target environment: the Cowork VM, Python 3.10 at /usr/bin/python3.
+#   pip install pymupdf --break-system-packages
+#
+# Nothing else. The stamper deliberately avoids numpy so it runs on a bare
+# PyMuPDF environment.
+#
+# Optional, for eyeballing output during development -- a system package, not
+# pip: poppler-utils (pdftoppm). PyMuPDF's own get_pixmap().save() does the
+# same job with no extra dependency, which is what the skill uses.

@@ -28,7 +28,7 @@
     {
       "name": "eplus-rfis-submittals",
       "displayName": "EPLUS RFI & Submittal engine",
-      "description": "Draft spec-backed RFI responses and log approved ones to the EPLUS knowledge base — nothing is saved without your sign-off.",
+      "description": "Draft spec-backed RFI responses, stamp submittals with the firm's Bluebeam review stamps and comment block, and log approved responses to the EPLUS knowledge base — nothing is saved without your sign-off.",
       "source": "./plugins/eplus-rfis-submittals",
       "category": "Documents & Productivity",
       "tags": [
@@ -39,7 +39,12 @@
         "specs",
         "csi",
         "knowledge-base",
-        "aec"
+        "aec",
+        "stamps",
+        "stamping",
+        "bluebeam",
+        "review-stamp",
+        "markup"
       ]
     },
     {

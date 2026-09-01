@@ -20,8 +20,41 @@ the `npx supergateway` snippet below in `claude_desktop_config.json`.
 | Component | Path | Purpose |
 |-----------|------|---------|
 | Manifest  | [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) | Plugin identity and metadata |
-| Skill     | [`skills/rfi/SKILL.md`](skills/rfi/SKILL.md) | 4-step doctrine: deconstruct → query Hermes → draft → HITL write-back gate, plus the return path for logging final RFI responses issued outside the chat |
+| Skill     | [`skills/rfi/SKILL.md`](skills/rfi/SKILL.md) | Doctrine: memory decision → deconstruct → query Hermes → draft → HITL write-back gate, plus the return path for logging final RFI responses issued outside the chat |
+| Skill     | [`skills/pdf-stamping/SKILL.md`](skills/pdf-stamping/SKILL.md) | Apply the firm's Bluebeam review stamps and the ENGINEERING PLUS COMMENTS box to a submittal, as live annotations (Cowork only) |
 | MCP       | [`.mcp.json`](.mcp.json) | Bundled remote SSE connection to the Hermes VM with Bearer auth |
+
+## Memory
+
+The RFI skill opens every session by asking whether anything should be saved to
+memory at all — *don't save*, *ask before each save*, or *save freely* — and
+holds to that answer for the session. An unanswered or ambiguous reply is
+treated as *don't save*. Regardless of the answer, project-specific technical
+values (mounting heights, note numbers, clause values, part numbers) are never
+memorized: they differ between drawing sets on the same program, so the
+governing value is read from the project's own sheet every time.
+
+## Stamping submittals
+
+`skills/pdf-stamping` produces an `EPLUS RESPONSE - <file>.pdf` reference copy
+carrying **live** annotations — a `/Stamp` annot with the firm's artwork and a
+`/FreeText` comment block — so the reviewer can adjust them in Bluebeam before
+issuing. Geometry matches an issued response: the review stamp at 286 pt wide,
+the red comment box the same width 5 pt beneath it, red Helvetica 6pt text.
+
+Eight stamps ship with the skill in [`skills/pdf-stamping/stamps`](skills/pdf-stamping/stamps),
+in two classes the script refuses to interchange:
+
+| Class | Names | Applied to |
+|---|---|---|
+| Review stamp (`--stamp`) | Exceptions As Noted · No Exception · Rejected (Resubmit) · Review Required · For Record · For Information Only | one page |
+| Watermark (`--watermark`) | Draft · For Reference Only | every page |
+
+Placement is planned before anything is written (`--plan` reports ranked
+candidates with the ink each would cover); if nothing sits on blank paper the
+skill asks rather than covering the drawing. Requires PyMuPDF and a real
+filesystem — **Cowork only**, and the stamps are controlled documents that must
+not be edited in place.
 
 ## MCP tools (server name: `eplus-rfi-engine`)
 
@@ -112,7 +145,16 @@ From the `eplus-claude-plugins` marketplace:
 claude plugin install eplus-rfis-submittals@eplus-claude-plugins
 ```
 
-Verify: the skills list shows `rfi`, and with the `eplus-rfi-engine`
-connection active, asking Claude to "review this RFI and draft a
-response" runs the 4-step workflow and queries Hermes instead of
+Verify: the skills list shows `rfi` and `pdf-stamping`, and with the
+`eplus-rfi-engine` connection active, asking Claude to "review this RFI and
+draft a response" settles the memory question, then queries Hermes instead of
 answering from memory.
+
+For stamping, in a Cowork session with `pymupdf` installed:
+
+```bash
+python skills/pdf-stamping/scripts/inspect_stamp.py "skills/pdf-stamping/stamps/No Exception.pdf"
+```
+
+should report `class: review stamp`, `artwork lives in: ANNOTATIONS`, and a
+215 x 108 pt ink bbox.
