@@ -1,6 +1,6 @@
 {
   "name": "eplus-punch-reports",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Draft punch reports end to end from a PlanGrid pull, and search four years of EPLUS punch walks for precedent, recurring deficiencies, and the evidence photos behind them.",
   "keywords": [
     "mcp",

@@ -1,6 +1,6 @@
 {
   "name": "error-reporting",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "EPLUS Error Reporting MCP — fire-and-forget issue logging for EPLUS tool failures and user change requests, reviewed centrally",
   "author": {
     "name": "Victor Ortega",

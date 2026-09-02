@@ -1,6 +1,6 @@
 {
   "name": "eplus-office-skills",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "EPLUS branding (default fonts) skill and the workflow-packager skill for the EPLUS Chat/Cowork fleet; Anthropic's docx/pdf/pptx/xlsx skills are now shipped natively and were removed from this plugin",
   "keywords": [
     "brand-guidelines",
