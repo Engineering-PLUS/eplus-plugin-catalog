@@ -33,14 +33,15 @@ W="$(pwd)/punch-test"; R="${CLAUDE_PLUGIN_ROOT}"; [ -d "$R/skills" ] || R=$(ls -
 If `pwd` is not the outputs folder, replace `$(pwd)` with the outputs folder
 path. Record PASS if it prints `workspace ok`.
 
-**2. Tooling smoke test** (Bash):
+**2. Install dependencies, then smoke test** (Bash, one command):
 
 ```bash
-cd "$W/ws/_pipeline" && bash scripts/smoke_test.sh 2>&1 | tail -12
+cd "$W/ws/_pipeline" && bash scripts/install_deps.sh 2>&1 | tail -6; bash scripts/smoke_test.sh 2>&1 | tail -8
 ```
 
-Record PASS if the last lines show no `FAIL`; otherwise record the failing
-lines verbatim (they are the dependency evidence we want).
+Record PASS if the smoke test's last lines show no `FAIL`; otherwise record the
+failing lines verbatim (they are the dependency evidence we want). Also note
+whether install_deps reported packages "already present" or installed them.
 
 **3. PDF guard via Bash** (Bash). Run exactly:
 
@@ -62,10 +63,11 @@ soffice --headless --convert-to pdf "$env:TEMP\_pipeline\TEST-DRAFT-v0.1.docx"
 
 Same expectation and recording as step 3.
 
-**5. Unrelated conversion must NOT be denied** (Bash):
+**5. Unrelated conversion must NOT be denied** (Bash). The path must not
+contain `_pipeline` or `-DRAFT-v`, so it lives outside the workspace:
 
 ```bash
-soffice --headless --convert-to pdf "$W/memo.docx"; echo "ran (exit $?)"
+soffice --headless --convert-to pdf /tmp/memo.docx; echo "ran (exit $?)"
 ```
 
 Expected: the command runs (any output, including "not found") and prints
@@ -109,7 +111,7 @@ by one line: "Export this session now."
 | # | Check | Result |
 |---|---|---|
 | 1 | workspace built | |
-| 2 | smoke_test.sh | |
+| 2 | install_deps + smoke_test.sh | |
 | 3 | PDF guard, Bash | |
 | 4 | PDF guard, PowerShell | |
 | 5 | unrelated conversion allowed | |

@@ -66,12 +66,15 @@ fi
 
 [ -f run_pipeline.sh ] && bash -n run_pipeline.sh 2>/dev/null \
     && ok "run_pipeline.sh parses" || bad "run_pipeline.sh missing or unparseable"
+[ -f install_deps.sh ] && bash -n install_deps.sh 2>/dev/null \
+    && ok "install_deps.sh parses" || bad "install_deps.sh missing or unparseable"
+[ -f requirements.txt ] && ok "requirements.txt present" || bad "requirements.txt missing"
 
 # Deps the pipeline cannot run without.
-"$PY" -c 'import fitz'    2>/dev/null && ok "pymupdf"  || bad "pymupdf not installed (pip install pymupdf)"
-"$PY" -c 'import PIL'     2>/dev/null && ok "pillow"   || bad "pillow not installed (pip install pillow)"
-"$PY" -c 'import openpyxl' 2>/dev/null && ok "openpyxl" || bad "openpyxl not installed (pip install openpyxl)"
-node -e 'require("docx")'   2>/dev/null && ok "docx"     || bad "docx not installed (npm install docx@^9.7.1)"
+"$PY" -c 'import pymupdf' 2>/dev/null && ok "pymupdf"  || bad "pymupdf not installed (bash scripts/install_deps.sh)"
+"$PY" -c 'import PIL'     2>/dev/null && ok "pillow"   || bad "pillow not installed (bash scripts/install_deps.sh)"
+"$PY" -c 'import openpyxl' 2>/dev/null && ok "openpyxl" || bad "openpyxl not installed (bash scripts/install_deps.sh)"
+node -e 'require("docx")'   2>/dev/null && ok "docx"     || bad "docx not installed (bash scripts/install_deps.sh)"
 
 echo
 if [ "$fail" -gt 0 ]; then

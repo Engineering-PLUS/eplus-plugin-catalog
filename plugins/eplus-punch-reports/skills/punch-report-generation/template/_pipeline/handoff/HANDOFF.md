@@ -52,8 +52,8 @@ bash scripts/smoke_test.sh     # tooling check
 bash scripts/run_pipeline.sh   # five steps + verify
 ```
 
-Outputs .docx only. Deps: `npm install docx@^9.7.1` and
-`pip install pymupdf openpyxl pillow --break-system-packages`.
+Outputs .docx only. Deps: `bash scripts/install_deps.sh`, then
+`bash scripts/smoke_test.sh`.
 
 Scope lives in exactly one place, `SCOPE` in `run_pipeline.sh`. Cover and footer
 strings live in `build/report.config.json`, not in the renderer.

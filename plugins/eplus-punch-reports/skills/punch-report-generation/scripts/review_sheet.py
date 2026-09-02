@@ -44,7 +44,7 @@ try:
     from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
 except ImportError:
-    sys.exit("openpyxl required:  pip install openpyxl --break-system-packages")
+    sys.exit("openpyxl required:  bash scripts/install_deps.sh")
 
 MASTER = "master_report_items.json"
 

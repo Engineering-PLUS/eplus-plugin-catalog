@@ -7,8 +7,9 @@
 # already shipped once.
 #
 # DELIBERATELY NARROW. It fires only when the command both converts to PDF and
-# names a punch report path, so the docx skill's own soffice validation and every
-# unrelated conversion are untouched.
+# names the pipeline folder (_pipeline) or a report by its naming convention
+# (-DRAFT-v), so the docx skill's own soffice validation and every unrelated
+# conversion are untouched, even inside a folder whose name contains "punch".
 #
 # Always exits 0; the decision travels in the JSON, not the exit code.
 # Disable with EPLUS_NO_PUNCH_PDF_GUARD=1.
@@ -26,8 +27,11 @@ try {
     $isConvert = ($cmd -match 'soffice|libreoffice') -and ($cmd -match 'convert-to\s+pdf|--convert-to\s+pdf')
     if (-not $isConvert) { exit 0 }
 
-    # Only guard punch report material.
-    if ($cmd -notmatch '_pipeline|punch|Punch') { exit 0 }
+    # Only guard punch report material: the pipeline folder or the report naming
+    # convention (<report>-DRAFT-v0.1.docx). NOT the word "punch": most project
+    # folders carry it, and matching it denied every unrelated conversion in them,
+    # including the docx skill's own validation (field result 2026-09-02).
+    if ($cmd -notmatch '_pipeline|-DRAFT-v') { exit 0 }
 
     $reason = 'The punch report pipeline outputs .docx only, by design. Word recalculates the ' +
               'TOC PAGEREF fields on open and on PDF export; LibreOffice does not, and it paginates ' +

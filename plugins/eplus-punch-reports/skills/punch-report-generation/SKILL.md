@@ -55,11 +55,15 @@ must not appear anywhere a client, GC or subcontractor reads, including the cove
 `verify_report.py` asserts it is absent from the document text, so this fails the
 build rather than shipping.
 
-Then check the tooling actually works:
+Then install the dependencies and check the tooling actually works:
 
 ```bash
-bash scripts/smoke_test.sh
+bash scripts/install_deps.sh && bash scripts/smoke_test.sh
 ```
+
+The sandbox ships without PyMuPDF and without the `docx` Node package, and Node
+only resolves `docx` from a `node_modules` beside the scripts, so the install
+step is required on every fresh sandbox. It is idempotent.
 
 This exists because a previous generation of this pipeline documented four
 features its shipped code did not have. Run it; do not assume.

@@ -89,7 +89,7 @@ block a tool call:
 |---|---|
 | `PostToolUse` (Write/Edit) | Sweeps `drafted_items.json` for photo-narration voice, third-person self-reference, and em/en dashes — at authoring time rather than at build time. |
 | `PostToolUse` (Bash) | After `gen_report.js`, reminds you to run `verify_report.py` and to deliver only through `package.py`. |
-| `PreToolUse` (Bash) | **Denies** converting a punch report to PDF with LibreOffice. Deliberately narrow: it requires both a PDF conversion and a punch report path, so the `docx` skill's own soffice validation is untouched. |
+| `PreToolUse` (Bash) | **Denies** converting a punch report to PDF with LibreOffice. Deliberately narrow: it requires both a PDF conversion and a path naming `_pipeline` or a `-DRAFT-v` report, so the `docx` skill's own soffice validation is untouched even in a folder named after punch work. |
 
 `PostToolUseFailure` is deliberately **not** wired here — the `error-reporting`
 plugin owns that event, and a second wiring produces a duplicate nudge for the
@@ -109,5 +109,6 @@ Photo, drawing, and spreadsheet links are temporary (about 7 days) — save
 anything worth keeping. Status values are live from PlanGrid, so an item a
 published PDF shows as open may since have been closed.
 
-Pipeline dependencies: `npm install docx@^9.7.1` and
-`pip install pymupdf openpyxl pillow`. Run `scripts/smoke_test.sh` to check them.
+Pipeline dependencies are installed by `scripts/install_deps.sh` (PyMuPDF,
+Pillow, openpyxl from `requirements.txt`; the `docx` Node package from
+`package.json`) and checked by `scripts/smoke_test.sh`.

@@ -47,7 +47,7 @@ import sys
 try:
     import pymupdf
 except ImportError:
-    sys.exit("pymupdf required:  pip install pymupdf")
+    sys.exit("pymupdf required:  bash scripts/install_deps.sh")
 
 LEADER_RE = re.compile(r"\.{6,}\s*\d+")
 

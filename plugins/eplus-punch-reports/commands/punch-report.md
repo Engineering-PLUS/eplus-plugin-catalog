@@ -70,15 +70,17 @@ unzip that package into the workspace instead of stamping a fresh template,
 then refresh `_pipeline/scripts/` from the plugin. Report what you found and
 carry on from there; this is a re-run.
 
-## 3. Check the tooling
+## 3. Install dependencies and check the tooling
 
 ```bash
-cd <workspace>/_pipeline && bash scripts/smoke_test.sh
+cd <workspace>/_pipeline && bash scripts/install_deps.sh && bash scripts/smoke_test.sh
 ```
 
-Fix or report anything that fails before drafting. Missing dependencies are
-`npm install docx@^9.7.1` (run inside `_pipeline/scripts/`) and
-`pip install pymupdf openpyxl pillow --break-system-packages`.
+The sandbox does not ship PyMuPDF or the `docx` Node package, and Node only
+finds `docx` in a `node_modules` beside the scripts, so the install step is
+needed on every fresh sandbox. It is idempotent and quiet when everything is
+already present. Fix or report anything the smoke test still flags before
+drafting.
 
 ## 4. Stay in the workspace
 

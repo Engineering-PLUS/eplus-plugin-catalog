@@ -1,0 +1,5 @@
+# Python runtime dependencies of the punch report pipeline.
+# Installed by scripts/install_deps.sh; checked by scripts/smoke_test.sh.
+pymupdf>=1.24.3
+pillow>=10
+openpyxl>=3.1

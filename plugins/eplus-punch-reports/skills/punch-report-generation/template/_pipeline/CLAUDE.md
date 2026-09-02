@@ -80,8 +80,8 @@ Data quality for this pull, from the triage summary:
 
 ## Pipeline, in order
 
-Run from `_pipeline/`. Node deps: `npm install docx@^9.7.1`.
-Python deps: `pip install pymupdf openpyxl pillow --break-system-packages`.
+Run from `_pipeline/`. Dependencies: `bash scripts/install_deps.sh` (idempotent;
+needed on every fresh sandbox), then `bash scripts/smoke_test.sh`.
 
 Check the tooling before the first run:
 

@@ -7,6 +7,6 @@
     "report": "node gen_report.js"
   },
   "dependencies": {
-    "docx": "^9.7.1"
+    "docx": "9.7.1"
   }
 }
