@@ -1,19 +1,25 @@
 ---
-description: Draft a punch report from a PlanGrid pull — stamps the pipeline into the project folder, consolidates, drafts, checks precedent, renders and verifies.
+description: Draft a punch report from a PlanGrid pull — builds the whole pipeline in the session workspace, consolidates, drafts, checks precedent, renders and verifies, then delivers one package to the project folder.
 argument-hint: [project folder, or leave blank to use the current one]
 ---
 
 Draft a punch report from field material.
 
-Target folder: $ARGUMENTS (if blank, use the current working folder).
+Project folder: $ARGUMENTS (if blank, use the current working folder).
 
 Load the `punch-report-generation` skill and follow it. This command is the
 intake and scaffolding front end for that workflow; the skill is the authority
 on every step.
 
+**The project folder is read-only until the very end.** You read the inputs
+from it once, do every step in your own workspace, and the only write to the
+project folder is the single delivery in step 6. Never create, edit, or copy
+individual files there mid-run; that is how a rendered document and the file
+that generates it have disagreed before.
+
 ## 1. Intake, before anything else
 
-Inspect the target folder and report what you found, then confirm the four
+Inspect the project folder and report what you found, then confirm the four
 inputs with the user in **one** message rather than discovering them mid-run:
 
 - **The PlanGrid pull** — a directory containing `tasks.json`. Say how many
@@ -41,36 +47,44 @@ inputs with the user in **one** message rather than discovering them mid-run:
 Ask about anything genuinely ambiguous here. Everything after this point is
 expensive to redo.
 
-## 2. Stamp the template
+## 2. Build the workspace
 
-Copy `${CLAUDE_PLUGIN_ROOT}/skills/punch-report-generation/template/` into the
-project folder, then copy
-`${CLAUDE_PLUGIN_ROOT}/skills/punch-report-generation/scripts/` into
-`_pipeline/scripts/`.
+Create a workspace folder in the session's own outputs area (your working
+folder, not the project folder), named after the report, for example
+`<project>-punch-<walkdate>/`. Then:
 
-Fill in `_pipeline/build/report.config.json` from the identity answers, and
-replace the `<PLACEHOLDER>` fields in `_pipeline/CLAUDE.md` with this project's
-real values as you learn them. That file is what the next run reads first.
+1. Copy `${CLAUDE_PLUGIN_ROOT}/skills/punch-report-generation/template/` into
+   the workspace, and
+   `${CLAUDE_PLUGIN_ROOT}/skills/punch-report-generation/scripts/` into
+   `_pipeline/scripts/`.
+2. Copy the inputs **once** from the project folder into the workspace root:
+   the PlanGrid pull directory (base and any delta) and the Task Report PDF.
+   `run_pipeline.sh` finds them there automatically, beside `_pipeline/`.
+3. Fill in `_pipeline/build/report.config.json` from the identity answers, and
+   replace the `<PLACEHOLDER>` fields in `_pipeline/CLAUDE.md` with this
+   project's real values as you learn them. That file is what the next run
+   reads first.
 
-If a `_pipeline/` already exists, do not overwrite it — this is a re-run.
-Report what is already there and ask whether to refresh the scripts.
+If the project folder already holds a delivered package from a prior run,
+unzip that package into the workspace instead of stamping a fresh template,
+then refresh `_pipeline/scripts/` from the plugin. Report what you found and
+carry on from there; this is a re-run.
 
 ## 3. Check the tooling
 
 ```bash
-cd _pipeline && bash scripts/smoke_test.sh
+cd <workspace>/_pipeline && bash scripts/smoke_test.sh
 ```
 
 Fix or report anything that fails before drafting. Missing dependencies are
-`npm install docx@^9.7.1` and
+`npm install docx@^9.7.1` (run inside `_pipeline/scripts/`) and
 `pip install pymupdf openpyxl pillow --break-system-packages`.
 
-## 4. Work on local disk
+## 4. Stay in the workspace
 
-The project folder is on a network share and is >45x slower than local disk for
-the many-small-files steps. Copy `_pipeline/` to a local scratch directory, run
-there, and copy back in small batches — **sources as well as outputs**, so the
-rendered document and the file that generates it cannot disagree.
+Everything in steps 4 and 5 happens inside the workspace. Every step reads and
+writes there, so sources and outputs can never drift apart, and none of it is
+slowed by or visible on the project share until it is finished.
 
 ## 5. Run the workflow
 
@@ -82,11 +96,23 @@ verify.
 `bash scripts/run_pipeline.sh` runs steps 1 through 5 plus verification once
 `data/drafted_items.json` exists.
 
-## 6. Deliver three things
+## 6. Deliver one package
 
-The draft `.docx`, the issues list, and the handoff (process log,
-lessons learned, HANDOFF.md). The issues list is not an appendix — it is where
-the reviewer's attention gets directed.
+When verification passes and the issues list and handoff are written, deliver
+with a single command:
+
+```bash
+python3 scripts/package.py <workspace> "<project folder>"
+```
+
+It zips the entire workspace (pipeline, sources, data, build, handoff; not
+`node_modules` or caches) into `<report>.zip` in the project folder and places
+the rendered `.docx` and the review `.xlsx` beside it so the reviewer can start
+reading without unzipping. It refuses to overwrite an existing delivery. Run it
+with `--dry-run` first if you want to see the manifest.
+
+That command is the only write to the project folder in the whole run. Tell the
+user what was delivered and where.
 
 Do not generate a PDF. The reviewer produces it from Word, which recalculates
 the page-number fields on export.

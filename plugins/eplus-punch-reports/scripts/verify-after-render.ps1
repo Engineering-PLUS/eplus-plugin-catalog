@@ -1,5 +1,4 @@
-# PostToolUse hook -- Windows half (see verify-after-render.sh for the
-# rationale). After gen_report.js runs, remind the model to verify the rendered
+# PostToolUse hook. Runs on the Windows host under PowerShell. After gen_report.js runs, remind the model to verify the rendered
 # document before calling the run finished.
 #
 # Stateless and deterministic: it keys off the render command itself rather than
@@ -29,9 +28,9 @@ try {
            'are invisible in a quick look: em and en dashes, the field-report voice rules on ' +
            'descriptions, PAGEREF/bookmark integrity, absence of baked-in page numbers, ' +
            'w:updateFields, one page break per item, embedded photo count, and that the ' +
-           'letterhead is native rather than a pasted bitmap. If you rendered from a local ' +
-           'working copy, sync the sources back to the project folder too, not just the .docx, ' +
-           'so the document and the file that generates it cannot disagree.'
+           'letterhead is native rather than a pasted bitmap. The project folder stays ' +
+           'read-only: do not copy the .docx or anything else across by hand. When the run is ' +
+           'finished, deliver everything at once with scripts/package.py <workspace> <project folder>.'
 
     $out = @{ hookSpecificOutput = @{
         hookEventName     = 'PostToolUse'

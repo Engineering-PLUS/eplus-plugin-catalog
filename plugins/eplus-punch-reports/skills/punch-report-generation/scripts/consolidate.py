@@ -30,7 +30,7 @@ from collections import Counter
 def load_json(path, default=None):
     if not os.path.exists(path):
         return default
-    with open(path) as fh:
+    with open(path, encoding="utf-8") as fh:
         return json.load(fh)
 
 
@@ -174,7 +174,7 @@ def main():
         })
 
     os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
-    with open(args.out, "w") as fh:
+    with open(args.out, "w", encoding="utf-8") as fh:
         json.dump(items, fh, indent=2)
 
     # triage summary, read this before anything else

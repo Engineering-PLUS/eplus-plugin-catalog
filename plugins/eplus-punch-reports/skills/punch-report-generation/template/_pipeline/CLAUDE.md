@@ -25,26 +25,26 @@ Nothing else in the pipeline hardcodes it. Unset `SCOPE` to include every item.
 
 ---
 
-## Working rule: the project folder is on a network share
+## Working rule: this workspace is the only place work happens
 
-EPLUS project folders live on `\\ep-file-01...` (a mapped drive, usually `G:`).
-Large batches of small file operations against it are the single biggest time
-sink in this workflow, and the most common cause of a step that looks hung.
-Photo normalisation over 34 files has taken **over two minutes on the share and
-2.6 seconds on local disk**, a >45x difference on 14 MB.
+This folder tree was built in the session's own workspace and delivered to the
+project folder as one package (`scripts/package.py`). The project folder itself
+is read-only during a run: inputs are copied in once, every step reads and
+writes here, and the only write back is the final delivery.
 
-**Copy the pipeline to local disk, run there, copy finished artifacts back in
-small batches.** Copying ~35 files back in one command has also timed out, so
-split it. The share may also refuse deletes ("Operation not permitted").
+Two reasons, both learned the hard way. Project shares are slow for the
+many-small-file steps (photo normalisation has taken over two minutes on a share
+and 2.6 seconds locally), and a run that works in the project folder with a
+scratch copy has to sync sources back by hand. That sync was once missed: a
+`drafted_items.json` edit lived only in the scratch copy, the report was rendered
+from it, and the delivered document disagreed with the file that generates it.
+`verify_report.py` checks the rendered document against the master JSON for
+exactly this reason, but the workspace rule removes the failure mode instead of
+catching it.
 
-**Then sync the sources back, not just the outputs.** This has already produced
-one near-miss: a `drafted_items.json` edit was made in the local working copy,
-the report was rendered from it, and the share's copy was never updated. The
-shipped .docx and the file that supposedly generates it disagreed, and a re-run
-would have silently reverted the change. `verify_report.py` now checks the
-rendered document against the master JSON for exactly this reason, but the habit
-matters more than the check: **sync sources back before calling the run
-finished.**
+**To re-run:** unzip the delivered package into a fresh workspace, refresh
+`_pipeline/scripts/` from the plugin, work there, and deliver again with a new
+package name. Never edit the delivered copy in place.
 
 ---
 

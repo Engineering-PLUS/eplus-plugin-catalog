@@ -49,7 +49,7 @@ def main():
     z = zipfile.ZipFile(path)
     doc = z.read("word/document.xml").decode("utf8")
     settings = z.read("word/settings.xml").decode("utf8")
-    master = json.load(open(master_path))
+    master = json.load(open(master_path, encoding="utf-8"))
     n_items = len(master)
 
     # report.config.json carries some INTERNAL fields that must never reach the

@@ -10,7 +10,7 @@ wording defensible.
 /punch-report [project folder]
 ```
 
-Stamps a complete pipeline into the project folder, then walks the run: intake,
+Builds a complete pipeline in the session workspace, then walks the run: intake,
 consolidate, draft in field-report voice, check precedent, extract the annotated
 sheet clips, render, verify. Output is a **.docx only** — one page per item, live
 Word table of contents, native EPLUS letterhead.
@@ -18,12 +18,19 @@ Word table of contents, native EPLUS letterhead.
 The reviewer generates the PDF from Word. That is deliberate: Word recalculates
 the TOC page-number fields on open and on export, and LibreOffice does not.
 
-What lands in the project folder:
+**Temporary:** `/test-punch` runs a scripted, token-minimal smoke test of the
+hooks, the workspace flow, and `package.py` with no real data, for capturing
+evidence in a session export. Remove `commands/test-punch.md` before wide
+rollout.
+
+The project folder is read-only until the end; the run finishes with one
+delivery (`scripts/package.py`): a zip of the whole workspace plus the `.docx`
+and review `.xlsx` beside it. Inside the package:
 
 ```
 _pipeline/
   CLAUDE.md              this project's operating manual, read first
-  scripts/               the nine-script pipeline + smoke test
+  scripts/               the pipeline scripts, smoke test, and packager
   data/                  items.json (facts) + drafted_items.json (judgment)
   build/                 what the renderer reads, report.config.json, the .docx
   ISSUES-LIST.md         open questions for the reviewer
@@ -75,14 +82,13 @@ Response sizes vary by more than 50x across these tools, so routing matters:
 
 ## Hooks
 
-Four, all with an `EPLUS_NO_*` escape hatch. Three are context-only and can never
+Three, all with an `EPLUS_NO_*` escape hatch. Two are context-only and can never
 block a tool call:
 
 | Event | What it does |
 |---|---|
-| `SessionStart` | If the folder holds a `_pipeline/`, points at that project's `CLAUDE.md` and restates the standing rules. Silent otherwise. |
 | `PostToolUse` (Write/Edit) | Sweeps `drafted_items.json` for photo-narration voice, third-person self-reference, and em/en dashes — at authoring time rather than at build time. |
-| `PostToolUse` (Bash) | After `gen_report.js`, reminds you to run `verify_report.py` and to sync sources back, not just the .docx. |
+| `PostToolUse` (Bash) | After `gen_report.js`, reminds you to run `verify_report.py` and to deliver only through `package.py`. |
 | `PreToolUse` (Bash) | **Denies** converting a punch report to PDF with LibreOffice. Deliberately narrow: it requires both a PDF conversion and a punch report path, so the `docx` skill's own soffice validation is untouched. |
 
 `PostToolUseFailure` is deliberately **not** wired here — the `error-reporting`

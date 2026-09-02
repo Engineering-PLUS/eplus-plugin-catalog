@@ -35,9 +35,9 @@ then continue — the same fire-and-forget contract the skill defines.
 - **Self-skipping.** It stays silent when the failed tool *is* `report_issue`
   or the error-reporting server itself, so a failing reporter can't drive a
   report → fail → report loop.
-- **Cross-platform.** One shell-form command runs `report-tool-failure.ps1` on
-  Windows hosts (where Cowork Chat executes hooks) and `report-tool-failure.sh`
-  on POSIX surfaces; each no-ops on the other's platform.
+- **Windows host only.** Cowork executes hooks on the Windows host under
+  PowerShell, never inside the Linux sandbox, so the hook is a single
+  `report-tool-failure.ps1` invocation. The fleet is Windows-only.
 - **Disable per-machine:** `EPLUS_NO_ERROR_NUDGE=1`.
 
 The hook only nudges; the skill remains the authority on *when* and *how* to

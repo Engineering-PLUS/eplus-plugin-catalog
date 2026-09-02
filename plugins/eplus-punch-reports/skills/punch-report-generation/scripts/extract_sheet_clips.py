@@ -111,7 +111,7 @@ def main():
     args = ap.parse_args()
 
     doc = pymupdf.open(args.pdf)
-    items = json.load(open(args.items_from))
+    items = json.load(open(args.items_from, encoding="utf-8"))
     targets = [i["number"] for i in items]
 
     start = first_content_page(doc)
@@ -151,7 +151,7 @@ def main():
             fallback.append(n)
 
     os.makedirs(os.path.dirname(os.path.abspath(args.dims_out)) or ".", exist_ok=True)
-    json.dump(dims, open(args.dims_out, "w"), indent=1)
+    json.dump(dims, open(args.dims_out, "w", encoding="utf-8"), indent=1)
 
     print(f"extracted {len(dims)}/{len(targets)} sheet clips -> {args.out_dir}")
     print(f"  used overflow fallback : {fallback or 'none'}")

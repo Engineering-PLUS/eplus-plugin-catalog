@@ -102,8 +102,8 @@ def main():
     ap.add_argument("--omit", default="", help="comma list of PlanGrid numbers to drop")
     args = ap.parse_args()
 
-    items = json.load(open(args.items))
-    drafted = {d["number"]: d for d in json.load(open(args.drafted))}
+    items = json.load(open(args.items, encoding="utf-8"))
+    drafted = {d["number"]: d for d in json.load(open(args.drafted, encoding="utf-8"))}
     omit = {int(x) for x in args.omit.split(",") if x.strip()}
 
     missing = [i["number"] for i in items if i["number"] not in drafted and i["number"] not in omit]
@@ -171,7 +171,7 @@ def main():
                  "narration or third person.\n" + "\n".join(offenders))
 
     os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
-    json.dump(master, open(args.out, "w"), indent=2)
+    json.dump(master, open(args.out, "w", encoding="utf-8"), indent=2)
 
     origins = {}
     for m in master:

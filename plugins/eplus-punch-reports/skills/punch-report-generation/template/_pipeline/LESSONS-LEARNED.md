@@ -61,5 +61,6 @@ tell the difference between a settled rule and an open question.
   four features its code did not have.
 - **Resolve a pin's sheet name and description before declaring it
   undeterminable.** It has converted a non-finding into a specific one.
-- **Work on local disk, sync sources and outputs back at the end.** The project
-  share is >45x slower and has already caused a source/render mismatch.
+- **Work only in the session workspace and deliver one package.** Working in
+  the project folder with a scratch copy was >45x slower and caused a
+  source/render mismatch when the sync back was missed; now there is no sync.

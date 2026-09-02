@@ -1,13 +1,14 @@
-# PostToolUse hook -- Windows half (see check-draft-voice.sh for the rationale).
+# PostToolUse hook. Runs on the Windows host under PowerShell.
 #
-# When drafted_items.json is written or edited, sweep it for the two voice rules
-# and for em/en dashes, and report any hit back as context so it is fixed at
-# authoring time rather than at build time.
+# When drafted_items.json is written or edited, sweep it for the field-report
+# voice rules and for em/en dashes, and report any hit back as context so it is
+# fixed at authoring time rather than at build time.
 #
-# build_master.py already fails the build on all three. This hook exists because
-# that failure arrives minutes later, after photos and clips have been rebuilt,
-# and because both voice rules were originally caught by a human reading a
-# rendered draft rather than by any check at all.
+# build_master.py is the authority: it fails the build on a voice hit, and it
+# rewrites em/en dashes to commas (mechanically, so the wording suffers) and only
+# fails if any survive. This hook exists because that feedback arrives minutes
+# later, after photos and clips have been rebuilt. The banned list mirrors
+# VOICE_BANNED in build_master.py; keep them in step.
 #
 # Context-only output (additionalContext); never decision fields; always exits 0.
 # Disable with EPLUS_NO_PUNCH_VOICE_CHECK=1.
@@ -29,11 +30,16 @@ try {
 
     # Editor's Notes are internal, are deleted before issuing, and legitimately
     # discuss photographs and pins. Only descriptions are in scope.
+    # Same eight patterns as build_master.py VOICE_BANNED.
     $banned = @(
-        @{ p = 'photograph';        why = 'narrates the evidence' },
-        @{ p = 'in the frame';      why = 'narrates the evidence' },
-        @{ p = 'this photo';        why = 'narrates the evidence' },
-        @{ p = 'the field engineer'; why = 'third-person self-reference' }
+        @{ p = 'photograph';                  why = 'narrates the evidence' },
+        @{ p = 'photo shows';                 why = 'narrates the evidence' },
+        @{ p = 'in the frame';                why = 'narrates the evidence' },
+        @{ p = '\bimages?\b';                 why = 'narrates the evidence' },
+        @{ p = 'this photo';                  why = 'narrates the evidence' },
+        @{ p = 'field engineer';              why = 'third-person self-reference' },
+        @{ p = 'no description was recorded'; why = 'narrates the record, not the site' },
+        @{ p = 'not determinable from';       why = 'narrates the evidence' }
     )
 
     $dashPattern = '[' + [char]0x2013 + [char]0x2014 + ']'
@@ -66,7 +72,8 @@ try {
            'since this report is theirs ("Work remained in progress at the time of the walk."). For ' +
            'genuinely unclear pins write "could not be established during the walk and requires field ' +
            'verification". No em or en dashes anywhere. Editor''s Notes are internal and exempt. ' +
-           'build_master.py will fail the build on these, so fix them now rather than after a rebuild.'
+           'build_master.py fails the build on a voice hit and mechanically rewrites dashes to commas, ' +
+           'so fix both now while the wording is still yours.'
 
     $out = @{ hookSpecificOutput = @{
         hookEventName     = 'PostToolUse'

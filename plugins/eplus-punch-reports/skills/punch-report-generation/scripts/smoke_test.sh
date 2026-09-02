@@ -14,6 +14,11 @@
 set -u
 cd "$(dirname "$0")"
 
+# Force UTF-8 for every Python step. Without this, Windows Python reads the
+# model-written UTF-8 JSON as the ANSI code page: an em dash becomes mojibake
+# that the dash check no longer catches, and it renders into the report.
+export PYTHONUTF8=1
+
 # The pipeline normally runs on the Linux side, where the interpreter is
 # python3; a Windows host usually only has `python`. Resolve rather than assume,
 # so a wrong interpreter name cannot masquerade as a missing dependency.
@@ -39,7 +44,8 @@ echo
 # Every python entry point must answer --help without importing its heavy deps
 # failing the run. A missing dep is reported separately from a broken interface.
 for s in consolidate.py normalize_photos.py extract_sheet_clips.py \
-         build_master.py review_sheet.py verify_report.py read_comments.py; do
+         build_master.py review_sheet.py verify_report.py read_comments.py \
+         package.py; do
     if [ ! -f "$s" ]; then bad "$s is missing"; continue; fi
     out=$("$PY" "$s" --help 2>&1)
     case "$?:$out" in

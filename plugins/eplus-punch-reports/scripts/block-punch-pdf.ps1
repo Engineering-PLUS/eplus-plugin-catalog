@@ -1,4 +1,4 @@
-# PreToolUse hook -- Windows half (see block-punch-pdf.sh for the rationale).
+# PreToolUse hook. Runs on the Windows host under PowerShell.
 #
 # Denies a LibreOffice PDF conversion of a punch report. The pipeline outputs
 # .docx only: the reviewer generates the PDF from Word, which is the only

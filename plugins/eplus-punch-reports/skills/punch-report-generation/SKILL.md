@@ -13,9 +13,18 @@ publishable document.
 $ARGUMENTS
 
 **The pipeline is a stampable project template, not a set of loose scripts.**
-Copy `template/` into the project folder and work inside it. The template's
+Build a workspace in the session's own outputs area (your working folder, never
+the user's project folder): copy `template/` into it, copy `scripts/` into
+`_pipeline/scripts/`, and copy the inputs (the PlanGrid pull and the Task Report
+PDF) in beside `_pipeline/` once. Work only there. The template's
 `_pipeline/CLAUDE.md` is the operating manual for that project and is the file
 a future run reads first — fill it in as you go rather than at the end.
+
+**Re-read `_pipeline/CLAUDE.md` whenever you resume a session, and again after a
+context compaction.** Nothing loads it for you: it sits one level below the
+working folder, so it is not picked up automatically, and compaction drops what
+you had read. It carries this project's scope decision and the rules the
+renderer bakes in, so a run that skips it re-derives them the hard way.
 
 ## Step 0 — Intake, before you start drafting
 
@@ -55,19 +64,23 @@ bash scripts/smoke_test.sh
 This exists because a previous generation of this pipeline documented four
 features its shipped code did not have. Run it; do not assume.
 
-### Work on local disk
+### The project folder is read-only until delivery
 
-EPLUS project folders live on a network share. Batches of small file operations
-against it are the biggest time sink here and the most common cause of a step
-that looks hung — photo normalisation has taken **over two minutes on the share
-versus 2.6 seconds locally**, a >45x difference on 14 MB. Copy in, work locally,
-copy back in small batches.
+The user's project folder is where the inputs come from and where the finished
+package goes. Nothing else touches it. Every step runs in the workspace, so the
+share's slowness (photo normalisation has taken **over two minutes on a share
+versus 2.6 seconds locally**) never enters the run, and sources and outputs
+cannot drift apart because there is only one copy of each.
 
-**Sync the sources back too, not just the outputs.** This pattern has already
-produced a near-miss: a `drafted_items.json` edit lived only in the local copy,
-the report was rendered from it, and the share's copy was never updated — so the
+That second point is the real reason. An earlier version of this workflow
+worked in the project folder with a local scratch copy and synced back by hand;
+a `drafted_items.json` edit once lived only in the scratch copy, the report was
+rendered from it, and the project folder's copy was never updated, so the
 document and the file that generates it disagreed and a re-run would have
-silently reverted the change.
+silently reverted the change. One workspace, one delivery, no sync step.
+
+Delivery is `scripts/package.py <workspace> <project folder>` and nothing else
+(Step 10).
 
 ## The premise: the input is always messy
 
@@ -496,7 +509,18 @@ timestamped `.bak.json` is written before anything changes.
 
 ### Step 10 — Deliver the draft, the issues list, and the handoff
 
-Three deliverables, not one.
+Three deliverables, not one, and they leave the workspace together in one
+package:
+
+```bash
+python3 scripts/package.py <workspace> "<project folder>"
+```
+
+That zips the whole workspace (pipeline, sources, data, build, handoff, minus
+`node_modules` and caches) into the project folder and places the `.docx` and
+the review `.xlsx` beside it. It is the only write to the project folder in the
+entire run, it refuses to overwrite a previous delivery, and `--dry-run` shows
+the manifest first. Do not copy files across by hand before or after it.
 
 **The issues list** (`_pipeline/ISSUES-LIST.md`) is first-class. It carries source
 conflicts (report both, never silently pick one), items referencing documents you

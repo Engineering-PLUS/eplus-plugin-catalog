@@ -61,7 +61,7 @@ HEAD = PatternFill("solid", fgColor="44546A")
 
 
 def export(build, out):
-    master = json.load(open(os.path.join(build, MASTER)))
+    master = json.load(open(os.path.join(build, MASTER), encoding="utf-8"))
     wb = Workbook()
     ws = wb.active
     ws.title = "Punch items"
@@ -116,7 +116,7 @@ def export(build, out):
 
 def do_import(build, xlsx):
     path = os.path.join(build, MASTER)
-    master = json.load(open(path))
+    master = json.load(open(path, encoding="utf-8"))
     by_ref = {m.get("plangrid_ref"): m for m in master}
 
     ws = load_workbook(xlsx).active
@@ -175,7 +175,7 @@ def do_import(build, xlsx):
 
     stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     shutil.copy2(path, f"{path}.{stamp}.bak.json")
-    json.dump(out, open(path, "w"), indent=2)
+    json.dump(out, open(path, "w", encoding="utf-8"), indent=2)
 
     print(f"backup   : {os.path.basename(path)}.{stamp}.bak.json")
     print(f"imported : {len(out)} items (dropped {dropped}, inserted {inserted})")

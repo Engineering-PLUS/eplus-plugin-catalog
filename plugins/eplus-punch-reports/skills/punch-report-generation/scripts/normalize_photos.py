@@ -40,7 +40,7 @@ def main():
     ap.add_argument("--quality", type=int, default=72)
     args = ap.parse_args()
 
-    items = json.load(open(args.items))
+    items = json.load(open(args.items, encoding="utf-8"))
     photos = [p for i in items for p in i["photos"]]
     os.makedirs(args.dest, exist_ok=True)
 
@@ -75,7 +75,7 @@ def main():
             dims[name] = [canvas_w, canvas_h]
 
     os.makedirs(os.path.dirname(os.path.abspath(args.dims_out)) or ".", exist_ok=True)
-    json.dump(dims, open(args.dims_out, "w"), indent=1)
+    json.dump(dims, open(args.dims_out, "w", encoding="utf-8"), indent=1)
 
     total_mb = sum(os.path.getsize(os.path.join(args.dest, n)) for n in dims) / 1e6
     print(f"normalized {len(dims)} photos ({rotated} EXIF-rotated) -> {args.dest}")

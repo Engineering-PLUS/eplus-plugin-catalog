@@ -24,6 +24,11 @@ set -euo pipefail
 
 BUILD="${BUILD:-build}"
 
+# Force UTF-8 for every Python step. Without this, Windows Python reads the
+# model-written UTF-8 JSON as the ANSI code page: an em dash becomes mojibake
+# that the dash check no longer catches, and it renders into the report.
+export PYTHONUTF8=1
+
 # The pipeline normally runs on the Linux side, where the interpreter is
 # python3; a Windows host usually only has `python`. Resolve rather than assume,
 # so a wrong interpreter name cannot masquerade as a missing dependency.
