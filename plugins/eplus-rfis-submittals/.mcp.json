@@ -2,7 +2,7 @@
   "mcpServers": {
     "eplus-rfi-engine": {
       "type": "sse",
-      "url": "@url:`https://hermes-eplus.centralus.cloudapp.azure.com/rfi/sse`",
+      "url": "http://20.9.42.66:8650/sse",
       "headers": {
         "Authorization": "Bearer af19f84270b9b2ff993fa7246c08067d84188ac01ae4fa4134c695ba4aa36de7"
       }
