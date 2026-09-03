@@ -7,11 +7,9 @@ fixes issues on their end. Filing is **fire-and-forget** — the server
 logs the message, returns a `log_id`, and nothing else happens. (The
 `log_id` leaves room to implement answers/follow-ups later.)
 
-The backend is the **Error Reporting engine** — a FastMCP server over
-HTTP/SSE on port 8652 of the same Azure VM as the Hermes RFI engine
-(8650) and the Document Analysis engine (8651), same bearer token.
-Remote SSE, safe to bundle; works in Claude Code, Cowork, and managed
-fleets alike.
+The backend is the **Error Reporting engine**, an EPLUS MCP server delivered
+to every seat as a **managed connector** from the desktop bootstrap config.
+The plugin ships no server definition and no credential.
 
 ## Contents
 
@@ -20,7 +18,6 @@ fleets alike.
 | Manifest  | [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) | Plugin identity and metadata |
 | Skill     | [`skills/error-reporting/SKILL.md`](skills/error-reporting/SKILL.md) | When to file (tool_failure vs change_request), fire-and-forget contract, one-report-per-issue, no secrets, never block the task |
 | Hook      | [`hooks/hooks.json`](hooks/hooks.json) | `PostToolUseFailure` nudge to auto-file failures (see below) |
-| MCP       | [`.mcp.json`](.mcp.json) | Bundled remote SSE connection to the Error Reporting VM with Bearer auth |
 
 ## Auto-report hook (`PostToolUseFailure`)
 
@@ -35,9 +32,9 @@ then continue — the same fire-and-forget contract the skill defines.
 - **Self-skipping.** It stays silent when the failed tool *is* `report_issue`
   or the error-reporting server itself, so a failing reporter can't drive a
   report → fail → report loop.
-- **Cross-platform.** One shell-form command runs `report-tool-failure.ps1` on
-  Windows hosts (where Cowork Chat executes hooks) and `report-tool-failure.sh`
-  on POSIX surfaces; each no-ops on the other's platform.
+- **Windows host only.** Cowork executes hooks on the Windows host under
+  PowerShell, never inside the Linux sandbox, so the hook is a single
+  `report-tool-failure.ps1` invocation. The fleet is Windows-only.
 - **Disable per-machine:** `EPLUS_NO_ERROR_NUDGE=1`.
 
 The hook only nudges; the skill remains the authority on *when* and *how* to
@@ -57,36 +54,20 @@ report_issue(message: str, category: str = "tool_failure",
 - `details`: verbose supporting info — exact error text, the tool
   inputs that failed, what was tried
 
-## Claude Code / Cowork configuration
+## Server delivery
 
-Bundled in [`.mcp.json`](.mcp.json):
-
-```json
-{
-  "mcpServers": {
-    "error-reporting": {
-      "type": "sse",
-      "url": "http://20.9.42.66:8652/sse",
-      "headers": {
-        "Authorization": "Bearer af19f84270b9b2ff993fa7246c08067d84188ac01ae4fa4134c695ba4aa36de7"
-      }
-    }
-  }
-}
-```
-
-> **Security note:** the bearer token is the shared static credential
-> used by all three EPLUS engines (8650/8651/8652), sent over plain
-> HTTP. Rotate them together if it leaks, and prefer fronting the VM
-> with HTTPS before wide deployment. The skill additionally forbids
-> putting tokens, keys, or file contents inside report bodies.
+The `error-reporting` server is a **managed connector** pushed by the desktop
+bootstrap config; nothing in this repo defines it and no token lives here.
+The managed server name must be exactly `error-reporting` so the tool name
+the skill and the hook use, `mcp__error-reporting__report_issue`, holds.
+Rotate the credential on the server side; the plugin never needs to change.
 
 ## Tool naming
 
-The tool appears as
-`mcp__plugin_error-reporting_error-reporting__report_issue` when loaded
-from this plugin, or `mcp__error-reporting__report_issue` from a
-desktop/managed connection. The skill tolerates both.
+With the managed connector the tool appears as
+`mcp__error-reporting__report_issue`. The skill and the hook also tolerate the
+plugin-bundled form `mcp__plugin_error-reporting_error-reporting__report_issue`
+in case the server is ever bundled again.
 
 ## Versioning
 

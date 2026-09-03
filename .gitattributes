@@ -1,5 +1,14 @@
-# Shell scripts must stay LF everywhere. Cowork's sandbox runs hook scripts
-# under dash, which aborts on CRLF line endings — with core.autocrlf=true a
-# Windows checkout would otherwise rewrite bundled *.sh to CRLF and break every
-# hook that ships one.
+# Shell scripts must stay LF everywhere. The punch pipeline's run_pipeline.sh and
+# smoke_test.sh execute inside the Cowork Linux VM under dash, which aborts on CRLF
+# line endings; with core.autocrlf=true a Windows checkout would otherwise rewrite
+# them to CRLF. (Hooks no longer ship .sh halves; they run on the Windows host.)
 *.sh text eol=lf
+
+# The punch pipeline's Python, JS, JSON and Markdown must also stay LF. Any tool
+# that reads and rewrites a CRLF file in text mode converts the whole file to LF
+# and produces a diff where every line changed (gen_report.js once showed 1891
+# diff lines for 9 real edits). Pin the working format so this stops recurring.
+*.py text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.md text eol=lf

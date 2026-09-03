@@ -1,11 +1,15 @@
 {
-  "description": "Auto-nudges the model to file EPLUS tool failures via this plugin's report_issue tool. One PostToolUseFailure wiring using the polyglot shell-form pattern: report-tool-failure.ps1 runs on Windows hosts (where hooks execute in Cowork Chat), report-tool-failure.sh on POSIX surfaces, each no-ops on the other's platform, trailing `exit 0` valid in every routed shell. Context-only (additionalContext); never blocks a tool call.",
+  "description": "Auto-nudges the model to file EPLUS tool failures via this plugin's report_issue tool. One PostToolUseFailure wiring running report-tool-failure.ps1. The fleet is Windows-only and Cowork executes hooks on the Windows host under PowerShell (never inside the Linux sandbox, even when the VM is running), so the hook is a single PowerShell invocation; the earlier POSIX .sh half was removed because it had no execution path on any seat and its failed lookup polluted every export's hook stderr. Context-only (additionalContext); never blocks a tool call; always exits 0. Disable per-machine with EPLUS_NO_ERROR_NUDGE=1. Hook form (adopted 2026-09-03 after a field A/B in the same export): every entry uses shell: powershell with a direct & script call, so the app's own PowerShell runs the script in one process (540 ms measured) instead of launching a second powershell.exe (907 ms); the single-launch form is the standard for this catalog.",
   "hooks": {
     "PostToolUseFailure": [
       {
         "matcher": "*",
         "hooks": [
-          { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/report-tool-failure.ps1\"; sh \"${CLAUDE_PLUGIN_ROOT}/scripts/report-tool-failure.sh\"; exit 0" }
+          {
+            "type": "command",
+            "command": "& \"${CLAUDE_PLUGIN_ROOT}\\scripts\\report-tool-failure.ps1\"",
+            "shell": "powershell"
+          }
         ]
       }
     ]

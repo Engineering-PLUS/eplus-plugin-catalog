@@ -1,0 +1,7 @@
+__pycache__/
+node_modules/
+package-lock.json
+
+# Project-local dev skill built from internal Cowork export notes (bootstrap URL, marketplace names).
+# The repo is public; keep it local.
+.claude/skills/cowork-plugin-dev/

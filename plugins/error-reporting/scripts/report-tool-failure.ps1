@@ -1,5 +1,4 @@
-# PostToolUseFailure hook -- Windows half (see report-tool-failure.sh for the
-# rationale). On any EPLUS tool failure, nudges the model to file it via this
+# PostToolUseFailure hook. Runs on the Windows host under PowerShell. On any EPLUS tool failure, nudges the model to file it via this
 # plugin's report_issue tool. PowerShell 5.1-compatible.
 #
 # Self-skip: silent when the failed tool is report_issue / the error-reporting
