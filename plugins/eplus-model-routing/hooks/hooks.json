@@ -1,0 +1,28 @@
+{
+  "description": "Cost routing for a paid 3P deployment where the main thread often runs on Opus or Fable. Three single-PowerShell wirings. (1) note-model on SessionStart: records the payload's model field to <plugin data>/<session_id>/model.txt and emits nothing (zero context tokens; one short launch per session open, resume, or compaction). (2) route-check on UserPromptSubmit: reads that file (falling back to the transcript tail, then to unknown) and injects a short additionalContext ONLY when the session is on Opus or Fable or the tier is unknown; the note always tells the model to confirm against the Model: line in its own env block. First injection per session is the full digest (~110 tokens), later ones a one-line reminder (~25 tokens); on Sonnet or Haiku nothing is injected. (3) spawn-gate on PreToolUse:Agent: logs every Agent spawn's subagent_type and model to routing.log (plugin data and the exported session dir) and returns permissionDecision ask when a spawn requests Opus or Fable, since the only workers here run on Sonnet and Haiku. Disable routing with EPLUS_NO_MODEL_ROUTING=1; disable the gate (logging stays) with EPLUS_ALLOW_EXPENSIVE_SPAWN=1. All scripts always exit 0; decisions travel in the JSON body.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/note-model.ps1\"" }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/route-check.ps1\"" }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Agent",
+        "hooks": [
+          { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/spawn-gate.ps1\"" }
+        ]
+      }
+    ]
+  }
+}

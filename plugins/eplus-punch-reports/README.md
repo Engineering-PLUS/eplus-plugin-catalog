@@ -11,9 +11,12 @@ wording defensible.
 ```
 
 Builds a complete pipeline in the session workspace, then walks the run: intake,
-consolidate, draft in field-report voice, check precedent, extract the annotated
-sheet clips, render, verify. Output is a **.docx only** — one page per item, live
-Word table of contents, native EPLUS letterhead.
+consolidate, an interactive wording review (each item previewed as it will
+render, before its text is locked), draft in field-report voice, check
+precedent, extract the annotated sheet clips, render, verify. Output is a
+**.docx only** — one page per item, a real Word table of contents field, native
+EPLUS letterhead. Revisions unzip the prior package into a fresh workspace and
+deliver again under a new name.
 
 The reviewer generates the PDF from Word. That is deliberate: Word recalculates
 the TOC page-number fields on open and on export, and LibreOffice does not.
@@ -44,10 +47,14 @@ handoff. The issues list is where the reviewer's attention gets directed.
 
 ## Searching the corpus
 
-The `eplus-punch-engine` MCP server (SSE, port 8653) on the Hermes VM, backed by
-**724 punch items and 41 narrative report bodies** from 41 published EPLUS
-reports (2022–2026) across nine data center projects: NVA02E, NVA05A, NVA05D,
-POR03B, POR03C, CHI01A, SVY01D, SVY01E, SVY01F.
+The `punch-knowledge-hub` MCP server is delivered as a **managed connector from
+the desktop bootstrap configuration**, not bundled with this plugin: the plugin
+no longer ships a `.mcp.json`. The managed server **must be named
+`punch-knowledge-hub`**, because the `punch` skill addresses its tools as
+`mcp__punch-knowledge-hub__<tool>` and those names only hold under that server
+name. It is backed by **724 punch items and 41 narrative report bodies** from
+41 published EPLUS reports (2022–2026) across nine data center projects:
+NVA02E, NVA05A, NVA05D, POR03B, POR03C, CHI01A, SVY01D, SVY01E, SVY01F.
 
 Each item carries the field engineer's own description, the live
 open/closed/pending status from PlanGrid, the drawing sheet it was pinned to, and
@@ -76,7 +83,11 @@ Response sizes vary by more than 50x across these tools, so routing matters:
 - **`punch-report-generation`** — produces a new report from raw field material.
   Assumes the input is messy because it always is, and surfaces what it cannot
   determine instead of inventing it. Carries the pipeline, the project template,
-  and the rendering defaults that were learned the hard way.
+  and the rendering defaults that were learned the hard way. `SKILL.md` is a
+  short core (intake, premise, a stage router, the command per step); the
+  step detail lives in `reference/` as one file per stage (`build-data`,
+  `drafting`, `render`, `verify-and-deliver`, `revising`), loaded one at a
+  time for the stage the run is in.
 - **`plangrid-extraction`** — how PlanGrid PDFs store their data, for when someone
   drops a raw punch report into the chat.
 
@@ -89,7 +100,7 @@ block a tool call:
 |---|---|
 | `PostToolUse` (Write/Edit) | Sweeps `drafted_items.json` for photo-narration voice, third-person self-reference, and em/en dashes — at authoring time rather than at build time. |
 | `PostToolUse` (Bash) | After `gen_report.js`, reminds you to run `verify_report.py` and to deliver only through `package.py`. |
-| `PreToolUse` (Bash) | **Denies** converting a punch report to PDF with LibreOffice. Deliberately narrow: it requires both a PDF conversion and a path naming `_pipeline` or a `-DRAFT-v` report, so the `docx` skill's own soffice validation is untouched even in a folder named after punch work. |
+| `PreToolUse` (Bash) | **Denies** converting a punch report to PDF with LibreOffice. Deliberately narrow: it requires both a PDF conversion and a path naming `_pipeline` or a `-DRAFT-v` report, so the `docx` skill's own soffice validation is untouched even in a folder named after punch work. `scripts/render_preview.py` is exempt by name: it converts in a scratch directory it deletes, purely to rasterise pages for a layout check. |
 
 `PostToolUseFailure` is deliberately **not** wired here — the `error-reporting`
 plugin owns that event, and a second wiring produces a duplicate nudge for the

@@ -52,12 +52,14 @@ package name. Never edit the delivered copy in place.
 
 The pull is `<pull folder>/`. Two shapes to check for, every time:
 
-1. **A `delta_<from>_to_<to>/` folder may hold the authoritative task list.**
-   When a pull is taken across more than one session, the delta holds a later,
-   **superset** `tasks.json` but only the **new** photo binaries, and often an
-   **empty** `sheets.json`. A correct read needs the delta's tasks, **both**
-   photo directories, and the base's sheets. Reading either half alone quietly
-   loses either items or photos. `consolidate.py` handles this.
+1. **`delta_<from>_to_<to>/` folders, possibly several.** When a pull is taken
+   across more than one session, each delta holds the tasks touched in its
+   window plus only the **new** photo binaries, and usually an **empty**
+   `sheets.json`. A later delta is **not** a superset of an earlier one.
+   `consolidate.py` layers the base and every delta oldest-first, merges tasks
+   by uid, and indexes photos across every layer; its `tasks source` line
+   names the layers it used. Reading any one folder alone quietly loses either
+   items or photos.
 
 2. **The Task Report PDF is not in the pull.** It is exported separately from
    PlanGrid and is the ONLY source of the per-item annotated sheet clips (the
@@ -114,37 +116,56 @@ python3 scripts/extract_sheet_clips.py "<Task Report>.pdf" \
 python3 scripts/build_master.py --items data/items.json \
     --drafted data/drafted_items.json -o build/master_report_items.json
 
-# 5. render and verify
+# 5. render, repair bookmark ids, verify
 node scripts/gen_report.js build
+python3 scripts/fix_bookmark_ids.py build/<filename>.docx
 python3 scripts/verify_report.py build/<filename>.docx
+
+# optional layout spot check (needs soffice on PATH; deletes its own PDF)
+python3 scripts/render_preview.py build/<filename>.docx --pages 1,4
 ```
 
 `data/items.json` is **facts**, regenerated from the pull.
 `data/drafted_items.json` is **judgment**, written during the drafting step.
-Only the second is yours to edit by hand.
+Only the second is yours to edit by hand. It is a bare list of entries or
+`{"items": [...], "merges": [...]}`; the field list is in the skill's
+`reference/drafting.md` (Step 4).
+Two fields matter to the renderer beyond the text: `photo_mode` on a photo-less
+item (`own_photos` renders a blank paste grid, `none` drops the grid and label,
+`followup` renders the grid), and `origin`: entries marked `user_reviewed` or
+`reviewer_final` are human-approved and `build_master.py` never rewrites them,
+failing the build instead if they are not already clean.
 
-### No PDF is generated here, and the TOC uses real Word fields
+### No PDF is generated here, and the TOC is a real Word TOC field
 
 These two facts are linked. Do not undo either.
 
 **We output .docx only.** The reviewer generates the PDF from Word when markup
-is finished. Word recalculates fields on open and on PDF export.
+is finished. Word recalculates fields on open and on PDF export. LibreOffice
+paginates differently and does not update fields, so a PDF made with it carries
+wrong page numbers; that shipped once and is why the PDF guard hook exists.
 
-**TOC page numbers are `PAGEREF` fields**, one per item, pointing at a bookmark
-on each item heading, with `features: { updateFields: true }` so Word refreshes
-them on open. Ctrl+A then F9 forces it.
+**The contents block is one `TOC \o "1-1" \h \z \u` field.** Its cached
+result, written by the renderer, is the styled entry list: one `PAGEREF` field
+per item pointing at the bookmark on that item's Heading 1, wrapped in a
+hyperlink, so the list is visible the moment the file opens. `features:
+{ updateFields: true }` makes Word refresh on open; *Update Table* or Ctrl+A
+then F9 regenerates **titles, page numbers and the entry count together**, so
+deleting or adding an item in Word repairs the whole contents page. Regenerated
+entries take the document's `TOC1` style, which matches the cached look.
 
-This replaced a two-pass render that computed page numbers by converting to PDF
-with LibreOffice and harvesting them in as **static text**. **LibreOffice
-paginates differently from Word**, so the harvested numbers were wrong the moment
-the file opened in Word, and being plain text they never recalculated. The only
-reason for that design was that a field renders blank when LibreOffice makes the
-PDF. Since we no longer make the PDF, that constraint is gone.
+Two earlier designs died on field evidence: static page numbers harvested from
+a LibreOffice render (wrong renderer, never recalculated), then hand-built
+entries with live page-number fields but static titles (numbers self-healed on
+F9 while deleted items stayed listed, so the TOC rotted while the body looked
+right). Owning the whole block as one field is what fixed it.
 
-**Consequence to be aware of:** entry *titles* are still static text, so deleting
-an item in Word renumbers the headings but not the TOC labels. Page numbers
-self-heal, labels do not. For anything beyond a small edit, use the review
-spreadsheet and re-render.
+**`fix_bookmark_ids.py` must run after every render.** The docx library writes
+every bookmark with the same numeric id; Word keys on the id, keeps one and
+discards the rest, and every TOC entry after the first shows `Error! Bookmark
+not defined.` on F9. `run_pipeline.sh` runs it; `verify_report.py` asserts the
+ids are unique and that exactly one canonical TOC field wraps an entry list the
+same length as the item list.
 
 ---
 
@@ -236,7 +257,14 @@ timestamped `.bak.json` is written before anything changes.
   gets edited in Word and the commonest edit is adding or swapping a photo;
   borderless cells give the reviewer nothing to aim at. Empty slots are drawn but
   carry no placeholder text, because the file is exported to PDF as-is and hint
-  text would print.
+  text would print. Empty cells are given the height of a filled cell, because an
+  empty paragraph collapses to an invisible hairline. An item with no photos
+  still gets one empty row as a paste target unless its `photo_mode` is `none`,
+  and the "Photos" label carries no count, which would go stale on the first
+  edit.
+- **The cover is optional.** `"include_cover": false` in `report.config.json`
+  drops the cover section for clients who issue their own coversheet; the
+  contents page then becomes page 1.
 - **Sheet designators are normalised `TO` to `T0`.** PlanGrid's sheet-name OCR
   reads the character after a leading T as a letter O rather than a zero at upload
   time. The upstream fix is to correct each sheet name by hand when uploading
@@ -252,8 +280,10 @@ timestamped `.bak.json` is written before anything changes.
   wrong renders a 23-inch image. Hit twice historically.
 - **`rowSpan` is declared once**, on the first row's cell only.
 - **EXIF orientation must be applied before resize.**
-- **Photos are 1.90 inch, fill-and-continue pagination.** Tuned to cut blank
-  space. Do not change without asking.
+- **Photos are 1.90 inch in a fixed two-column grid, fill-and-continue
+  pagination.** As many complete rows as fit on the item page, the rest on
+  headed continuation pages. Tuned to cut blank space. Do not change without
+  asking.
 - **Green is for visually distinct callouts only**, not inline bold labels.
 - **Write to new filenames, never overwrite.**
 
@@ -261,6 +291,8 @@ timestamped `.bak.json` is written before anything changes.
 
 Cover and footer strings are **not** hardcoded. They live in
 `build/report.config.json`. Change them there, not in the renderer.
+
+`include_cover` (default `true`) also lives there; see the renderer rules above.
 
 Two rules about that file:
 
@@ -276,7 +308,7 @@ Two rules about that file:
 ## Precedent
 
 Item wording is checked against the EPLUS punch corpus via the
-`eplus-punch-engine` tools, using the `punch` skill. Search to find candidates,
+`punch-knowledge-hub` tools, using the `punch` skill. Search to find candidates,
 then `get_punch_item` to read the exact wording before citing it.
 
 <Record this project's precedent coverage here: how many items carry a citation,

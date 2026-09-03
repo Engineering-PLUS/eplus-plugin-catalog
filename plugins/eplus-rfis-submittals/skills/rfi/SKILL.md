@@ -1,16 +1,17 @@
 ---
 name: rfi
-description: Use this skill whenever a task involves RFIs (Requests for Information), submittals, submittal review, RFI response drafting, spec clause lookups, CSI division/section questions, logging or committing a finalized/issued RFI response to the knowledge base, or the eplus-rfi-engine MCP tools (query_hermes_rfi, commit_approved_rfi, list_sources, read_source, grep_corpus). Encodes the EPLUS RFI workflow — settle the memory question up front, deconstruct the request, query Hermes, draft the response to the house format, then gate the knowledge-base write-back behind an explicit AskUserQuestion approval — plus the return path for logging a final RFI that was edited and issued outside the chat. Always load it before calling any eplus-rfi-engine tool.
+description: Use this skill whenever a task involves RFIs (Requests for Information), submittals, submittal review, RFI response drafting, spec clause lookups, CSI division/section questions, logging or committing a finalized/issued RFI response to the knowledge base, or the rfi-knowledge-hub MCP tools (query_hermes_rfi, commit_approved_rfi, list_sources, read_source, grep_corpus). Encodes the EPLUS RFI workflow — settle the memory question up front, deconstruct the request, delegate the lookup to the rfi-researcher agent, draft the response to the house format, then gate the knowledge-base write-back behind an explicit AskUserQuestion approval — plus the return path for logging a final RFI that was edited and issued outside the chat. Always load it before calling any rfi-knowledge-hub tool.
 argument-hint: <RFI text, attached document reference, or instructions — e.g. "review this request and draft a response">
 ---
 
-# EPLUS RFI & Submittal workflow (eplus-rfi-engine MCP)
+# EPLUS RFI & Submittal workflow (rfi-knowledge-hub)
 
-Rules for processing RFIs and submittals through the `eplus-rfi-engine`
-MCP server. Depending on delivery, its tools appear as
-`mcp__eplus-rfi-engine__<tool>` (managed/desktop connector) or
-`mcp__plugin_eplus-rfis-submittals_eplus-rfi-engine__<tool>` (this
-plugin). Same server, same rules.
+Rules for processing RFIs and submittals through the `rfi-knowledge-hub`
+server, delivered as a **managed connector** from the desktop bootstrap
+config (this plugin bundles no server definition and no token). Its
+tools appear as `mcp__rfi-knowledge-hub__<tool>`; the bundled form
+`mcp__plugin_eplus-rfis-submittals_rfi-knowledge-hub__<tool>` is
+tolerated wherever it still appears. Same server, same rules.
 
 When invoked as a slash command, process the following request through
 the workflow below:
@@ -32,9 +33,9 @@ section rather than as the message itself.
 
 ## Backend: Hermes Knowledge Engine
 
-Hermes is an autonomous agent on a dedicated VM (FastMCP over HTTP/SSE)
+Hermes is an autonomous agent behind the EPLUS knowledge base connector
 with native file access to 82,000+ pages of extracted AEC technical
-documents — Core & Shell specs, TFO documentation, product submittals,
+documents — Core & Shell specs, program-specific documentation, product submittals,
 historical RFIs, and TIA/NEC codebooks — indexed via Graphify
 (Graph-RAG). It can traverse graph dependencies across specs, drawings,
 and building codes.
@@ -48,60 +49,19 @@ query text seed the search on the wrong nodes and poison retrieval.
 
 ## Available tools
 
-- `query_hermes_rfi(query, project_id="default", csi_section=None)` —
-  dispatches a search query to the Hermes Graph-RAG engine and returns a
-  synthesized context report. Read-only; call freely.
-  - `query`: **topic keywords only** — equipment, materials, systems,
-    and the technical subject (e.g. `"telecom ductbank fiber routing
-    separation outside plant"`). Never put project names, CSI/section
-    numbers, or meta-words like "spec requirements" / "RFI precedent"
-    in it.
-  - `project_id`: the project name goes HERE (e.g. `"STACK_NVA05D"`,
-    `"Miner_Building_A"`) — it biases which documents are read. When
-    set, the engine runs a second project-scoped retrieval pass; each
-    entry in the response's `sources` is labeled `"pass": "general"`
-    or `"pass": "project"` so you can see where coverage came from.
-  - `csi_section`: the CSI section goes HERE (e.g. `"27 05 26"`).
-  - The response's `additional_candidates` lists relevant documents
-    that were found but NOT read this time. If the answer looks
-    incomplete, draw the next query's keywords from those titles — or
-    read them directly with `read_source` — instead of guessing.
-
-**Direct corpus tools — no synthesis models involved, instant, zero
-token cost on the backend.** Prefer these over `query_hermes_rfi`
-whenever you already know WHAT document you need; use the graph query
-when you need to DISCOVER what exists on a topic.
-
-- `list_sources(category=None, project=None, pattern=None,
-  spec_version=None, max_results=100)` — browse the corpus file
-  listing. `category`: codebooks | specifications | rfis_historical |
-  submittals | rfis_approved. `pattern`: case-insensitive substring on
-  the path ("270526", "RFI_254", "ductbank"). Returns paths usable
-  with `read_source`.
-- `read_source(src, offset=0, max_chars=20000)` — the exact text of
-  one document, verbatim ground truth. Use it to pull a specific spec
-  part or clause, to page through a long document (`total_chars` in
-  the response tells you when to page), and to VERIFY any excerpt from
-  a query report before citing it in a draft.
-- `grep_corpus(pattern, category=None, project=None, spec_version=None,
-  max_hits=20)` — exact keyword/phrase/regex search across the raw
-  corpus with context lines. The fastest way to find every mention of
-  a part number, spec clause ("27 05 26-2.4"), RFI number, or device
-  model across all projects.
-
-**Spec versions:** specification files exist as the baseline issue and
-an authoritative 2025-08 update. All three direct tools accept
-`spec_version`: `"latest"` (the 2025-08 update where one exists —
-default choice for determinations), `"baseline"` (the current issue),
-`"all"` (both — use when the user asks what changed between versions).
-`read_source` reports the file's `version` so citations can name it.
-- `commit_approved_rfi(rfi_id, markdown_content, metadata, project_id="default")` —
-  writes a human-approved final RFI response to the VM database and
-  triggers an incremental background update to the knowledge graph.
-  **Write-back: never call without explicit user approval through the
-  Step 4 AskUserQuestion gate (or the return-path confirmation gate).**
-  Required metadata minimum: CSI section, subject, and date. Never
-  commit with empty metadata.
+Five tools on `rfi-knowledge-hub`; exact signatures and parameter rules
+live in [`reference/tools.md`](reference/tools.md). Four are read-only
+— `query_hermes_rfi` (discovery search with a synthesized report),
+`list_sources`, `read_source` (verbatim text, the only citable source),
+`grep_corpus` (exact/regex search) — and **only the `rfi-researcher`
+agent calls them** (Step 2). The fifth,
+`commit_approved_rfi(rfi_id, markdown_content, metadata, project_id="default")`,
+writes a human-approved final response to the knowledge base. **Main
+thread only, and never without explicit user approval through the Step 4
+AskUserQuestion gate (or the return-path confirmation gate).** Required
+metadata minimum: CSI section, subject, and date. Never commit with
+empty metadata. The plugin's PreToolUse hook makes the harness prompt
+before every call as a second line of defense.
 
 ## The workflow
 
@@ -180,72 +140,74 @@ the return path below.
 If the RFI is ambiguous or missing critical attributes, ask the user
 before querying.
 
-### Step 2 — Targeted Hermes query formulation
+### Step 2 — Delegate research to rfi-researcher
 
 **Do NOT answer the RFI from general pre-training memory.** All
-substantive technical claims must be grounded in Hermes-returned context.
+substantive technical claims must be grounded in evidence the
+`rfi-researcher` agent brings back from the spec database.
 
-**Pick the right retrieval path first.** If the RFI already names the
-authority you need — a spec section ("27 05 26 part 2.4"), an RFI
-number, a device/part number — go DIRECT: `grep_corpus` to locate it,
-`read_source` to pull the exact text (`spec_version="latest"` for
-determinations). That's verbatim ground truth at zero backend cost and
-counts fully as grounding. Use `query_hermes_rfi` when you need to
-discover what the corpus holds on a topic: precedent, related
-submittals, cross-project practice.
+**The four read tools are never called inline in the main thread.** A
+single discovery report can run thousands of tokens and stays in this
+conversation for every later turn; the researcher (this plugin's agent,
+on Sonnet) does the lookups in its own isolated context under a hard
+budget — at most 3 discovery queries, 4 direct reads, 10 local file
+operations — and returns a brief of at most 400 words. Only the brief
+enters this thread.
 
-Build the query as **4–10 topic keywords**, not a sentence. Pick the
-nouns a spec writer or submittal title would use: equipment, materials,
-systems, standards bodies, and the technical subject. Pass project and
-CSI section through their own parameters — never inside the query text.
+**Compose the input (200–300 tokens), then spawn the agent** via the
+Agent tool (`eplus-rfis-submittals:rfi-researcher`):
 
-- Good: `query="IDF rack dedicated circuit UPS receptacle power",
-  project_id="STACK_NVA06A", csi_section="26 05 00"`
-- Bad: `query="NVA06 spec requirements and prior RFI precedent for
-  UPS-backed circuits (CSI 26 05 00)"` — the project name, CSI number,
-  and intent words match the wrong graph nodes and poison retrieval.
+- RFI id and project_id (from Step 1)
+- csi_section, if known
+- the question in one sentence
+- extracted nouns: equipment, materials, systems, standards bodies — the
+  words a spec writer or submittal title would use; no intent phrasing
+  ("spec requirements", "precedent"), no project names, no CSI numbers
+- any named authority: spec section ("27 05 26 part 2.4"), RFI number,
+  device/part number — the agent goes direct on those instead of searching
+- spec_version: `latest` unless the user asks otherwise
+- mode: `determination` | `precedent` | `changed-between-versions`
 
-Then execute:
+Example input:
 
-query_hermes_rfi(query=..., project_id=..., csi_section=...)
+    RFI: RFI-118  project_id: PROJECT_A  csi_section: 26 05 00
+    Question: Does the IDF rack circuit need to be UPS-backed?
+    Nouns: IDF rack dedicated circuit UPS receptacle power
+    Authority: none named  spec_version: latest  mode: determination
 
-If the report leaves gaps, check its `additional_candidates` first —
-those are documents the engine found but didn't read. Reading the
-promising ones with `read_source` is cheaper and more precise than
-another graph query. Only then run additional queries with **different
-keyword angles** (synonyms, the counterpart trade's vocabulary, the
-governing standard's terms — e.g. `ductbank` vs `duct bank` vs
-`underground pathways`), rather than lengthening one query.
+**Read the brief's `Status` before drafting:**
 
-**Verify before you cite.** Before a quoted clause, number, or
-determination goes into the draft, confirm it against the source with
-`read_source` (the report names each excerpt's source path). The
-synthesis stage is instructed to quote verbatim, but the source file is
-the authority — a ten-second read beats a wrong citation in an issued
-RFI.
+- `grounded` → draft (Step 3) from the Findings and Verbatim clauses
+  only. Cite only clauses listed under Verbatim clauses, with the source
+  path and version the brief gives. Nothing the brief did not confirm
+  goes into a citation.
+- `keyword-miss` → the database was reached but nothing matched. If the
+  brief's Next step proposes a query, resume the same agent with it (one
+  more run). If that also misses, tell the user what was searched and
+  ask for a different angle or a named source — do not draft a
+  determination.
+- `degraded` → the database could not be reached or returned no real
+  content (the researcher already tried the direct tools). Relay the
+  plain-language explanation and the technical-details block, then
+  follow the degraded mode section below: PENDING VERIFICATION shell and
+  the degraded-mode gate variant in Step 4. Never fill the gap from
+  memory.
 
-**At most 2–3 queries per batch — review the results before querying
-again.** Each report can run thousands of tokens and stays in the
-conversation for every subsequent turn, so a broad exploratory batch
-burns the daily token budget even when each response is fine on its
-own. Read what came back, keep only the angle that's working, and let
-that decide whether another query is needed at all.
+**Resume or spawn anew.** A "Revise draft" that needs new technical
+substance (a different determination, new clauses, changed scope)
+resumes the same researcher with the delta — it already holds the
+sources. A new RFI, a different project, or a changed-between-versions
+question on the same RFI gets a fresh agent with a fresh budget.
 
-**"No relevant content found in retrieved documents." is a keyword
-miss, not an outage.** The database reached real documents but none
-matched the topic. Retry 1–2 times with different keyword angles
-before treating the lookup as failed; only enter degraded mode if
-retries also come back empty or the tool itself errors.
+**Batches.** N RFIs = one researcher per RFI, at most 3 running at once;
+launch them together, then draft and gate each RFI sequentially in this
+thread, one Step 4 gate per RFI. Never one agent for several RFIs — the
+budget and the brief are per question.
 
-**Inspect the payload, not the status field.** A stubbed or empty Hermes
-backend still returns `status: "success"` — the scaffold/stub marker is
-buried inside the nested `result` string. Before synthesizing anything,
-verify the response contains real retrieved content: actual spec clause
-text, code section excerpts, or document citations. If the result is a
-scaffold marker, placeholder, or empty context, treat the query as
-**failed** and enter degraded mode (below). Synthesizing from an empty
-context produces a fully fabricated RFI response — the most dangerous
-failure mode in this workflow.
+**If the spawn fails** (agent not found, model alias blocked, Agent tool
+unavailable), tell the user in one line what failed and STOP. Do not
+research inline and do not draft: the user decides whether to fix the
+session or proceed without the database.
 
 ### Step 3 — Synthesis & draft generation
 
@@ -288,14 +250,14 @@ a generated document.
 
 a. **User explicitly requested a file** (said "Word doc", "docx",
    "send me a file", "something I can attach/issue", or attached a
-   docx template to match): FIRST read the docx skill at
-   `/mnt/skills/public/docx/SKILL.md` and follow it to produce the
+   docx template to match): FIRST load the docx skill if one is
+   available in this environment and follow it to produce the
    response as a .docx file built from the markdown draft. Apply EPLUS
    branding per the `eplus-branding-default-fonts` skill (portable
    fonts — RFI responses get issued as PDFs and reopened in Bluebeam).
-   Present the file with `present_files` when done. If file-creation
-   tools are unavailable in this environment, say so explicitly and
-   fall back to path (b).
+   Present the file when done (`present_files` where that tool exists,
+   otherwise by path). If no docx skill or file-creation tools are
+   available, say so explicitly and fall back to path (b).
 
 b. **No file requested** (the default): do NOT load the docx skill and
    do NOT create any file. Render the draft as a clean HTML artifact
@@ -423,7 +385,7 @@ text or attached document) and asks to log, commit, or save it:
 
 ## Failure protocol
 
-If the `eplus-rfi-engine` connector is missing or a tool call errors,
+If the `rfi-knowledge-hub` connector is missing or a tool call errors,
 tell the user in plain language what failed and that no spec lookup
 was performed — never silently skip the query or fabricate spec/code
 citations. Include the verbatim error in a clearly-labeled technical

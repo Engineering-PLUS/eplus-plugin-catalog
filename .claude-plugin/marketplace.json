@@ -75,6 +75,21 @@
         "feedback",
         "internal"
       ]
+    },
+    {
+      "name": "eplus-model-routing",
+      "displayName": "EPLUS Model Routing",
+      "description": "Cost control: detects when a session runs on Opus or Fable, injects the routing rule at that moment, and ships sonnet-standard and haiku-fast workers to delegate to. Expensive spawns need an explicit click.",
+      "source": "./plugins/eplus-model-routing",
+      "category": "Documents & Productivity",
+      "tags": [
+        "cost",
+        "routing",
+        "subagents",
+        "sonnet",
+        "haiku",
+        "internal"
+      ]
     }
   ]
 }

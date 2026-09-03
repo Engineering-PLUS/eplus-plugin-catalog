@@ -3,11 +3,11 @@
 extract_sheet_clips.py, pull the per-item annotated drawing clip (sheet + pin
 stamp) out of a PlanGrid Task Report PDF.
 
-This is a rewrite of the NVA06B-era script, which was hardcoded to that job in
-four ways that all broke on Project Miner Building A:
+This is a rewrite of an earlier script, which was hardcoded to one job in four
+ways that all broke on the next project:
   - absolute input/output paths baked into the source
-  - the heading string literal '#N Jim2' (this report uses '#N General' and
-    other real titles)
+  - the heading string literal '#N <filler title>' (the next report used
+    '#N General' and other real titles)
   - FIRST_CONTENT_PAGE = 3 hardcoded
   - the clip image size hardcoded to 2100x1500 (this report is 2000x1500) and
     a set of pixel offsets from the 'Sheet' label tuned to US Letter geometry
@@ -23,7 +23,7 @@ THE THREE TRAPS, and how this version handles them:
 2. The reported image bbox is LARGER than the visible region. PlanGrid draws
    the clip through a clip path that pymupdf does not expose via
    get_image_info(), so the reported bbox overruns the visible box, and on A4
-   it overruns the page edge entirely (x1=658 on a 595pt page). The NVA06B fix
+   it overruns the page edge entirely (x1=658 on a 595pt page). The earlier fix
    was tuned pixel offsets from the 'Sheet' text label, which do not transfer
    between page sizes. This version instead locates the CLIP BOX BORDER, which
    PlanGrid draws as a real vector rectangle, and crops to that. No tuning, and
@@ -33,12 +33,17 @@ THE THREE TRAPS, and how this version handles them:
    with no repeated heading. Detected and handled by falling back to the next
    page.
 
+4. Duplicate clips. Two pins must never share a clip. It happened once: two
+   items carried byte-identical clips and one was therefore showing the wrong
+   drawing. Every emitted clip is sha1-hashed and a collision exits non-zero.
+
 Usage:
-    pip install pymupdf
+    bash scripts/install_deps.sh
     python3 extract_sheet_clips.py "<Task Report>.pdf" build/sheet_clips_jpg \
         --items-from data/items.json --dims-out build/sheet_clip_dims_jpg.json
 """
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -119,6 +124,8 @@ def main():
 
     os.makedirs(args.out_dir, exist_ok=True)
     dims, fallback, missing = {}, [], []
+    seen_hashes = {}  # sha1 of clip bytes -> first pin that produced it
+    duplicates = []
 
     for n in targets:
         pno, hrect = find_heading(doc, n, start)
@@ -144,8 +151,19 @@ def main():
         clip = pymupdf.Rect(box.x0 + 0.8, box.y0 + 0.8, box.x1 - 0.8, box.y1 - 0.8) & page.rect
         pix = page.get_pixmap(clip=clip, matrix=pymupdf.Matrix(args.zoom, args.zoom))
         name = f"item_{n}.jpg"
-        pix.pil_save(os.path.join(args.out_dir, name), format="JPEG",
+        out_path = os.path.join(args.out_dir, name)
+        pix.pil_save(out_path, format="JPEG",
                      quality=args.quality, optimize=True)
+        # Two pins must never share a clip. It happened in circulation once: two
+        # items carried byte-identical clips and one was therefore showing the
+        # wrong drawing (segment A1 for a pin on segment A2). Byte-hash every
+        # emitted clip and flag collisions loudly.
+        with open(out_path, "rb") as fh:
+            h = hashlib.sha1(fh.read()).hexdigest()
+        if h in seen_hashes:
+            duplicates.append((seen_hashes[h], n))
+        else:
+            seen_hashes[h] = n
         dims[name] = [pix.width, pix.height]
         if used_fb:
             fallback.append(n)
@@ -156,9 +174,16 @@ def main():
     print(f"extracted {len(dims)}/{len(targets)} sheet clips -> {args.out_dir}")
     print(f"  used overflow fallback : {fallback or 'none'}")
     print(f"  missing                : {missing or 'none'}")
+    print(f"  duplicate clips        : {duplicates or 'none'}")
     print(f"  wrote {args.dims_out}")
     if missing:
         print("  CHECK the missing items by hand before rendering.")
+    if duplicates:
+        pairs = ", ".join(f"pins {a} and {b}" for a, b in duplicates)
+        sys.exit(f"ERROR: byte-identical clips for {pairs}. One of each pair is "
+                 f"showing the wrong drawing. A wrong drawing has shipped this "
+                 f"way before; fix the Task Report or the heading match before "
+                 f"rendering.")
 
 
 if __name__ == "__main__":

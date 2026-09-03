@@ -1,28 +1,63 @@
 # eplus-rfis-submittals
 
-Skill that teaches Claude the EPLUS RFI & Submittal
-Processing workflow. The backend is the **Hermes Knowledge Engine** — a
-dedicated Azure VM running a FastMCP server over HTTP/SSE with native
-file access to 82,000+ pages of extracted AEC technical documents (Core &
-Shell specs, TFO documentation, product submittals, historical RFIs, and
-TIA/NEC codebooks) indexed via Graphify (Graph-RAG).
-
-Unlike `eplus-autocad` (whose server is a **local** stdio process that
-cannot run inside the Cowork VM), Hermes is a **remote** SSE server —
-safe to bundle. This plugin ships an `.mcp.json` at the plugin root that
-connects directly over SSE with a Bearer auth header; no local process
-is launched, so it works in Claude Code, Cowork, and managed fleets
-alike. For Claude Desktop (which does not read plugin `.mcp.json`), use
-the `npx supergateway` snippet below in `claude_desktop_config.json`.
+Teaches Claude the EPLUS RFI & Submittal processing workflow: settle the
+memory question, deconstruct the request, delegate the spec lookup to a
+research subagent, draft the response to the house format, and gate the
+knowledge-base write-back behind the user's explicit sign-off. The knowledge
+base holds 82,000+ pages of extracted AEC technical documents (Core & Shell
+specs, program-specific documentation, product submittals, historical RFIs,
+and TIA/NEC codebooks) and is reached through the `rfi-knowledge-hub`
+connector, which the desktop bootstrap config delivers as a **managed
+connector** — this plugin ships no server definition and no credential.
 
 ## Contents
 
 | Component | Path | Purpose |
 |-----------|------|---------|
 | Manifest  | [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) | Plugin identity and metadata |
-| Skill     | [`skills/rfi/SKILL.md`](skills/rfi/SKILL.md) | Doctrine: memory decision → deconstruct → query Hermes → draft → HITL write-back gate, plus the return path for logging final RFI responses issued outside the chat |
+| Skill     | [`skills/rfi/SKILL.md`](skills/rfi/SKILL.md) | Doctrine: memory decision → deconstruct → delegate research → draft → HITL write-back gate, plus the return path for logging final RFI responses issued outside the chat |
+| Reference | [`skills/rfi/reference/tools.md`](skills/rfi/reference/tools.md) | Exact signatures and parameter rules for the five connector tools |
 | Skill     | [`skills/pdf-stamping/SKILL.md`](skills/pdf-stamping/SKILL.md) | Apply the firm's Bluebeam review stamps and the ENGINEERING PLUS COMMENTS box to a submittal, as live annotations (Cowork only) |
-| MCP       | [`.mcp.json`](.mcp.json) | Bundled remote SSE connection to the Hermes VM with Bearer auth |
+| Agent     | [`agents/rfi-researcher.md`](agents/rfi-researcher.md) | Sonnet research subagent: runs every spec-database lookup in its own isolated context under a hard budget and returns a compact evidence brief |
+| Hooks     | [`hooks/hooks.json`](hooks/hooks.json) | Sign-off gate on `commit_approved_rfi` and an export-log echo of the researcher's brief; single PowerShell commands, each with an `EPLUS_NO_*` escape hatch |
+| Scripts   | [`scripts/gate-commit.ps1`](scripts/gate-commit.ps1), [`scripts/show-researcher-final.ps1`](scripts/show-researcher-final.ps1) | The two hook bodies (Windows host, PowerShell 5.1, ASCII, always exit 0) |
+
+## Research delegation
+
+The main conversation never calls the four read tools itself. Step 2 of the
+`rfi` skill composes a 200–300 token input (RFI id, project, CSI section, the
+question in one sentence, extracted nouns, any named authority, spec version,
+mode) and hands it to `rfi-researcher`, which runs on Sonnet in an isolated
+context. The agent works under a hard budget — at most 3 discovery queries,
+4 direct corpus reads, 10 local file operations — and returns a brief of at
+most 400 words with fixed headings: `Status` (grounded | keyword-miss |
+degraded), `Findings`, `Verbatim clauses` (each confirmed with `read_source`
+and cited by path, version, and offset), `Queries run`, `Next step`. Only the
+brief enters the main thread; the multi-thousand-token reports stay in the
+subagent. The agent never drafts, never proposes a disposition, and cannot
+call `commit_approved_rfi` (it is in its `disallowedTools`).
+
+One RFI = one agent. Batches run one agent per RFI, at most three at a time,
+with drafting and approval sequential in the main thread. If the spawn fails,
+the skill stops and tells the user rather than researching inline.
+
+## Sign-off hook
+
+The marketplace promises nothing is saved without the user's sign-off. The
+skill enforces that with an `AskUserQuestion` gate; `hooks/hooks.json` adds a
+runtime enforcement: a `PreToolUse` hook on `commit_approved_rfi` (both tool
+name forms) returns `permissionDecision: "ask"`, so the harness itself
+prompts before any write to the knowledge base, whatever the model decided.
+Disable with `EPLUS_NO_RFI_COMMIT_GATE=1`.
+
+The second hook, `SubagentStop` scoped to `^eplus-rfis-submittals:rfi-researcher$`,
+appends the researcher's full brief (with a 220-character excerpt header) to
+`<session project dir>/<session_id>/subagent-final-messages.log`, the
+directory the session exporter zips. Disable with
+`EPLUS_NO_RFI_SUBAGENT_ECHO=1`. There is no `SessionStart` hook and no
+per-message banner: the fleet is Windows-only, each hook is one
+`powershell -File` call costing up to a second, so only the two that matter
+are wired.
 
 ## Memory
 
@@ -56,81 +91,45 @@ skill asks rather than covering the drawing. Requires PyMuPDF and a real
 filesystem — **Cowork only**, and the stamps are controlled documents that must
 not be edited in place.
 
-## MCP tools (server name: `eplus-rfi-engine`)
+## Connector tools (server name: `rfi-knowledge-hub`)
 
 1. `query_hermes_rfi(query: str, project_id: str = "default", csi_section: Optional[str] = None) -> str`
-   — dispatches a search query to the Hermes Graph-RAG engine and returns
-   a synthesized context report.
-2. `commit_approved_rfi(rfi_id: str, markdown_content: str, metadata: dict, project_id: str = "default") -> dict`
-   — writes back human-approved final RFI responses to the VM database
-   and triggers an incremental background update to the knowledge graph.
-   Gated behind explicit user approval by the skill.
-3. `list_sources(category=None, project=None, pattern=None, spec_version=None, max_results=100) -> ...`
+   — dispatches a discovery search to the knowledge graph and returns a
+   synthesized context report. Researcher only.
+2. `list_sources(category=None, project=None, pattern=None, spec_version=None, max_results=100) -> ...`
    — browses the corpus file listing (categories: codebooks,
    specifications, rfis_historical, submittals, rfis_approved); returns
-   paths usable with `read_source`.
-4. `read_source(src, offset=0, max_chars=20000) -> ...`
+   paths usable with `read_source`. Researcher only.
+3. `read_source(src, offset=0, max_chars=20000) -> ...`
    — returns the verbatim text of one corpus document, with paging and
    the file's spec `version`, for pulling exact clauses and verifying
-   excerpts before citing.
-5. `grep_corpus(pattern, category=None, project=None, spec_version=None, max_hits=20) -> ...`
+   excerpts before citing. Researcher only.
+4. `grep_corpus(pattern, category=None, project=None, spec_version=None, max_hits=20) -> ...`
    — exact keyword/phrase/regex search across the raw corpus with
    context lines, for locating a part number, spec clause, or RFI
-   number across all projects.
+   number across all projects. Researcher only.
+5. `commit_approved_rfi(rfi_id: str, markdown_content: str, metadata: dict, project_id: str = "default") -> dict`
+   — writes back a human-approved final RFI response to the knowledge base
+   and triggers an incremental background update to the knowledge graph.
+   Main thread only; gated by the skill's approval question and by the
+   PreToolUse hook.
 
-## Claude Code / Cowork configuration
+## Connector configuration
 
-Bundled in [`.mcp.json`](.mcp.json) — native remote SSE, no local
-process (replace `<AZURE_VM_PUBLIC_IP>` with the Hermes VM's public IP):
-
-```json
-{
-  "mcpServers": {
-    "eplus-rfi-engine": {
-      "type": "sse",
-      "url": "http://<AZURE_VM_PUBLIC_IP>:8650/sse",
-      "headers": {
-        "Authorization": "Bearer af19f84270b9b2ff993fa7246c08067d84188ac01ae4fa4134c695ba4aa36de7"
-      }
-    }
-  }
-}
-```
-
-## Claude Desktop configuration
-
-Claude Desktop doesn't load plugin `.mcp.json`; for local testing there,
-add the supergateway proxy to `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "eplus-rfi-engine": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "supergateway",
-        "--sse",
-        "http://<AZURE_VM_PUBLIC_IP>:8650/sse",
-        "--header",
-        "Authorization: Bearer af19f84270b9b2ff993fa7246c08067d84188ac01ae4fa4134c695ba4aa36de7"
-      ]
-    }
-  }
-}
-```
-
-> **Security note:** the bearer token above is a shared static credential
-> sent over plain HTTP. Rotate it if it leaks, and prefer fronting the VM
-> with HTTPS (or an Azure Application Gateway/TLS terminator) before
-> wide deployment.
+The `rfi-knowledge-hub` server is delivered to every seat as a **managed
+connector** from the desktop bootstrap config. Nothing in this repository
+configures it: the plugin no longer ships a `.mcp.json`, and no endpoint,
+port, or token lives here. The only requirement on the bootstrap side is the
+server name — it must be exactly `rfi-knowledge-hub`, so the tool names the
+skill, the agent allowlist, and the hook matcher rely on hold.
 
 ## Tool naming
 
-The bundled server is named `eplus-rfi-engine`, so tools appear as
-`mcp__plugin_eplus-rfis-submittals_eplus-rfi-engine__<tool>` when loaded
-from this plugin, or `mcp__eplus-rfi-engine__<tool>` from a
-desktop/managed connection. The skill tolerates both.
+With the managed connector the tools appear as
+`mcp__rfi-knowledge-hub__<tool>`. The bundled form
+`mcp__plugin_eplus-rfis-submittals_rfi-knowledge-hub__<tool>` may reappear
+if the plugin is ever bundled again; the skill, the agent's allowlist, and
+the hook matcher tolerate both.
 
 ## Versioning
 
@@ -145,15 +144,16 @@ From the `eplus-claude-plugins` marketplace:
 claude plugin install eplus-rfis-submittals@eplus-claude-plugins
 ```
 
-Verify: the skills list shows `rfi` and `pdf-stamping`, and with the
-`eplus-rfi-engine` connection active, asking Claude to "review this RFI and
-draft a response" settles the memory question, then queries Hermes instead of
-answering from memory.
+Verify: the skills list shows `rfi` and `pdf-stamping`, the agent list shows
+`eplus-rfis-submittals:rfi-researcher`, and with the `rfi-knowledge-hub`
+connector active, asking Claude to "review this RFI and draft a response"
+settles the memory question, then delegates the lookup to the researcher
+instead of answering from memory.
 
 For stamping, in a Cowork session with `pymupdf` installed:
 
 ```bash
-python skills/pdf-stamping/scripts/inspect_stamp.py "skills/pdf-stamping/stamps/No Exception.pdf"
+python3 skills/pdf-stamping/scripts/inspect_stamp.py "skills/pdf-stamping/stamps/No Exception.pdf"
 ```
 
 should report `class: review stamp`, `artwork lives in: ANNOTATIONS`, and a

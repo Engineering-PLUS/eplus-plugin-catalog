@@ -88,7 +88,7 @@ def export(build, out):
             m.get("origin", ""),
             m.get("confidence", ""),
             m.get("precedent_note") or "",
-            m.get("jim_original_text") or "",
+            m.get("field_note_original") or "",
         ])
 
     widths = {"A": 9, "B": 7, "C": 12, "D": 34, "E": 62, "F": 52, "G": 52,
@@ -148,7 +148,7 @@ def do_import(build, xlsx):
                     "sheet_display": g("Sheet"), "sheet_name": "", "sheet_description": "",
                     "location": "Not recorded in PlanGrid, see sheet reference",
                     "origin": "reviewer_added", "confidence": "n/a",
-                    "precedent_note": None, "jim_original_text": None, "status": "open",
+                    "precedent_note": None, "field_note_original": None, "status": "open",
                     "photo_date": None}
             inserted += 1
         else:

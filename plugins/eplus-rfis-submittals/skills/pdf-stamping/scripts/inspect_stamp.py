@@ -7,7 +7,7 @@ you whether the artwork is annotation-based or content-based, whether it is
 raster or vector, what token fields exist, and the ink bounding box the
 stamper will use as the annotation appearance /BBox.
 
-  python inspect_stamp.py "../stamps/Exceptions As Noted.pdf"
+  python3 inspect_stamp.py "../stamps/Exceptions As Noted.pdf"
 """
 import os
 import sys

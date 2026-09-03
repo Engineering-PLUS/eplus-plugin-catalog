@@ -123,7 +123,7 @@ def extract_page_images(page, out_dir: Path, min_dim=200):
 
 ## Page anatomy (consistent across PlanGrid punch reports)
 
-- Header: project code (e.g. `Stack - NVA05A (NVA13) - 26991`) + company logo
+- Header: project code (e.g. `<Client> - <project code> - <job number>`) + company logo
 - `#<issue number> <location code>` (e.g. `#680 IDF-NVA13:1:4`)
 - `Status` (Open/Closed) and `Sheet` (drawing number, e.g. `T02-01D`)
 - `Description` — the issue text; the highest-value retrieval content

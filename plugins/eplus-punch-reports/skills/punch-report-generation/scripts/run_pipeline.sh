@@ -103,11 +103,17 @@ echo "==> 4/5 build master"
 # --- 5. render -------------------------------------------------------------
 echo "==> 5/5 render"
 node scripts/gen_report.js "$BUILD"
+OUT=$("$PY" -c "import json;print(json.load(open('$BUILD/report.config.json', encoding='utf-8'))['output_filename'])")
+
+# The docx library emits every bookmark with the same numeric id, which makes
+# Word show "Error! Bookmark not defined." for all but the first TOC entry.
+# Renumber in place, then verify (verify_report.py asserts the ids are unique).
+"$PY" scripts/fix_bookmark_ids.py "$BUILD/$OUT"
 
 echo "==> verify"
-OUT=$("$PY" -c "import json;print(json.load(open('$BUILD/report.config.json'))['output_filename'])")
 "$PY" scripts/verify_report.py "$BUILD/$OUT" "$BUILD/master_report_items.json"
 
 echo
 echo "==> done: $BUILD/$OUT"
 echo "    Open in Word. Page numbers populate on open (Ctrl+A then F9 to force)."
+echo "    Layout spot check (needs soffice): $PY scripts/render_preview.py $BUILD/$OUT --pages 1,4"

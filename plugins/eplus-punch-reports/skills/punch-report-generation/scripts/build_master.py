@@ -2,25 +2,34 @@
 """
 build_master.py, assemble the render-ready master_report_items.json.
 
-This closes the gap the NVA06B pipeline left open: master_report_items.json was
+This closes the gap an earlier pipeline left open: master_report_items.json was
 assembled ad hoc from items.json plus hand-written drafts, so a report could not
 be rebuilt from source without redoing that step by hand. This script makes the
 assembly reproducible.
 
 Inputs
   data/items.json           consolidate.py output, the PlanGrid facts
-  data/drafted_items.json   the human/model judgment layer, keyed by PlanGrid number
+  data/drafted_items.json   the human/model judgment layer, keyed by PlanGrid number.
+                            Either a bare list of entries, or an object
+                            {"items": [...], "merges": [...]} (schema in SKILL.md)
 Output
   build/master_report_items.json
 
 Rules enforced here so the renderer never has to care:
   - NO EM OR EN DASHES anywhere in any string. Swept and asserted, not hoped for.
-    (Standing EPLUS report rule; verification asserts zero in the PDF text layer.)
+    (Standing EPLUS report rule; verify_report.py asserts zero in the document.)
   - Corrective actions always start with a capital letter.
   - photo_paths are BASENAMES ONLY. The renderer resolves them against its own
     thumbs_uniform directory. Passing absolute source paths silently renders the
     unnormalized, EXIF-sideways original.
   - Items with no drafted entry fail loudly rather than rendering blank.
+  - Entries with origin "reviewer_final" or "user_reviewed" are human-approved
+    text: never sanitized, never recapitalised, exempt from the voice guard, and
+    the build FAILS if sanitize() would have changed them.
+  - Reviewer pin merges ("merges": [{"into": N, "from": M, "drop_photos": [..]}])
+    are applied in memory: the absorbed pin's photos fold into the target in
+    chronological order (deduped by uid, named photos dropped) and the absorbed
+    pin is omitted. items.json is never mutated to record a human decision.
 
 Usage:
     python3 build_master.py --items data/items.json \
@@ -103,8 +112,40 @@ def main():
     args = ap.parse_args()
 
     items = json.load(open(args.items, encoding="utf-8"))
-    drafted = {d["number"]: d for d in json.load(open(args.drafted, encoding="utf-8"))}
+
+    # drafted_items.json is either the historical bare list, or an object
+    # {"items": [...], "merges": [...]} so reviewer pin-merge decisions live in
+    # the judgment layer instead of as a mutation of items.json.
+    drafted_doc = json.load(open(args.drafted, encoding="utf-8"))
+    if isinstance(drafted_doc, dict):
+        drafted_list = drafted_doc["items"]
+        merges = drafted_doc.get("merges", [])
+    else:
+        drafted_list = drafted_doc
+        merges = []
+    drafted = {d["number"]: d for d in drafted_list}
     omit = {int(x) for x in args.omit.split(",") if x.strip()}
+
+    # Apply merges in memory: fold the absorbed pin's photos in, dedupe by uid,
+    # keep chronological order, drop named photos, and auto-omit the absorbed pin.
+    by_num = {i["number"]: i for i in items}
+    for mg in merges:
+        into, src_n = mg["into"], mg["from"]
+        if into not in by_num or src_n not in by_num:
+            sys.exit(f"ERROR: merge {src_n} -> {into} names a pin not in {args.items}.")
+        dst, src = by_num[into], by_num[src_n]
+        have = {p["uid"] for p in dst["photos"]}
+        drops = mg.get("drop_photos", [])
+        for p in src["photos"]:
+            title = p.get("title") or ""
+            if any(d in title for d in drops):
+                continue
+            if p["uid"] in have:
+                continue
+            dst["photos"].append(p)
+        dst["photos"].sort(key=lambda p: p.get("captured") or "")
+        dst["merged_from"] = sorted(set(dst.get("merged_from", []) + [src_n]))
+        omit.add(src_n)
 
     missing = [i["number"] for i in items if i["number"] not in drafted and i["number"] not in omit]
     if missing:
@@ -119,6 +160,19 @@ def main():
         d = drafted[num]
         display_n += 1
 
+        # Text that a human approved is never altered by the pipeline. It must
+        # arrive already clean; anything sanitize would change is an error, not
+        # a silent rewrite.
+        protected = d.get("origin") in ("reviewer_final", "user_reviewed")
+        if protected:
+            for field in ("title", "description", "corrective_action"):
+                val = d.get(field)
+                if val and sanitize(val) != val:
+                    sys.exit(f"ERROR: pin {num} has origin {d['origin']!r} but its "
+                             f"{field} is not sanitize-clean. Fix the source text "
+                             f"explicitly instead of letting the pipeline rewrite "
+                             f"approved wording. Offending value: {val!r}")
+
         ca = d.get("corrective_action") or UNDETERMINED_CA
         sheet_name = normalize_sheet(it.get("sheet_name") or "")
         sheet_desc = it.get("sheet_description") or ""
@@ -131,7 +185,7 @@ def main():
             "plangrid_ref": f"#{num}",
             "title": d["title"],
             "description": d["description"],
-            "corrective_action": capitalize_first(ca),
+            "corrective_action": ca if protected else capitalize_first(ca),
             # PlanGrid room is empty on 100% of pins in this pull. Say so rather
             # than printing a bare "N/A" the reader has to interpret.
             "location": room or "Not recorded in PlanGrid, see sheet reference",
@@ -143,10 +197,16 @@ def main():
             "photo_titles": [p["title"] for p in it["photos"]],
             "origin": d.get("origin"),
             "confidence": d.get("confidence"),
-            # renderer expects this key name for the engineer's verbatim wording
-            "jim_original_text": d.get("field_note"),
+            # the engineer's verbatim pin note, carried for traceability and the
+            # review spreadsheet; never rendered
+            "field_note_original": d.get("field_note"),
             "precedent_note": d.get("precedent_note"),
             "editor_note": d.get("editor_note"),
+            # For items without photos: "own_photos" renders the blank paste
+            # grid, "none" suppresses the grid and the Photos label entirely,
+            # "followup" renders the blank grid (an editor_note should say a
+            # revisit is planned). Absent means own_photos.
+            "photo_mode": d.get("photo_mode"),
             "status": it.get("status"),
             "photo_date": (it["photos"][0]["captured"][:8] if it["photos"] else None),
         })
@@ -159,9 +219,12 @@ def main():
     if bad:
         sys.exit(f"ERROR: {len(bad)} em/en dashes survived sanitization.")
 
-    # voice guard, descriptions only
+    # voice guard, descriptions only. Human-approved text is exempt: the
+    # reviewer outranks the style rule.
     offenders = []
     for m in master:
+        if m.get("origin") in ("reviewer_final", "user_reviewed"):
+            continue
         for pat in VOICE_BANNED:
             hit = re.search(pat, m["description"], re.I)
             if hit:

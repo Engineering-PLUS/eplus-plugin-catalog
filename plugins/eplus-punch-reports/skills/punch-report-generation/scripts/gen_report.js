@@ -1,25 +1,43 @@
 /*
- * gen_report_v7.js, EPLUS punch report generator (v0.7 rule set)
+ * gen_report.js, EPLUS punch report renderer.
  *
- * Changes from v0.6, per Victor's second pass of comments:
- *   1. Letterhead: reuses the EPLUS Technology System Punch List letterhead from
- *      Legacy Walk Thru Report as a full width image header on every page. No more
- *      hand rolled bar with an icon + right aligned title. Only the header is used;
- *      the legacy footer artwork is not carried over.
- *   2. Summary section removed. Replaced with a Word Table of Contents (real TOC field,
- *      updates on open) built from the item headings.
- *   3. PlanGrid ref meta row removed. plangrid_ref is retained in data for our own
- *      traceability but is NEVER rendered anywhere the contractor sees.
- *   4. "Reviewer Flag" renamed to "Editor's Note" everywhere.
- *   5. Zero em/en dashes anywhere in this file OR the data (data is pre swept).
- *   6. Corrective Action absorbs the field engineer's walk note cross reference; the
- *      separate Cross reference block is gone. Merge already done upstream in
- *      precedent_merged.json and materialised into master_report_items_v7.json.
- *   7. Photo size trimmed to close the dead space that showed up at the bottom of
- *      items with a short write up: PHOTO_W_DXA drops from 2.50" to 2.10", which also
- *      reclaims horizontal room in the meta table for the pin clip.
+ * Reads a build directory (report.config.json, master_report_items.json,
+ * sheet_clip_dims_jpg.json, thumbs_uniform/, sheet_clips_jpg/, assets/) and
+ * writes one .docx. Nothing else: no PDF, no LibreOffice.
  *
- * GOTCHAS carried over from v0.6:
+ * What it renders:
+ *   - Cover section (optional: "include_cover": false in report.config.json
+ *     drops it): the EPLUS coversheet artwork as page-anchored floating images,
+ *     the EP logo row, and native, config-driven title and info blocks.
+ *   - Contents section: a heading, a red delete-before-printing note, and a REAL
+ *     Word TOC field (TOC \o "1-1" \h \z \u) whose cached result is one styled
+ *     entry per item, each entry a PAGEREF field on the item heading's bookmark
+ *     wrapped in an InternalHyperlink. Update Table / F9 regenerates titles,
+ *     page numbers and entry count together. features.updateFields makes Word
+ *     refresh on open. scripts/fix_bookmark_ids.py runs after this to give the
+ *     bookmarks unique numeric ids, which the docx library does not.
+ *   - One item per page: Heading 1 with Word's own numbering ("Item N.") and a
+ *     bookmark; a meta table (Drawing Sheet, Date Recorded) with the pin clip
+ *     spanning both rows at about 3.17in; Item Description; Corrective Action;
+ *     an optional red Editor's Note box (internal, deleted before issuing); then
+ *     the photo grid.
+ *   - Photo grid: fixed two columns, each photo on a 3:4 canvas 1.90in wide
+ *     with a numbered, timestamped caption; hairline cell borders so a reviewer
+ *     can see where to paste. As many complete rows as fit on the item page,
+ *     the rest on headed "(continued)" pages. The "Photos" label carries no
+ *     count. An item with no photos gets ONE empty row sized like a real cell
+ *     as a paste target, unless its photo_mode is "none".
+ *   - Every body page carries the native letterhead (a two-column table: EP
+ *     logo + URL images left, "Technology System / Punch List" right, then a
+ *     shaded divider paragraph) and a "Page N of M" footer. Never a pasted bitmap.
+ *
+ * Data keys read from master_report_items.json per item: display_number,
+ * plangrid_ref, title, description, corrective_action, sheet_display,
+ * photo_paths (basenames under thumbs_uniform/), photo_titles, editor_note,
+ * precedent_note, photo_mode. plangrid_ref and field_note_original are carried
+ * for traceability and are NEVER rendered.
+ *
+ * GOTCHAS, all learned the hard way:
  *   - ImageRun.transformation.{width,height} are PIXELS while everything else is twips.
  *   - TableCell rowSpan is declared ONCE on the first row's cell.
  *   - Always render to a NEW filename; the scratch workspace refuses overwrite.
@@ -32,7 +50,7 @@ const {
   Header, Footer, PageNumber, VerticalAlign, LevelFormat, HeadingLevel,
   TabStopType, LeaderType, Tab, Bookmark, InternalHyperlink, PageReference,
   HorizontalPositionRelativeFrom, VerticalPositionRelativeFrom, TextWrappingType,
-  TableAnchorType, OverlapType,
+  TableAnchorType, OverlapType, ImportedXmlComponent,
 } = require('docx');
 
 const BUILD = process.argv[2] || path.join(__dirname, '..');
@@ -78,13 +96,15 @@ const LH_RIGHT_W = USABLE_W - LH_LEFT_W;
 
 // ------------------------------------------------------------------ uniform photo sizing
 // Photos live on one 700 x 933 (3:4) canvas so each embedded image is exactly the same size.
-// v0.7 shrinks the render width by 0.40" from v0.6 (2.50 -> 2.10). Effect measured across
-// all 50 items in this set:
+// The render width was tuned by rendering one 50-item set at several widths and
+// counting the items that stayed on one page:
 //   2.50" -> 33/50 items self contained, 81 pages
 //   2.25" -> 38/50 items self contained, 78 pages
-//   2.10" -> 41/50 items self contained, 76 pages   <-- chosen, closes the dead space
-//   1.90" -> 42/50 items self contained, 76 pages   (return diminishes below ~2.1")
-// If the field set or the text blocks change materially, re run scripts/tune_layout.js.
+//   2.10" -> 41/50 items self contained, 76 pages
+//   1.90" -> 42/50 items self contained, 76 pages   <-- current value (PHOTO_W_DXA)
+// The column count is FIXED at two; nothing here searches column counts. If the field
+// set or the text blocks change materially, re-measure the same way rather than
+// nudging the constant by eye.
 const PHOTO_COLS = 2;
 const PHOTO_W_DXA = 2736;                              // 1.90"
 const PHOTO_H_DXA = Math.round(PHOTO_W_DXA * 933 / 700); // 3:4 canvas => 2.53"
@@ -266,7 +286,24 @@ function emptyCell() {
     margins: { top: 40, bottom: 40, left: 40, right: 40 },
     borders: thinBorders(),
     verticalAlign: VerticalAlign.CENTER,
-    children: [new Paragraph({ text: '' })],
+    // An empty cell holding an empty paragraph collapses to a single text line,
+    // so the slot is invisible as a paste target. Give it the height of a
+    // filled cell.
+    children: [new Paragraph({
+      spacing: { before: Math.round(PHOTO_H_DXA / 2), after: Math.round(PHOTO_H_DXA / 2) },
+      children: [run('')],
+    })],
+  });
+}
+
+function emptyPhotoRow() {
+  return new Table({
+    width: { size: USABLE_W, type: WidthType.DXA },
+    columnWidths: Array(PHOTO_COLS).fill(PHOTO_COL_W),
+    rows: [new TableRow({
+      cantSplit: true,
+      children: Array.from({ length: PHOTO_COLS }, emptyCell),
+    })],
   });
 }
 
@@ -302,7 +339,10 @@ function estimateOverheadDXA(item) {
 
   h += 300 + estimateTextHeightDXA(item.description, 20, USABLE_W) + 80;
   h += 300 + estimateTextHeightDXA(item.corrective_action, 20, USABLE_W) + 80;
-  // no allowance for jim_original_text: that block is no longer rendered (see itemSection)
+  // An item with no photos now renders one empty grid row, so reserve it --
+  // unless photo_mode "none" says no photos apply to this item at all.
+  if (!item.photo_paths.length && item.photo_mode !== 'none') h += PHOTO_ROW_H;
+  // no allowance for field_note_original: that block is no longer rendered (see itemSection)
   if (item.editor_note || item.precedent_note) {
     if (item.editor_note) h += estimateTextHeightDXA(item.editor_note, NOTE_SIZE, USABLE_W - 400) + 60;
     if (item.precedent_note) h += estimateTextHeightDXA(item.precedent_note, NOTE_SIZE, USABLE_W - 400) + 60;
@@ -397,7 +437,7 @@ function itemSection(item) {
   // The verbatim pin note is NOT rendered. This report is written BY the field
   // engineer, so quoting their own note back at them reads as third person. The
   // text is still carried on the record (field_note in data/drafted_items.json and
-  // jim_original_text here) for traceability and for the review spreadsheet.
+  // field_note_original here) for traceability and for the review spreadsheet.
 
   const internal = [];
   if (item.editor_note) internal.push(['Note', item.editor_note]);
@@ -431,16 +471,29 @@ function itemSection(item) {
     : n <= PHOTO_COLS ? n
     : Math.max(0, Math.min(n, capacityFirst));
 
-  children.push(new Paragraph({
-    spacing: { after: 60 },
-    children: [run(
-      firstCount >= n ? `Photos (${n})`
-        : firstCount === 0 ? `Photos (${n}), see following page`
-        : `Photos (1 to ${firstCount} of ${n})`,
-      { bold: true, size: 20, color: BLUE })],
-  }));
+  // photo_mode "none" (set during the wording review) means no photos apply to
+  // this item: no label, no grid, nothing to paste into. Any other value on a
+  // photo-less item renders the blank paste-target grid below.
+  const suppressPhotos = n === 0 && item.photo_mode === 'none';
 
-  if (firstCount > 0) children.push(photoTable(item, 0, firstCount));
+  if (!suppressPhotos) {
+    children.push(new Paragraph({
+      spacing: { after: 60 },
+      // No count in the label. The count goes stale the moment anyone adds or
+      // removes a photo in Word, nothing downstream reads it, and the photos are
+      // visible immediately below. Standing rule, not a per-report tweak.
+      children: [run(
+        firstCount >= n ? 'Photos'
+          : firstCount === 0 ? 'Photos, see following page'
+          : 'Photos',
+        { bold: true, size: 20, color: BLUE })],
+    }));
+
+    // An item with no photos still gets one empty row. Pins logged without a
+    // photo are the ones most likely to have one added by hand later, so the slot
+    // has to be there to paste into.
+    children.push(n === 0 ? emptyPhotoRow() : photoTable(item, 0, firstCount));
+  }
 
   let idx = firstCount;
   while (idx < n) {
@@ -458,7 +511,7 @@ function itemSection(item) {
       keepNext: true,
       spacing: { after: 80 },
       border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: LIGHTGREY, space: 2 } },
-      children: [run(`Photos ${idx + 1} to ${end} of ${n}`, { size: 17, color: DARKGREY })],
+      children: [run('Photos (continued)', { size: 17, color: DARKGREY })],
     }));
     children.push(photoTable(item, idx, end));
     idx = end;
@@ -478,7 +531,7 @@ const editorNoted = master.filter(m => m.editor_note).length;
 const totalPhotos = master.reduce((s, m) => s + m.photo_paths.length, 0);
 
 // ------------------------------------------------------------------------------- cover
-// Rebuilt from the issued STACK coversheet (Bldg A), which is the design EPLUS has been
+// Rebuilt from a previously issued EPLUS coversheet, which is the design EPLUS has been
 // putting on these reports. The two raster pieces ARE the artwork and are reused as
 // shipped: cover_hero.jpg is stock brand imagery and cover_bands.png is the EP diagonal
 // band graphic, a full-page transparent overlay. Everything else, all the text and all
@@ -497,6 +550,7 @@ const totalPhotos = master.reduce((s, m) => s + m.photo_paths.length, 0);
 // simply renders without it.
 const EMU_PER_IN = 914400;
 const inEMU = (n) => Math.round(n * EMU_PER_IN);
+const INCLUDE_COVER = CFG.include_cover !== false;
 const COVER_DIR = path.join(BUILD, 'assets/cover');
 // 0.25in from the paper edge, the same inset as the body pages' letterhead
 // (HEADER_MARGIN), so the cover logos and the interior letterhead line up.
@@ -731,11 +785,14 @@ const cover = [
   }),
 ];
 
-// TOC entries are static TITLES with LIVE PAGEREF page-number fields (see tocEntry).
-// A full Word TableOfContents field would also regenerate the titles, but it renders as
-// an empty page until fields are updated, which looks broken on open. This hybrid always
-// shows the item list, lets Victor edit any entry's text directly, and still gets real
-// page numbers from Word.
+// The contents block is a REAL Word TOC field whose CACHED RESULT is the styled
+// entry list below (the exact structure Word itself saves). On open the cached
+// entries show immediately -- nothing looks broken -- and Update Table / Ctrl+A F9
+// regenerates titles, page numbers AND entry count together, which is what the
+// hand-built hybrid could never do: deleting an item used to renumber the body
+// while the TOC silently rotted (field evidence 2026-08-28, two reports same day).
+// Regenerated entries take the TOC1 paragraph style defined on the Document, so
+// the look survives regeneration.
 function bookmarkFor(item) {
   return `punchitem${item.display_number}`;
 }
@@ -774,7 +831,16 @@ function tocEntry(item) {
   });
 }
 
+const W_NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
+const fldChar = (type) => ImportedXmlComponent.fromXmlString(`<w:r ${W_NS}><w:fldChar w:fldCharType="${type}"/></w:r>`);
+// Canonical instruction form: leading/trailing space, \h for hyperlinked entries,
+// \z (no leader in web view), \u (outline levels). \o "1-1" collects Heading 1,
+// which is what every item heading uses.
+const tocInstr = () => ImportedXmlComponent.fromXmlString(`<w:r ${W_NS}><w:instrText xml:space="preserve"> TOC \\o "1-1" \\h \\z \\u </w:instrText></w:r>`);
+
+cover.push(new Paragraph({ spacing: { after: 0 }, children: [fldChar('begin'), tocInstr(), fldChar('separate')] }));
 for (const item of master) cover.push(tocEntry(item));
+cover.push(new Paragraph({ spacing: { after: 0 }, children: [fldChar('end')] }));
 
 // ------------------------------------------------------------------------------ assemble
 const children = [...cover];
@@ -867,6 +933,15 @@ const doc = new Document({
       id: 'Heading1', name: 'Heading 1', basedOn: 'Normal', next: 'Normal', quickFormat: true,
       run: { bold: true, size: 26, color: BLUE, font: FONT },
       paragraph: { spacing: { before: 0, after: 120 } },
+    }, {
+      // Style Word applies to entries it regenerates inside the TOC field. Matches
+      // tocEntry(): dot-leader right tab at the text edge, same size and colour.
+      id: 'TOC1', name: 'TOC 1', basedOn: 'Normal', next: 'Normal',
+      run: { size: 19, color: DARKGREY, font: FONT },
+      paragraph: {
+        spacing: { after: 40 },
+        tabStops: [{ type: TabStopType.RIGHT, position: USABLE_W, leader: LeaderType.DOT }],
+      },
     }],
   },
   numbering: {
@@ -889,7 +964,13 @@ const doc = new Document({
     // the cover carries its own branding and a "Page 1 of N" strip across the artwork
     // reads as a mistake. Its top margin is small so the logo row sits in the white
     // band above the photo.
-    {
+    //
+    // Set "include_cover": false in report.config.json to omit it. Some clients
+    // issue their own coversheet and combine PDFs by hand, in which case a
+    // generated cover is a page they delete every time. Dropping the section is
+    // safe: the Table of Contents paragraph carries no pageBreakBefore, so it
+    // simply becomes page 1.
+    ...(INCLUDE_COVER ? [{
       properties: {
         page: {
           size: { width: PAGE_W, height: PAGE_H },
@@ -901,7 +982,7 @@ const doc = new Document({
         },
       },
       children: coverPage,
-    },
+    }] : []),
     {
       properties: {
         page: {

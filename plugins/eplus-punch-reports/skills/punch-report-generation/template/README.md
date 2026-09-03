@@ -6,7 +6,7 @@ Draft punch report for the <date> site walk, plus the pipeline that generates it
 
 | File | What it is |
 |---|---|
-| `<report>-DRAFT-v0.1.docx` | **The draft.** <N> items, <N> pages, <N> photos. Open in Word; TOC page numbers populate on open (Ctrl+A then F9 to force). |
+| `<report>-DRAFT-v0.1.docx` | **The draft.** <N> items, <N> pages, <N> photos. Open in Word; the table of contents updates on open (Ctrl+A then F9 to force). |
 | `<report>-Review.xlsx` | Bulk-edit sheet. Edit the yellow columns, re-import, re-render. |
 
 The report is a **draft for internal review**, not for issuance. Each item carries
@@ -32,8 +32,9 @@ still open.>
 
 **Small edits:** directly in Word. Item headings use Word's own numbering, so
 deleting an item renumbers the rest. Every item is exactly one page and
-self-contained, so inserting one is copy a page, paste, edit. Note that TOC page
-numbers self-heal but TOC *titles* do not.
+self-contained, so inserting one is copy a page, paste, edit. The table of
+contents is a real Word TOC field: *Update Table* (or Ctrl+A then F9) rebuilds
+its titles, page numbers and entry count after any such edit.
 
 **Bulk edits:** use the review spreadsheet rather than hand-editing the .docx.
 

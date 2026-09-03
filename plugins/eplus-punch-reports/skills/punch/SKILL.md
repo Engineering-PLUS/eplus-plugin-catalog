@@ -1,15 +1,15 @@
 ---
 name: punch
-description: Use this skill whenever a task involves punch lists, punch walks, punch reports, field progress or site inspection reports, security acceptance walks, pre-punch reports, construction deficiencies or defects, "what do we usually find" / recurring-issue questions, punch counts or closeout statistics, per-trade punch checklists or SOPs for a site walk, pulling field photos or marked-up drawing sheets for an issue, exporting a filtered punch list to a spreadsheet, or the eplus-punch-engine MCP tools (query_hermes_punch, get_punch_item, list_punch, punch_stats, grep_punch, export_punch_report). Encodes the exact filter vocabulary of the EPLUS punch corpus — trades, project codes, statuses, sheet references — so queries hit real values instead of guesses. Always load it before calling any eplus-punch-engine tool.
+description: Use this skill whenever a task involves punch lists, punch walks, punch reports, field progress or site inspection reports, security acceptance walks, pre-punch reports, construction deficiencies or defects, "what do we usually find" / recurring-issue questions, punch counts or closeout statistics, per-trade punch checklists or SOPs for a site walk, pulling field photos or marked-up drawing sheets for an issue, exporting a filtered punch list to a spreadsheet, or the punch-knowledge-hub MCP tools (query_hermes_punch, get_punch_item, list_punch, punch_stats, grep_punch, export_punch_report). Encodes the exact filter vocabulary of the EPLUS punch corpus — trades, project codes, statuses, sheet references — so queries hit real values instead of guesses. Always load it before calling any punch-knowledge-hub tool.
 argument-hint: <what to look up — e.g. "recurring telecom issues at NVA05A" or "open security items on sheet T02-01B">
 ---
 
-# EPLUS punch report workflow (eplus-punch-engine MCP)
+# EPLUS punch report workflow (punch-knowledge-hub MCP)
 
-Rules for querying the EPLUS punch corpus through the `eplus-punch-engine`
+Rules for querying the EPLUS punch corpus through the `punch-knowledge-hub`
 MCP server. Depending on delivery, its tools appear as
-`mcp__eplus-punch-engine__<tool>` (managed/desktop connector) or
-`mcp__plugin_eplus-punch-reports_eplus-punch-engine__<tool>` (this plugin).
+`mcp__punch-knowledge-hub__<tool>` (managed/desktop connector) or
+`mcp__plugin_eplus-punch-reports_punch-knowledge-hub__<tool>` (this plugin).
 Same server, same rules.
 
 When invoked as a slash command, handle the following request:
@@ -236,7 +236,7 @@ generic construction items the corpus does not support.
 
 ## Failure protocol
 
-If the `eplus-punch-engine` connector is missing or a tool call errors,
+If the `punch-knowledge-hub` connector is missing or a tool call errors,
 say in plain language that the punch database could not be reached and that
 no lookup happened. Include the verbatim error in a labeled technical
 details section. **Never answer punch questions from general construction

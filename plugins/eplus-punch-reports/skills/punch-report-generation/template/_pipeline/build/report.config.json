@@ -2,8 +2,9 @@
   "master_file": "master_report_items.json",
   "ep_project_no": "<EP project number, INTERNAL TRACKING ONLY, never rendered>",
   "output_filename": "<PROJECT>-Punch-Report-DRAFT-v0.1.docx",
+  "include_cover": true,
   "cover_eyebrow": "Technology Site Inspection",
-  "cover_title": "<Client project name, e.g. STACK Project Miner>",
+  "cover_title": "<Client project name, e.g. Example Project>",
   "cover_subtitle": "<Building / area, e.g. Building A>",
   "site_address": [
     "<street address,>",

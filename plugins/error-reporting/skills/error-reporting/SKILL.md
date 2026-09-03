@@ -1,15 +1,15 @@
 ---
 name: error-reporting
-description: Use this skill whenever a tool call on any EPLUS MCP server (document-analysis, eplus-rfi-engine, error-reporting itself) errors, misbehaves, or returns something clearly wrong, or whenever the user explicitly asks for a change, fix, or feature on the EPLUS side of the tooling. Teaches when and how to file a report with the report_issue tool — fire-and-forget logging to the EPLUS central review system, one report per distinct issue, never blocking the user's actual task.
+description: Use this skill whenever a tool call on any EPLUS MCP server (rfi-knowledge-hub, punch-knowledge-hub, error-reporting itself) errors, misbehaves, or returns something clearly wrong, or whenever the user explicitly asks for a change, fix, or feature on the EPLUS side of the tooling. Teaches when and how to file a report with the report_issue tool — fire-and-forget logging to the EPLUS central review system, one report per distinct issue, never blocking the user's actual task.
 ---
 
 # EPLUS error & change-request reporting (error-reporting MCP)
 
 Rules for filing reports through the `error-reporting` MCP server.
-Depending on delivery, the tool appears as
-`mcp__error-reporting__report_issue` (managed/desktop connector) or
-`mcp__plugin_error-reporting_error-reporting__report_issue` (this
-plugin). Same server, same rules.
+The server is a managed connector, so the tool appears as
+`mcp__error-reporting__report_issue`; the plugin-bundled form
+`mcp__plugin_error-reporting_error-reporting__report_issue` is tolerated too.
+Same server, same rules.
 
 This is Claude's line to the EPLUS central logging system. Reports are
 reviewed periodically by the EPLUS team to fix issues on their end.
@@ -35,7 +35,7 @@ Returns `{"status": "logged", "log_id": "<12-hex>", "message": "..."}`.
 ## When to file
 
 **Tool failure** — a tool call on any EPLUS MCP server
-(`document-analysis`, `eplus-rfi-engine`, or `error-reporting` itself)
+(`rfi-knowledge-hub`, `punch-knowledge-hub`, or `error-reporting` itself)
 errors, misbehaves, or returns something clearly wrong (empty payloads,
 stub markers, malformed results, wrong-document answers). File with:
 

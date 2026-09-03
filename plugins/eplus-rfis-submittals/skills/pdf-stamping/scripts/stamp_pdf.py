@@ -26,15 +26,18 @@ Key facts this script encodes (see ../reference/LESSONS-LEARNED.md):
 
 Usage:
   # what goes where -- report only, writes nothing
-  python stamp_pdf.py INPUT.pdf --stamps-dir ../stamps --stamp "Exceptions As Noted" \
+  python3 stamp_pdf.py INPUT.pdf --stamp "Exceptions As Noted" \
       --comments-file comments.txt --stamp-page 3 --plan
 
   # apply
-  python stamp_pdf.py INPUT.pdf --stamps-dir ../stamps \
+  python3 stamp_pdf.py INPUT.pdf \
       --watermark Draft \
       --stamp "Exceptions As Noted" --stamp-page 3 --stamp-fit auto \
       --comments-file comments.txt \
-      --reviewer "Victor Ortega" --date 09/01/2026
+      --reviewer "<reviewer name>" --date 09/01/2026
+
+Stamps are read from ../stamps relative to this script unless --stamps-dir
+is given.
 """
 from __future__ import annotations
 
@@ -100,7 +103,11 @@ REVIEW_STAMPS = {
 }
 WATERMARKS = {"Draft", "For Reference Only"}
 
-# House format, measured from "EPLUS RESPONSE - 109 - Telecom Vault - GZ COMMENTS.pdf"
+# The skill ships its stamps in ../stamps relative to this script.
+DEFAULT_STAMPS_DIR = os.path.normpath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "stamps"))
+
+# House format, measured from an issued "EPLUS RESPONSE - <submittal> - <initials> COMMENTS.pdf"
 HOUSE_STAMP_W = 286.3      # pt -- review stamp width as issued
 HOUSE_MARGIN = 42.0        # pt -- from the page edges
 HOUSE_GAP = 5.1            # pt -- between stamp bottom and comment box top
@@ -225,8 +232,15 @@ def load_stamp(path: str, tokens: dict[str, str] | None = None) -> pymupdf.Docum
         size = 5.0
         box = pymupdf.Rect(rect.x0, rect.y0 + (rect.height - size * 1.4) / 2,
                            rect.x1, rect.y1)
-        page.insert_textbox(box, text, fontname="hebo", fontsize=size,
-                            color=(0, 0, 0), align=pymupdf.TEXT_ALIGN_CENTER)
+        leftover = page.insert_textbox(box, text, fontname="hebo", fontsize=size,
+                                       color=(0, 0, 0), align=pymupdf.TEXT_ALIGN_CENTER)
+        # PyMuPDF returns the unused height; NEGATIVE means the text did not
+        # fit and nothing was drawn -- the cell would ship blank.
+        if leftover < 0:
+            raise SystemExit("token cell text %r does not fit its %.1f x %.1f pt "
+                             "cell (short by %.1f pt); shorten the reviewer name "
+                             "or date rather than shipping a blank cell"
+                             % (text, box.width, box.height, -leftover))
     return doc
 
 
@@ -272,7 +286,15 @@ def _form_xobject_from_stamp(doc: pymupdf.Document, stamp: pymupdf.Document,
 
 
 def _pdf_date(when: _dt.datetime) -> str:
-    return when.strftime("D:%Y%m%d%H%M%S-05'00'")
+    """PDF date string carrying the machine's real UTC offset, not a fixed zone."""
+    if when.tzinfo is None:
+        when = when.astimezone()
+    off = when.utcoffset() or _dt.timedelta(0)
+    total = int(off.total_seconds())
+    sign = "-" if total < 0 else "+"
+    total = abs(total)
+    return (when.strftime("D:%Y%m%d%H%M%S")
+            + "%s%02d'%02d'" % (sign, total // 3600, (total % 3600) // 60))
 
 
 def add_stamp_annot(page: pymupdf.Page, form_xref: int, rect: pymupdf.Rect,
@@ -561,7 +583,9 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("input")
-    ap.add_argument("--stamps-dir", default="stamps")
+    ap.add_argument("--stamps-dir", default=DEFAULT_STAMPS_DIR,
+                    help="folder holding the stamp PDFs (default: the skill's "
+                         "stamps/ folder next to this script)")
     ap.add_argument("--watermark", default=None,
                     help="watermark stamp applied to EVERY page (Draft, For Reference Only)")
     ap.add_argument("--watermark-scale", type=float, default=0.55,

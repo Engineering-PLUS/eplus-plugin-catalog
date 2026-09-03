@@ -81,7 +81,7 @@ mind, not the pixel count alone — `Draft` was a real problem at 286 px across
 `Draft.pdf` was a 286x286 px raster until 2026-09-01; re-saving it out of
 Bluebeam did **not** help, because the artwork was an image *stamp* and a
 resave just rewrites the container around the same PNG (identical SHA-1, same
-xref, same 1831 bytes). Victor re-authored it as a Bluebeam text box — Arial
+xref, same 1831 bytes). The stamp owner re-authored it as a Bluebeam text box — Arial
 Black, #969696, 40% opacity — and `inspect_stamp.py` now reports it as vector.
 Every stamp's artwork is vector today. If a new stamp reports RASTER at a low
 placed dpi, that is the fix to ask for.
@@ -130,8 +130,8 @@ is why `--plan` exists.
 
 ## 6. The house response format, measured
 
-From `EPLUS RESPONSE - 109 - Telecom Vault - GZ COMMENTS.pdf`, page 3 — a real
-issued response. Both marks are **live annotations**, not flattened content.
+From an issued `EPLUS RESPONSE - <submittal> - <reviewer initials> COMMENTS.pdf`,
+page 3 — a real issued response. Both marks are **live annotations**, not flattened content.
 
 - Review stamp: `/Stamp` annot, rect `26.9, 606.5 → 313.2, 749.7` in PDF
   coords — **286.3 x 143.2 pt**, 42 pt in from the top and left page edges.
@@ -205,7 +205,7 @@ MuPDF logged `cannot find object in xref (48 0 R)` on every read.
 Two things worth remembering:
 
 1. **A Bluebeam re-save does not fix this.** Revu rewrites the objects it knows
-   about and builds a fresh table around the same broken slots. Victor re-saved
+   about and builds a fresh table around the same broken slots. The stamp owner re-saved
    `For Record` and the eight orphans came back byte-for-byte identical. The
    same was true of the Draft raster — when a defect lives below the layer the
    authoring tool edits, asking for a re-save just burns a round trip.
@@ -214,7 +214,7 @@ Two things worth remembering:
    console noise on the source file only, which is why it stayed a low-priority
    item rather than a blocker.
 
-Fixed 2026-09-01 with Victor's approval by rewriting both through
+Fixed 2026-09-01 with the stamp owner's approval by rewriting both through
 `Document.save(garbage=4, deflate=True, clean=True)` — lossless, and verified
 as such: rasterised ink is SHA-1 identical before and after, same 13
 annotations, same `&[User] &[Date]` cell, same 216 x 108.7 pt ink box. All

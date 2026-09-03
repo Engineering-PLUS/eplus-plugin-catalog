@@ -33,8 +33,9 @@ python3 -m pip install "pymupdf>=1.25" --break-system-packages
 fix if either is too old — run it once before promising the user an output.
 Nothing else is required: no numpy, no poppler.
 
-`scripts/` and `stamps/` ship with the skill. Reference the bundled stamps with
-`--stamps-dir <skill>/stamps` unless the user points somewhere else.
+`scripts/` and `stamps/` ship with the skill. `stamp_pdf.py` finds the bundled
+stamps on its own (`../stamps` relative to the script); pass `--stamps-dir`
+only when the user points somewhere else.
 
 ## Which stamp
 
@@ -60,7 +61,7 @@ the page a contractor acts on.
   compounds with it. Leave it at the default 1.0 unless the user wants it
   lighter than the stamp as authored.
 - **Reviewer name** — fills the `&[User]` cell. **Required**; the script aborts
-  rather than shipping a raw `&[User]` token. Ask; do not assume it is Victor.
+  rather than shipping a raw `&[User]` token. Ask; do not assume it is the stamp owner.
 - **Date** — fills `&[Date]`, defaults to today, `MM/DD/YYYY`.
 - **Which page** the review stamp goes on. Usually the first sheet of actual
   content, which is often not page 1.
@@ -83,7 +84,7 @@ Use `--comments-file`. It keeps quoting and line breaks intact, which inline
 ### 2. Plan the placement before writing anything
 
 ```bash
-python scripts/stamp_pdf.py "<submittal>.pdf" --stamps-dir stamps \
+python3 scripts/stamp_pdf.py "<submittal>.pdf" \
     --stamp "Exceptions As Noted" --stamp-page 3 \
     --comments-file comments.txt --plan
 ```
@@ -116,7 +117,7 @@ Never pass `--allow-overlap` until the user has chosen one of these.
 ### 3. Apply
 
 ```bash
-python scripts/stamp_pdf.py "<submittal>.pdf" --stamps-dir stamps \
+python3 scripts/stamp_pdf.py "<submittal>.pdf" \
     --watermark "Draft" \
     --stamp "Exceptions As Noted" --stamp-page 3 --stamp-fit auto \
     --comments-file comments.txt \
@@ -128,7 +129,7 @@ Output is `EPLUS RESPONSE - <submittal>.pdf` next to the original.
 ### 4. Verify visually — every time, no exceptions
 
 ```bash
-python -c "import pymupdf,sys; d=pymupdf.open(sys.argv[1]); \
+python3 -c "import pymupdf,sys; d=pymupdf.open(sys.argv[1]); \
 d[int(sys.argv[2])-1].get_pixmap(dpi=110).save('check.png')" \
 "EPLUS RESPONSE - <submittal>.pdf" 3
 ```
@@ -155,7 +156,7 @@ and date, and where the block landed. If anything was covered, say what.
 - Never overwrite or modify the original submittal. The script refuses, but do
   not work around it.
 - Never edit the files in `stamps/` — they are the firm's controlled documents.
-  If a stamp needs changing, say so and let Victor change it in Bluebeam.
+  If a stamp needs changing, say so and let the stamp owner change it in Bluebeam.
 - Never ship a file that still shows `&[User]` or `&[Date]`.
 - Never choose the disposition stamp yourself, and never invent comment text —
   the comments come from the engineer or from an approved RFI response.

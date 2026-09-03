@@ -24,6 +24,11 @@ try {
     $cmd = $payload.tool_input.command
     if (-not $cmd) { exit 0 }
 
+    # scripts/render_preview.py converts to PDF in a scratch directory it deletes
+    # before exiting, purely to rasterise pages for a layout spot check; no PDF
+    # survives to be mistaken for a deliverable. Exempt it by name.
+    if ($cmd -match 'render_preview\.py') { exit 0 }
+
     $isConvert = ($cmd -match 'soffice|libreoffice') -and ($cmd -match 'convert-to\s+pdf|--convert-to\s+pdf')
     if (-not $isConvert) { exit 0 }
 

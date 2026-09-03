@@ -10,13 +10,13 @@ matter as much as the steps.
 ## Rules
 
 - Do not load any skill (not `punch-report-generation`, not `punch`, not
-  `plangrid-extraction`). Do not call any MCP tool.
+  `plangrid-extraction`). The only MCP call allowed is the one in step 9.
 - Do not read, cat, grep, or open any plugin file. Everything you need is here.
 - No clarifying questions: every input is defined below. No task list.
 - One tool call per step, in order. Do not retry a failed step; record it and
   move on. Do not investigate failures. Keep every command's output small.
 - Say nothing between steps except a step number. Your only prose is the final
-  table in step 9.
+  table in step 10.
 
 Set `W` to the workspace path for this test: a folder named `punch-test` inside
 the session's outputs folder (your own working folder, never a user folder).
@@ -103,7 +103,16 @@ cd "$W/ws/_pipeline" && python3 scripts/package.py "$W/ws" "$W/project" --dry-ru
 Expected: `delivered : TEST-DRAFT-v0.1.zip` and the project folder listing shows
 the zip and the docx. Record PASS or the error line.
 
-**9. Results.** Write `<W>/TEST-RESULTS.md` (Write tool) containing only the
+**9. MCP connectivity** (one tool call). Call the punch engine's `punch_stats`
+tool with no arguments, or its smallest documented argument set. The tool is
+named `mcp__punch-knowledge-hub__punch_stats` when delivered as a managed
+connector, or `mcp__plugin_eplus-punch-reports_punch-knowledge-hub__punch_stats`
+if bundled. If neither name exists in your tool list, record NO TOOL without
+searching further. If the call errors, record the first line of the error
+verbatim. If it answers, record PRESENT and the response size in one phrase
+(for example "PRESENT, 6 trades").
+
+**10. Results.** Write `<W>/TEST-RESULTS.md` (Write tool) containing only the
 table below, then print the same table as your entire final message, followed
 by one line: "Export this session now."
 
@@ -118,6 +127,7 @@ by one line: "Export this session now."
 | 6 | voice check context | |
 | 7 | render reminder context | |
 | 8 | package delivered | |
+| 9 | MCP punch_stats | |
 ```
 
 Nothing else. No summary, no recommendations, no cleanup.

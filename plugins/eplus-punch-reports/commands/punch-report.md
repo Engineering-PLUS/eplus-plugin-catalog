@@ -9,7 +9,10 @@ Project folder: $ARGUMENTS (if blank, use the current working folder).
 
 Load the `punch-report-generation` skill and follow it. This command is the
 intake and scaffolding front end for that workflow; the skill is the authority
-on every step.
+on every step. The skill's SKILL.md is the core (intake, premise, stage
+router, one-line step overview); its stage router names the one
+`reference/<stage>.md` file to read for the stage you are in, so read that
+file rather than all of them.
 
 **The project folder is read-only until the very end.** You read the inputs
 from it once, do every step in your own workspace, and the only write to the
