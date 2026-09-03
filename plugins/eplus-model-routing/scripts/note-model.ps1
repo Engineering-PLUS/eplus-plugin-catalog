@@ -5,12 +5,13 @@
 # note. Emits nothing; costs one short launch per session open, resume, or
 # compaction and zero context tokens.
 #
-# Where the record lives. Field test 2026-09-03 (on a test machine, not the
-# dev machine): this hook ran and exited 0, yet route-check found no recorded
-# model on the first prompt. Whether CLAUDE_PLUGIN_DATA was unset, pointed
-# elsewhere, or the payload lacked "model" is not yet known. The store is now
-# <TEMP>\eplus-model-routing\<session_id>\ on the host, which always exists,
-# with CLAUDE_PLUGIN_DATA as a second copy when it is set.
+# FIELD RESULT 2026-09-03 (Cowork): the SessionStart payload has NO model
+# field (keys: session_id, transcript_path, cwd, hook_event_name, source), so
+# this hook records nothing useful on Cowork today and route-check falls back
+# to the transcript from the second prompt on, and to the env-check note on the
+# first. Kept because it costs one short launch and would start working the
+# day the field appears. Store: <TEMP>\eplus-model-routing\<session_id>\ with
+# CLAUDE_PLUGIN_DATA as a second copy (both were set on the test seat).
 #
 # Diagnostics: the payload's top-level key names (never values, except the
 # model itself) are written to payload-keys.txt in the same folder so a field

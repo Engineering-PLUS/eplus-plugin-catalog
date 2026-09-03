@@ -11,6 +11,15 @@ on the main thread, which is already the capable model.
 
 ## How detection works
 
+**Field result (2026-09-03, two Cowork exports):** the SessionStart payload
+carries no `model` field, so step 1 below never fires on Cowork today. The
+first prompt of every session gets the env-check note; from the second prompt
+on, the transcript names the model and detection is exact. The model was
+observed reading its own `Model:` line correctly, so the first-prompt note
+is reliable. Cost of that fallback on a Sonnet or Haiku session: about 80
+tokens once.
+
+
 The desktop app tells the model which model it is in the env block of its
 instructions (`Model: claude-opus-5[1m]` and similar). Hooks cannot see that
 text; they see only their JSON payload. Two payloads carry the model:

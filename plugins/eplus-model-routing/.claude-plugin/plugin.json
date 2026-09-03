@@ -1,6 +1,6 @@
 {
   "name": "eplus-model-routing",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Cost control for the EPLUS Cowork fleet: records the session model at SessionStart, injects the routing rule on each prompt only when the session runs on Opus or Fable, and ships sonnet-standard and haiku-fast workers to delegate to. Expensive spawns need an explicit click.",
   "keywords": [
     "cost",

@@ -202,7 +202,10 @@ question on the same RFI gets a fresh agent with a fresh budget.
 **Batches.** N RFIs = one researcher per RFI, at most 3 running at once;
 launch them together, then draft and gate each RFI sequentially in this
 thread, one Step 4 gate per RFI. Never one agent for several RFIs — the
-budget and the brief are per question.
+budget and the brief are per question — and never a second agent for a
+single follow-up lookup on an RFI that already has one: resume it. Each
+spawn costs about 15k tokens before it does anything (measured 2026-09-03),
+so the unit of delegation is the RFI, never the lookup.
 
 **If the spawn fails** (agent not found, model alias blocked, Agent tool
 unavailable), tell the user in one line what failed and STOP. Do not

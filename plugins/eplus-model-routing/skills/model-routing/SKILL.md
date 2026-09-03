@@ -67,6 +67,30 @@ draft with a reviewer's eye before it goes out: technical accuracy, every
 number and code section, anything that overcommits the firm, tone. The stakes
 decide, not the word "email".
 
+## The spawn floor: when delegating costs more than doing
+
+Starting a worker is not free. Measured on this deployment (2026-09-03): a
+worker that did nothing but return one word cost about 11k tokens on
+`haiku-fast` and about 17k on `sonnet-standard`, because each worker boots its
+own copy of the instructions and tool list in a fresh context that shares no
+cache with this thread. Call that the floor, roughly 15k tokens per spawn.
+
+So the rule has two halves:
+
+- **Delegate when the work would otherwise run more than about 20k tokens
+  through this thread**: reading several files, a research sweep, drafting
+  more than a paragraph, any loop. Below that, a small task is cheaper done
+  here in one batched tool call than handed to a worker, even on Fable.
+- **When you delegate, hand over the whole job in one spawn.** One worker per
+  report, per RFI, per document set, or per batch of files; never one worker
+  per file, per lookup, or per item. Ten small spawns cost ten floors and
+  return ten results this thread has to read; one large spawn costs one floor
+  and returns one result.
+
+The floor is also why `sonnet-standard` may push mechanical parts to
+`haiku-fast` only when those parts are large: a worker spawning a worker for
+a small step pays the floor twice.
+
 ## How to hand work down
 
 - Give the worker everything it needs in the prompt: the material or the file
@@ -77,7 +101,8 @@ decide, not the word "email".
   `haiku-fast` and act on them.
 - Resume rather than respawn. A follow-up on work a worker already did goes
   back to that worker, whose context already holds the material.
-- Run independent workers in parallel, at most three at a time.
+- Run independent workers in parallel, at most three at a time, and only
+  when each one carries a job above the spawn floor.
 - Never spawn a worker on Opus or Fable. The spawn gate will stop and ask if
   you try; that prompt is correct behavior.
 - If a spawn fails because the model alias is blocked on this fleet, tell the

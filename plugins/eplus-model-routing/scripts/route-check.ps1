@@ -9,9 +9,16 @@
 # Detection, in order:
 #   1. model.txt written by note-model.ps1 from the SessionStart payload, in
 #      <TEMP>\eplus-model-routing\<session_id>\ (or CLAUDE_PLUGIN_DATA).
-#   2. The last assistant message's model field in the transcript tail, when
-#      the payload names a transcript_path (available from the second prompt).
-#   3. Unknown: inject the env-check variant and let the model decide.
+#      FIELD RESULT 2026-09-03 (Cowork, two exports): the SessionStart payload
+#      carries session_id, transcript_path, cwd, hook_event_name, source and
+#      NO model field, so this step never fires on Cowork today. Kept in case
+#      a later build adds the field.
+#   2. The last assistant message's model field in the transcript tail. The
+#      payload does name transcript_path, but on the FIRST prompt the transcript
+#      holds no assistant turn yet, so this works from the second prompt on.
+#   3. Unknown (always the first prompt on Cowork): inject the env-check
+#      variant and let the model read its own Model: line. Verified: the model
+#      reads it correctly.
 #
 # First injection per session is the full digest; later prompts get a one-line
 # reminder. The payload's key names are appended to payload-keys.txt as a
@@ -109,27 +116,6 @@ try {
         } else {
             $ctx = '[model-routing] If your env Model line names Opus or Fable, delegate to haiku-fast and sonnet-standard.'
         }
-    }
-
-    # One-time diagnostic that rides inside the note so it reaches the session
-    # export (the only evidence that comes back from a test machine). It must
-    # not depend on the store working, since that is what is under test: it
-    # reports this payload's key names, whether TEMP and CLAUDE_PLUGIN_DATA are
-    # set in the hook's environment, which store dir was usable, whether a
-    # model.txt was found, and the SessionStart key names if note-model.ps1
-    # managed to record them. About 40 tokens, first prompt only. Remove once
-    # verified.
-    if ($first) {
-        $ss = 'none'
-        if ($dir) { $pk = Join-Path $dir 'payload-keys.txt'; if (Test-Path -LiteralPath $pk) { $ss = ((Get-Content -LiteralPath $pk | Where-Object { $_ -like 'SessionStart*' }) -join ';') } }
-        if (-not $ss) { $ss = 'none' }
-        $diag = 'prompt-keys=' + $(if ($keys) { $keys } else { 'unparsed' }) +
-                '; temp=' + $(if ($env:TEMP) { 'set' } else { 'unset' }) +
-                '; pdata=' + $(if ($env:CLAUDE_PLUGIN_DATA) { 'set' } else { 'unset' }) +
-                '; store=' + $(if ($dir) { 'ok' } else { 'none' }) +
-                '; model=' + $(if ($model) { $model } else { 'none' }) +
-                '; ' + $ss
-        $ctx = $ctx + " (diag: $diag)"
     }
 
     $out = @{ hookSpecificOutput = @{
