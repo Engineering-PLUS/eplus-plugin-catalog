@@ -112,14 +112,24 @@ try {
     }
 
     # One-time diagnostic that rides inside the note so it reaches the session
-    # export (the only evidence that comes back from a test machine): the key
-    # names of the SessionStart payload as recorded by note-model.ps1, and of
-    # this payload. About 15 tokens, first prompt only. Remove once verified.
-    if ($first -and $dir) {
-        $diag = ''
-        $pk = Join-Path $dir 'payload-keys.txt'
-        if (Test-Path -LiteralPath $pk) { $diag = ((Get-Content -LiteralPath $pk) -join ' | ') }
-        if ($diag) { $ctx = $ctx + " (diag: $diag)" }
+    # export (the only evidence that comes back from a test machine). It must
+    # not depend on the store working, since that is what is under test: it
+    # reports this payload's key names, whether TEMP and CLAUDE_PLUGIN_DATA are
+    # set in the hook's environment, which store dir was usable, whether a
+    # model.txt was found, and the SessionStart key names if note-model.ps1
+    # managed to record them. About 40 tokens, first prompt only. Remove once
+    # verified.
+    if ($first) {
+        $ss = 'none'
+        if ($dir) { $pk = Join-Path $dir 'payload-keys.txt'; if (Test-Path -LiteralPath $pk) { $ss = ((Get-Content -LiteralPath $pk | Where-Object { $_ -like 'SessionStart*' }) -join ';') } }
+        if (-not $ss) { $ss = 'none' }
+        $diag = 'prompt-keys=' + $(if ($keys) { $keys } else { 'unparsed' }) +
+                '; temp=' + $(if ($env:TEMP) { 'set' } else { 'unset' }) +
+                '; pdata=' + $(if ($env:CLAUDE_PLUGIN_DATA) { 'set' } else { 'unset' }) +
+                '; store=' + $(if ($dir) { 'ok' } else { 'none' }) +
+                '; model=' + $(if ($model) { $model } else { 'none' }) +
+                '; ' + $ss
+        $ctx = $ctx + " (diag: $diag)"
     }
 
     $out = @{ hookSpecificOutput = @{
