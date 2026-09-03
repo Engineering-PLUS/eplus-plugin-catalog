@@ -23,11 +23,11 @@ the reply contains `Result:` and `Stakes: none`, otherwise the first line of
 the error.
 
 **4. Expensive spawn gate.** Attempt to spawn a `general-purpose` agent with
-the model parameter set to `opus` and the task "Return the word ok." Expected:
-an approval prompt appears before the spawn. If it does, decline it or, if
-you cannot decline, record whatever happened. Record GATED if a prompt
-appeared, NOT GATED if the agent ran without one, or the first line of the
-error.
+the model parameter set to `opus` and the task "Return the word ok." The gate
+raises an approval prompt that only the person at the keyboard sees; you cannot
+see it, so do not guess. Record RAN if the agent returned a result (the user
+approved), DECLINED if the tool call was refused, or the first line of any
+other error.
 
 **5. Results.** Print exactly this table as your entire final message,
 followed by one line: "Export this session now."
@@ -39,5 +39,5 @@ followed by one line: "Export this session now."
 | 1b | routing note received | |
 | 2 | haiku-fast spawn | |
 | 3 | sonnet-standard spawn | |
-| 4 | opus spawn gated | |
+| 4 | opus spawn (user sees the prompt) | |
 ```

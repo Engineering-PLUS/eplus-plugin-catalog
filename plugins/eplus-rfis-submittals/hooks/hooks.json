@@ -1,5 +1,5 @@
 {
-  "description": "Two hooks, both single PowerShell commands (the EPLUS fleet is Windows-only and Cowork runs hooks on the Windows host; no sh half, no SessionStart). (1) PreToolUse on commit_approved_rfi under both tool-name forms (managed connector mcp__rfi-knowledge-hub__* and bundled mcp__plugin_eplus-rfis-submittals_rfi-knowledge-hub__*): scripts/gate-commit.ps1 returns permissionDecision 'ask' so the harness itself prompts before any write to the EPLUS knowledge base -- the marketplace promise that nothing is saved without sign-off is enforced by the runtime, not only by the skill's AskUserQuestion gate. Disable with EPLUS_NO_RFI_COMMIT_GATE=1. (2) SubagentStop scoped to ^eplus-rfis-submittals:rfi-researcher$ (plugin agents report the plugin-scoped agent_type, so the matcher is anchored): scripts/show-researcher-final.ps1 appends the researcher's full evidence brief, with a 220-char excerpt header, to <session project dir>/<session_id>/subagent-final-messages.log, the directory the session exporter zips. No displayContent banner: that needs a MessageDisplay drain firing on every message, which this plugin does not wire. Disable with EPLUS_NO_RFI_SUBAGENT_ECHO=1. Both scripts read stdin with [Console]::In.ReadToEnd(), never emit additionalContext or decision on SubagentStop, and always exit 0 with the decision in the JSON body.",
+  "description": "Two hooks, both single PowerShell commands (the EPLUS fleet is Windows-only and Cowork runs hooks on the Windows host; no sh half, no SessionStart). (1) PreToolUse on commit_approved_rfi under both tool-name forms (managed connector mcp__rfi-knowledge-hub__* and bundled mcp__plugin_eplus-rfis-submittals_rfi-knowledge-hub__*): scripts/gate-commit.ps1 returns permissionDecision 'ask' so the harness itself prompts before any write to the EPLUS knowledge base -- the marketplace promise that nothing is saved without sign-off is enforced by the runtime, not only by the skill's AskUserQuestion gate. Disable with EPLUS_NO_RFI_COMMIT_GATE=1. (2) SubagentStop scoped to ^eplus-rfis-submittals:rfi-researcher$ (plugin agents report the plugin-scoped agent_type, so the matcher is anchored): scripts/show-researcher-final.ps1 appends the researcher's full evidence brief, with a 220-char excerpt header, to <session project dir>/<session_id>/subagent-final-messages.log, the directory the session exporter zips. No displayContent banner: that needs a MessageDisplay drain firing on every message, which this plugin does not wire. Disable with EPLUS_NO_RFI_SUBAGENT_ECHO=1. Both scripts read stdin with [Console]::In.ReadToEnd(), never emit additionalContext or decision on SubagentStop, and always exit 0 with the decision in the JSON body. Hook form (adopted 2026-09-03 after a field A/B in the same export): every entry uses shell: powershell with a direct & script call, so the app's own PowerShell runs the script in one process (540 ms measured) instead of launching a second powershell.exe (907 ms); the single-launch form is the standard for this catalog.",
   "hooks": {
     "PreToolUse": [
       {
@@ -7,7 +7,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/gate-commit.ps1\""
+            "command": "& \"${CLAUDE_PLUGIN_ROOT}\\scripts\\gate-commit.ps1\"",
+            "shell": "powershell"
           }
         ]
       }
@@ -18,7 +19,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/show-researcher-final.ps1\""
+            "command": "& \"${CLAUDE_PLUGIN_ROOT}\\scripts\\show-researcher-final.ps1\"",
+            "shell": "powershell"
           }
         ]
       }

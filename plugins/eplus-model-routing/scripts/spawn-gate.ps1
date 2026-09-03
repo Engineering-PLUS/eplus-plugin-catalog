@@ -1,11 +1,13 @@
 # PreToolUse:Agent hook. Runs on the Windows host under PowerShell.
 #
 # Two jobs. (1) Log every Agent spawn (subagent_type, requested model) to
-# routing.log in plugin data and in the exported session dir, so the routing
-# trail is visible in an export. (2) Return permissionDecision "ask" when a
-# spawn requests an expensive model (opus or fable), so the expensive tier
-# needs an explicit click. The only workers this plugin ships run on Sonnet
-# and Haiku; there is no legitimate reason for a worker on Opus or Fable.
+# routing.log under <TEMP>\eplus-model-routing\ (and CLAUDE_PLUGIN_DATA when
+# set), so the routing trail is visible on the machine. (2) Return
+# permissionDecision "ask" when a spawn requests an expensive model (opus or
+# fable), so the expensive tier needs an explicit click. Field test
+# 2026-09-03: the approval prompt appears in Cowork under auto permission
+# mode; the person at the keyboard decides. The only workers this plugin ships
+# run on Sonnet and Haiku.
 #
 # Escape hatch: EPLUS_ALLOW_EXPENSIVE_SPAWN=1 skips the gate (logging stays).
 # Always exits 0; the decision travels in the JSON body.
@@ -29,20 +31,13 @@ try {
     if ($data.PSObject.Properties['session_id'] -and $data.session_id) { $session = [string]$data.session_id }
 
     $logLine = "{0:yyyy-MM-ddTHH:mm:ssZ} session={1} event=PreToolUse:Agent subagent_type={2} model={3}" -f [DateTime]::UtcNow, $session, $sub, $reqModel
-    if ($env:CLAUDE_PLUGIN_DATA) {
+    $stores = @()
+    if ($env:TEMP) { $stores += (Join-Path $env:TEMP 'eplus-model-routing') }
+    if ($env:CLAUDE_PLUGIN_DATA) { $stores += $env:CLAUDE_PLUGIN_DATA }
+    foreach ($dir in $stores) {
         try {
-            if (-not (Test-Path -LiteralPath $env:CLAUDE_PLUGIN_DATA)) { New-Item -ItemType Directory -Path $env:CLAUDE_PLUGIN_DATA -Force | Out-Null }
-            Add-Content -Path (Join-Path $env:CLAUDE_PLUGIN_DATA 'routing.log') -Value $logLine -Encoding utf8
-        } catch { }
-    }
-    if ($data.PSObject.Properties['transcript_path'] -and $data.transcript_path) {
-        try {
-            $tdir = Split-Path -Path ([string]$data.transcript_path) -Parent
-            if ($tdir) {
-                $exportDir = Join-Path $tdir $session
-                if (-not (Test-Path -LiteralPath $exportDir)) { New-Item -ItemType Directory -Path $exportDir -Force | Out-Null }
-                Add-Content -Path (Join-Path $exportDir 'routing.log') -Value $logLine -Encoding utf8
-            }
+            if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+            Add-Content -Path (Join-Path $dir 'routing.log') -Value $logLine -Encoding utf8
         } catch { }
     }
 
@@ -51,10 +46,10 @@ try {
     $expensive = ($reqModel -match '(?i)opus|fable') -or ($sub -match '(?i)opus|fable')
     if (-not $expensive) { exit 0 }
 
-    $reason = 'This spawn asks for an expensive model (Opus is about 2.5x Sonnet per token, Fable about 5x). ' +
-              'The routing workers are haiku-fast for mechanical work and sonnet-standard for everything else; ' +
-              'hard reasoning and review stay on the main thread. Approve only if a cheaper worker genuinely ' +
-              'cannot do this. (EPLUS_ALLOW_EXPENSIVE_SPAWN=1 disables this gate.)'
+    $reason = 'model-routing: this spawn asks for an expensive model (Opus is about 2.5x Sonnet per token, ' +
+              'Fable about 5x). The routing workers are haiku-fast for mechanical work and sonnet-standard for ' +
+              'everything else; hard reasoning and review stay on the main thread. Approve only if a cheaper ' +
+              'worker genuinely cannot do this. (EPLUS_ALLOW_EXPENSIVE_SPAWN=1 disables this gate.)'
 
     $out = @{ hookSpecificOutput = @{
         hookEventName            = 'PreToolUse'

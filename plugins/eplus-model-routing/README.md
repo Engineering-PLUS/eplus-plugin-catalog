@@ -34,7 +34,7 @@ text; they see only their JSON payload. Two payloads carry the model:
 | Skill | `skills/model-routing/SKILL.md` | The policy: read your env Model line, the cost order, the two real cost drivers (tool calls re-read context; context never shrinks), what to delegate to which worker, how to hand work down, how to talk about models. The cost table lives here only. |
 | Worker | `agents/sonnet-standard.md` | Sonnet 5. Research, reading, drafting, coding, loops. Finishes the task, returns `Result / Assumptions / Gaps / Stakes`, never asks questions. May push mechanical sub-steps to haiku-fast. |
 | Worker | `agents/haiku-fast.md` | Haiku 4.5, 128K context. Reformatting, extraction, classification, list work, small file checks. Returns `Result / Assumptions / Gaps / Escalate`. |
-| Hook | `scripts/note-model.ps1` | SessionStart: records the payload model, emits nothing. |
+| Hook | `scripts/note-model.ps1` | SessionStart: records the payload model to `%TEMP%\eplus-model-routing\<session>\model.txt` (and plugin data when set), plus the payload's key names as a diagnostic; emits nothing. |
 | Hook | `scripts/route-check.ps1` | UserPromptSubmit: tier detection and the injection above. |
 | Hook | `scripts/spawn-gate.ps1` | PreToolUse on Agent: logs every spawn to `routing.log`; returns `ask` when a spawn requests Opus or Fable. |
 | Command | `commands/model-check.md` | Temporary test aid: prints the env model line and whether the routing note arrived. Remove before wide rollout. |
@@ -55,7 +55,8 @@ when a task turns out to need writing or judgment.
 ## Testing
 
 Fastest path: run `/eplus-model-routing:routing-test` once on an Opus or
-Fable session, decline the gate prompt when it appears, then export. The
+Fable session. **Step 4 raises an approval prompt in the Cowork UI; that prompt
+is the test, so read it and decline it.** Then export. The
 five-row table plus the export's hook attachments and `routing.log` cover
 every mechanism. The manual steps below do the same thing piecewise.
 
@@ -70,7 +71,9 @@ every mechanism. The manual steps below do the same thing piecewise.
 3. Give a real multi-step task on an Opus or Fable session and export. The
    export's `routing.log` should show `sonnet-standard` and `haiku-fast`
    spawns; the hook attachments show the injected notes.
-4. Ask a worker to run on Opus by name. Expect the gate's approval prompt.
+4. Ask a worker to run on Opus by name. Expect the gate's approval prompt in
+   the UI (field-verified 2026-09-03). The model cannot see that prompt, so
+   only the person at the keyboard can report it.
 
 Models are referenced by alias (`sonnet`, `haiku`). If the fleet's allowed
 models policy blocks an alias, the spawn fails at Agent-tool time; the skill

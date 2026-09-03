@@ -7,15 +7,15 @@
 # the model can see directly.
 #
 # Detection, in order:
-#   1. <CLAUDE_PLUGIN_DATA>/<session_id>/model.txt, written by note-model.ps1
-#      from the SessionStart payload's model field (exact, available from the
-#      first prompt).
-#   2. The last assistant message's model field in the transcript tail
-#      (available from the second prompt on).
+#   1. model.txt written by note-model.ps1 from the SessionStart payload, in
+#      <TEMP>\eplus-model-routing\<session_id>\ (or CLAUDE_PLUGIN_DATA).
+#   2. The last assistant message's model field in the transcript tail, when
+#      the payload names a transcript_path (available from the second prompt).
 #   3. Unknown: inject the env-check variant and let the model decide.
 #
 # First injection per session is the full digest; later prompts get a one-line
-# reminder. Context-only; never a decision field; always exits 0.
+# reminder. The payload's key names are appended to payload-keys.txt as a
+# diagnostic. Context-only; never a decision field; always exits 0.
 # Disable with EPLUS_NO_MODEL_ROUTING=1.
 
 $ErrorActionPreference = 'SilentlyContinue'
@@ -30,22 +30,31 @@ try {
 
     $session = 'unknown-session'
     $transcript = $null
+    $keys = ''
     if ($null -ne $data) {
         if ($data.PSObject.Properties['session_id'] -and $data.session_id) { $session = [string]$data.session_id }
         if ($data.PSObject.Properties['transcript_path'] -and $data.transcript_path) { $transcript = [string]$data.transcript_path }
+        $keys = ($data.PSObject.Properties | ForEach-Object { $_.Name }) -join ','
     }
 
+    # Per-session store: TEMP first (always present on the host), plugin data second.
     $dir = $null
-    if ($env:CLAUDE_PLUGIN_DATA) {
-        $dir = Join-Path $env:CLAUDE_PLUGIN_DATA $session
-        try { if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null } } catch { $dir = $null }
+    $candidates = @()
+    if ($env:TEMP) { $candidates += (Join-Path (Join-Path $env:TEMP 'eplus-model-routing') $session) }
+    if ($env:CLAUDE_PLUGIN_DATA) { $candidates += (Join-Path $env:CLAUDE_PLUGIN_DATA $session) }
+    foreach ($c in $candidates) {
+        try {
+            if (-not (Test-Path -LiteralPath $c)) { New-Item -ItemType Directory -Path $c -Force | Out-Null }
+            if (-not $dir) { $dir = $c }
+        } catch { }
     }
+    if ($dir -and $keys) { try { Add-Content -Path (Join-Path $dir 'payload-keys.txt') -Value ("UserPromptSubmit keys: $keys") -Encoding ascii } catch { } }
 
-    # --- 1. model recorded at SessionStart ---------------------------------
+    # --- 1. model recorded at SessionStart (any candidate store) -----------
     $model = ''
-    if ($dir) {
-        $mf = Join-Path $dir 'model.txt'
-        if (Test-Path -LiteralPath $mf) { $model = ([string](Get-Content -LiteralPath $mf -Raw)).Trim() }
+    foreach ($c in $candidates) {
+        $mf = Join-Path $c 'model.txt'
+        if (-not $model -and (Test-Path -LiteralPath $mf)) { $model = ([string](Get-Content -LiteralPath $mf -Raw)).Trim() }
     }
 
     # --- 2. transcript tail -------------------------------------------------
@@ -100,6 +109,17 @@ try {
         } else {
             $ctx = '[model-routing] If your env Model line names Opus or Fable, delegate to haiku-fast and sonnet-standard.'
         }
+    }
+
+    # One-time diagnostic that rides inside the note so it reaches the session
+    # export (the only evidence that comes back from a test machine): the key
+    # names of the SessionStart payload as recorded by note-model.ps1, and of
+    # this payload. About 15 tokens, first prompt only. Remove once verified.
+    if ($first -and $dir) {
+        $diag = ''
+        $pk = Join-Path $dir 'payload-keys.txt'
+        if (Test-Path -LiteralPath $pk) { $diag = ((Get-Content -LiteralPath $pk) -join ' | ') }
+        if ($diag) { $ctx = $ctx + " (diag: $diag)" }
     }
 
     $out = @{ hookSpecificOutput = @{

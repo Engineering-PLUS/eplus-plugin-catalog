@@ -1,5 +1,5 @@
 {
-  "description": "Enforcement for the punch report workflow. Each hook is a single PowerShell invocation: the fleet is Windows-only and Cowork executes hooks on the Windows host under PowerShell, never inside the Linux sandbox, even when the VM is running. The earlier POSIX .sh halves were removed because they had no execution path on any seat and their failed `sh` lookup polluted every export's hook stderr. Tool matchers name Bash, PowerShell, and mcp__workspace__bash (Cowork's shell tool) explicitly. Two of the three hooks are context-only and can never block. The third is a deliberately narrow deny on converting a punch report to PDF with LibreOffice, keyed on tool_input.command only and on the _pipeline folder or the -DRAFT-v report name (never the word punch, which most project folders carry), which is the one mistake here that has already shipped to a reviewer. Each hook has its own EPLUS_NO_* escape hatch. There is deliberately no SessionStart hook: it cost a PowerShell spawn on every session open for every seat, and the pointer it carried now lives in the punch-report-generation skill. PostToolUseFailure is also deliberately NOT wired here: the error-reporting plugin already owns that event, and a second wiring produces a duplicate nudge for the same failure. EXPERIMENT (2026-09-02): the verify-after-render wiring uses `shell: powershell` with a direct `& script.ps1` call, so the app's own PowerShell runs the script (one process) instead of launching a second powershell.exe (two). The other hooks keep the explicit powershell -File form. Compare the two forms' durations in the next export; if the direct form works and is faster, move all hooks to it. If it fails (execution policy, placeholder not rewritten), the failure is non-blocking and shows in the export.",
+  "description": "Enforcement for the punch report workflow. Each hook is a single PowerShell invocation: the fleet is Windows-only and Cowork executes hooks on the Windows host under PowerShell, never inside the Linux sandbox, even when the VM is running. The earlier POSIX .sh halves were removed because they had no execution path on any seat and their failed `sh` lookup polluted every export's hook stderr. Tool matchers name Bash, PowerShell, and mcp__workspace__bash (Cowork's shell tool) explicitly. Two of the three hooks are context-only and can never block. The third is a deliberately narrow deny on converting a punch report to PDF with LibreOffice, keyed on tool_input.command only and on the _pipeline folder or the -DRAFT-v report name (never the word punch, which most project folders carry), which is the one mistake here that has already shipped to a reviewer. Each hook has its own EPLUS_NO_* escape hatch. There is deliberately no SessionStart hook: it cost a PowerShell spawn on every session open for every seat, and the pointer it carried now lives in the punch-report-generation skill. PostToolUseFailure is also deliberately NOT wired here: the error-reporting plugin already owns that event, and a second wiring produces a duplicate nudge for the same failure. Hook form (adopted 2026-09-03 after a field A/B in the same export): every entry uses shell: powershell with a direct & script call, so the app's own PowerShell runs the script in one process (540 ms measured) instead of launching a second powershell.exe (907 ms); the single-launch form is the standard for this catalog.",
   "hooks": {
     "PreToolUse": [
       {
@@ -7,7 +7,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/block-punch-pdf.ps1\""
+            "command": "& \"${CLAUDE_PLUGIN_ROOT}\\scripts\\block-punch-pdf.ps1\"",
+            "shell": "powershell"
           }
         ]
       }
@@ -18,7 +19,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/check-draft-voice.ps1\""
+            "command": "& \"${CLAUDE_PLUGIN_ROOT}\\scripts\\check-draft-voice.ps1\"",
+            "shell": "powershell"
           }
         ]
       },
