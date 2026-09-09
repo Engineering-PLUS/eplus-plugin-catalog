@@ -1,6 +1,18 @@
 {
-  "description": "Auto-nudges the model to file EPLUS tool failures via this plugin's report_issue tool. One PostToolUseFailure wiring running report-tool-failure.ps1. The fleet is Windows-only and Cowork executes hooks on the Windows host under PowerShell (never inside the Linux sandbox, even when the VM is running), so the hook is a single PowerShell invocation; the earlier POSIX .sh half was removed because it had no execution path on any seat and its failed lookup polluted every export's hook stderr. Context-only (additionalContext); never blocks a tool call; always exits 0. Disable per-machine with EPLUS_NO_ERROR_NUDGE=1. Hook form (adopted 2026-09-03 after a field A/B in the same export): every entry uses shell: powershell with a direct & script call, so the app's own PowerShell runs the script in one process (540 ms measured) instead of launching a second powershell.exe (907 ms); the single-launch form is the standard for this catalog.",
+  "description": "Auto-nudges the model to file EPLUS tool failures via this plugin's report_issue tool, to file an egress allow request when a fetch or download is refused by the Cowork network allowlist, and tells it who is sitting at the seat so every report carries requested_by. Three wirings, all single PowerShell invocations (the fleet is Windows-only and Cowork executes hooks on the Windows host under PowerShell, never inside the Linux sandbox). (1) SessionStart on * (startup, resume, compact): scripts/note-identity.ps1 injects one line, the reporter identity as USERDOMAIN\\USERNAME@COMPUTERNAME read from the host environment. Needed because on the 3P deployment the app's own account identity is a placeholder (metadata emailAddress cowork-3p@localhost, exports of 2026-09-09), so the model's env block has no real user name; the hook environment does. One spawn per session open, resume, or compaction, no I/O. (2) PostToolUseFailure on every tool: scripts/report-tool-failure.ps1 emits the generic file-it nudge, or, when the payload carries the egress signature (cowork-egress-blocked | not on the network allowlist | Received HTTP code 403 from proxy after CONNECT), the egress context instead: check_egress_host first, request_egress_allow once, relay status and reason, and when the host is allowed but the fetch still fails tell the user to fully quit and relaunch the app. Both texts end with the identity line so requested_by survives compaction. (3) PostToolUse matched only on mcp__workspace__web_fetch|WebFetch: scripts/egress-request-nudge.ps1 emits the same egress context only when tool_response carries the signature; every other fetch exits silently. Wiring (3) exists because a web_fetch block is returned as an is_error tool result and it is not yet field-verified whether that raises PostToolUseFailure (proven for mcp__workspace__bash on 2026-09-01) or only PostToolUse; a marker file under %TEMP%\\eplus-error-reporting\\<session_id>\\<tool_use_id> guarantees one nudge per call when both fire, and the losing wiring is removed after the field test. All scripts are context-only (additionalContext), never block a tool call, always exit 0; the tool-event scripts self-skip when the failed tool is the error-reporting server itself. Disable everything per-machine with EPLUS_NO_ERROR_NUDGE=1; disable only the egress branch with EPLUS_NO_EGRESS_NUDGE=1; disable only the identity note with EPLUS_NO_IDENTITY_NOTE=1. Hook form (adopted 2026-09-03 after a field A/B in the same export): every entry uses shell: powershell with a direct & script call, so the app's own PowerShell runs the script in one process (540 ms measured) instead of launching a second powershell.exe (907 ms); the single-launch form is the standard for this catalog.",
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "& \"${CLAUDE_PLUGIN_ROOT}\\scripts\\note-identity.ps1\"",
+            "shell": "powershell"
+          }
+        ]
+      }
+    ],
     "PostToolUseFailure": [
       {
         "matcher": "*",
@@ -8,6 +20,18 @@
           {
             "type": "command",
             "command": "& \"${CLAUDE_PLUGIN_ROOT}\\scripts\\report-tool-failure.ps1\"",
+            "shell": "powershell"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "mcp__workspace__web_fetch|WebFetch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "& \"${CLAUDE_PLUGIN_ROOT}\\scripts\\egress-request-nudge.ps1\"",
             "shell": "powershell"
           }
         ]
