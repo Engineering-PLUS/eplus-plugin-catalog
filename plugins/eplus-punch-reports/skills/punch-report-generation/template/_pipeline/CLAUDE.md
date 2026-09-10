@@ -135,10 +135,8 @@ python3 scripts/extract_sheet_clips.py "<Task Report>.pdf" \
 python3 scripts/build_master.py --items data/items.json \
     --drafted data/drafted_items.json -o build/master_report_items.json
 
-# 5. render, repair bookmark ids, verify
-node scripts/gen_report.js build
-python3 scripts/fix_bookmark_ids.py build/<filename>.docx
-python3 scripts/verify_report.py build/<filename>.docx
+# 4+5. assemble, render, repair bookmark ids, verify (the only supported render command)
+RENDER_ONLY=1 bash scripts/run_pipeline.sh
 
 # optional layout spot check (needs soffice on PATH; deletes its own PDF)
 python3 scripts/render_preview.py build/<filename>.docx --pages 1,4
@@ -222,7 +220,7 @@ sits under. Resolved comments are hidden unless `--include-resolved` is passed.
 python3 scripts/review_sheet.py export build -o Report-Review.xlsx
 #   reviewer edits the YELLOW columns only
 python3 scripts/review_sheet.py import build Report-Review.xlsx
-node scripts/gen_report.js build
+RENDER_ONLY=1 bash scripts/run_pipeline.sh
 ```
 
 Yellow = editable, grey = generated and ignored on import, so photo paths and

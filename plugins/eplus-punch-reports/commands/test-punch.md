@@ -1,5 +1,5 @@
 ---
-description: TEMPORARY smoke test of the punch plugin's hooks, workspace flow, and packaging. Fixed script, minimal tokens, no real data. Remove before wide rollout.
+description: TEMPORARY smoke test of the punch plugin's workspace flow, build rules, and packaging. Fixed script, minimal tokens, no real data. Remove before wide rollout.
 argument-hint: (no arguments)
 ---
 
@@ -77,18 +77,19 @@ workspace path (the same form the session uses for its outputs folder):
 [{"number":"1","description":"Junction box at this location is open — cover missing."},{"number":"2","description":"The image is unclear."},{"number":"3","description":"Conduit terminates without a bushing."}]
 ```
 
-Expected: immediately after the write you receive hook context beginning
-"[punch-report] Voice check on drafted_items.json found 2 issue(s)". Record
-PASS with the count you saw, or NO CONTEXT if nothing arrived.
+Expected: no hook context of any kind arrives (the plugin ships no hooks since
+0.6.5). Record PASS if nothing arrived, or the first line of whatever did.
 
-**7. Render reminder** (Bash):
+**7. Voice rules enforced by the build** (Bash):
 
 ```bash
-cd "$W/ws/_pipeline" && node --check scripts/gen_report.js && echo parsed
+cd "$W/ws/_pipeline" && printf '[{"number":1,"photos":[],"sheet_name":"T02-01A","sheet_description":"","room":"","status":"open"},{"number":2,"photos":[],"sheet_name":"T02-01A","sheet_description":"","room":"","status":"open"},{"number":3,"photos":[],"sheet_name":"T02-01A","sheet_description":"","room":"","status":"open"}]' > data/items.json && python3 scripts/build_master.py --items data/items.json --drafted data/drafted_items.json -o build/master_report_items.json 2>&1 | tail -3; echo "exit ${PIPESTATUS[0]}"
 ```
 
-Expected: hook context beginning "[punch-report] The report was just
-rendered." Record PASS or NO CONTEXT.
+Expected: the build exits nonzero and names at least one item and the rule it
+broke (the file from step 6 carries a dash in item 1 and photo narration in
+item 2, and is missing required fields). Record PASS with what it named, or
+the last line if it exited 0.
 
 **8. Package delivery** (Bash):
 
@@ -120,8 +121,8 @@ by one line: "Export this session now."
 | 3 | PDF conversion allowed | |
 | 4 | soffice present | |
 | 5 | export_pdf.py parses | |
-| 6 | voice check context | |
-| 7 | render reminder context | |
+| 6 | no hook context on Write | |
+| 7 | voice rules enforced by build | |
 | 8 | package delivered | |
 | 9 | MCP punch_stats | |
 ```

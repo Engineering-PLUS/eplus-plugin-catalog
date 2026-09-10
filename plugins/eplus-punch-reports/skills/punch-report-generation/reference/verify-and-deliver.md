@@ -86,7 +86,7 @@ above" as applying to every instance of the same pattern, not just its own item.
 python3 scripts/review_sheet.py export build -o Report-Review.xlsx
 #   reviewer edits the yellow columns
 python3 scripts/review_sheet.py import build Report-Review.xlsx
-node scripts/gen_report.js build
+RENDER_ONLY=1 bash scripts/run_pipeline.sh
 ```
 
 Yellow cells editable, grey generated and ignored on import, so photo paths and

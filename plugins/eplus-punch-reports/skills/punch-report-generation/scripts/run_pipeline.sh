@@ -12,6 +12,11 @@
 #
 # SCOPE is the ONLY place report scope lives. Unset means every item in the pull.
 #
+# RENDER_ONLY=1 skips the data steps (consolidate, photos, sheet clips) and runs
+# build master, render, bookmark repair and verify only. Use it after editing
+# data/drafted_items.json or importing a review sheet; it is the one supported
+# way to re-render, so the verifier always runs after gen_report.js.
+#
 # Produces the .docx, which is the file of record:
 #   - The reviewer issues the report from Word, which recalculates the TOC page
 #     number fields on open and on PDF export. LibreOffice does not, and it
@@ -44,6 +49,12 @@ if [ -z "$PY" ]; then
     echo "ERROR: no working python interpreter on PATH (tried python3, then python)." >&2
     exit 1
 fi
+
+if [ -n "${RENDER_ONLY:-}" ]; then
+    echo "==> render only (RENDER_ONLY=1): skipping consolidate, photos and sheet clips"
+    [ -f data/items.json ] || { echo "ERROR: data/items.json missing; run the full pipeline first." >&2; exit 1; }
+    [ -f "$BUILD/sheet_clip_dims_jpg.json" ] || echo '{}' > "$BUILD/sheet_clip_dims_jpg.json"
+else
 
 # --- input discovery -------------------------------------------------------
 # A PlanGrid pull is a directory holding tasks.json. A Task Report is a PDF
@@ -100,6 +111,8 @@ else
     echo "    Export a Task Report from PlanGrid and re-run to add pin clips."
     [ -f "$BUILD/sheet_clip_dims_jpg.json" ] || echo '{}' > "$BUILD/sheet_clip_dims_jpg.json"
 fi
+
+fi  # RENDER_ONLY
 
 # --- 4. master -------------------------------------------------------------
 # Fails loudly on a missing draft, an em/en dash, or a voice-rule violation.

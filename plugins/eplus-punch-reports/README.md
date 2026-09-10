@@ -99,22 +99,17 @@ Response sizes vary by more than 50x across these tools, so routing matters:
 
 ## Hooks
 
-Two, both context-only (they can never block a tool call), both with an
-`EPLUS_NO_*` escape hatch:
+None, as of 0.6.5. The three that used to ship were removed after two field
+sessions showed about 600 PowerShell spawns for one useful nudge:
 
-| Event | What it does |
-|---|---|
-| `PostToolUse` (Write/Edit) | Sweeps `drafted_items.json` for photo-narration voice, third-person self-reference, and em/en dashes — at authoring time rather than at build time. |
-| `PostToolUse` (Bash) | After `gen_report.js`, reminds you to run `verify_report.py` and to deliver only through `package.py`. |
+- the PreToolUse PDF guard (0.6.4): the PDF policy changed, nothing left to deny;
+- the Write/Edit voice check: it received the sandbox path of
+  `drafted_items.json`, which the Windows host cannot open, so it never fired;
+  `build_master.py` enforces the same rules inside `run_pipeline.sh`;
+- the post-render verify reminder: `RENDER_ONLY=1 bash scripts/run_pipeline.sh`
+  is now the only supported render command and runs the verifier itself.
 
-The PreToolUse guard that denied LibreOffice PDF conversions was removed in
-0.6.4. The Word file is still the file of record, but PDFs for layout checks
-and the on-request convenience PDF are allowed, so there was nothing left for it
-to deny.
-
-`PostToolUseFailure` is deliberately **not** wired here — the `error-reporting`
-plugin owns that event, and a second wiring produces a duplicate nudge for the
-same failure.
+`PostToolUseFailure` belongs to the `error-reporting` plugin.
 
 ## Typical asks
 

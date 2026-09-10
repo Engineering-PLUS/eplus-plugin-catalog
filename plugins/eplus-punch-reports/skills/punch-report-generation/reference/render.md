@@ -7,13 +7,14 @@ be re-derived. Assumes `data/items.json`, `data/drafted_items.json` and
 ### Step 7 — Assemble and render
 
 ```bash
-python3 scripts/build_master.py --items data/items.json \
-    --drafted data/drafted_items.json -o build/master_report_items.json
-node scripts/gen_report.js build
-python3 scripts/verify_report.py build/<output>.docx
+RENDER_ONLY=1 bash scripts/run_pipeline.sh
 ```
 
-Or `bash scripts/run_pipeline.sh` for all five steps plus verification.
+That runs `build_master.py`, `gen_report.js`, `fix_bookmark_ids.py` and
+`verify_report.py` in order, and is the only supported way to render: a bare
+`node scripts/gen_report.js build` leaves duplicate bookmark ids in the file
+and skips the verifier. `bash scripts/run_pipeline.sh` without the variable
+runs the data steps first.
 
 `build_master.py` merges facts with judgment and enforces what the renderer
 should not have to care about: no em or en dashes anywhere, the voice rules,
@@ -127,7 +128,8 @@ workaround it forced**; and **make the whole structure one field so Word owns
 all of it**, not just the numbers.
 
 `scripts/fix_bookmark_ids.py` runs after every render (wired into
-`run_pipeline.sh`; run it yourself after a bare `node scripts/gen_report.js`):
+`run_pipeline.sh`, which is why `RENDER_ONLY=1 bash scripts/run_pipeline.sh`
+is the only supported render command):
 the docx library emits every bookmark as `w:id="1"` (Word keys on the id and
 discards duplicates — the `Error! Bookmark not defined.` bug that shipped once)
 and non-canonical `PAGEREF` instruction text; it fixes both in place.

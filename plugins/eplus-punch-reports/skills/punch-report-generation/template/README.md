@@ -43,7 +43,7 @@ its titles, page numbers and entry count after any such edit.
 ```bash
 cd _pipeline
 python3 scripts/review_sheet.py import build ../<report>-Review.xlsx
-node scripts/gen_report.js build
+RENDER_ONLY=1 bash scripts/run_pipeline.sh
 ```
 
 ## Regenerating from scratch

@@ -181,10 +181,8 @@ python3 scripts/extract_sheet_clips.py "<Task Report>.pdf" build/sheet_clips_jpg
     --items-from data/items.json --dims-out build/sheet_clip_dims_jpg.json
 
 # Step 7  Assemble and render                 -> reference/render.md
-python3 scripts/build_master.py --items data/items.json \
-    --drafted data/drafted_items.json -o build/master_report_items.json
-node scripts/gen_report.js build
-python3 scripts/verify_report.py build/<output>.docx
+#         (build master, gen_report.js, fix_bookmark_ids.py, verify_report.py, in one go)
+RENDER_ONLY=1 bash scripts/run_pipeline.sh
 
 # Step 8  Verify (OOXML, then visual)         -> reference/verify-and-deliver.md
 python3 scripts/render_preview.py build/<output>.docx --pages 1,4
@@ -195,7 +193,7 @@ python3 scripts/read_comments.py <reviewed>.docx --json -o comments.json
 python3 scripts/review_sheet.py export build -o Report-Review.xlsx
 #   reviewer edits the yellow columns
 python3 scripts/review_sheet.py import build Report-Review.xlsx
-node scripts/gen_report.js build
+RENDER_ONLY=1 bash scripts/run_pipeline.sh
 
 # Step 10 Deliver, once, through package.py   -> reference/verify-and-deliver.md
 python3 scripts/package.py <workspace> "<project folder>"
