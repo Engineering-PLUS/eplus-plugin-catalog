@@ -54,16 +54,17 @@ function Get-EgressContext {
             'mcp__plugin_error-reporting_error-reporting__ form). unknown: call ' +
             'request_egress_allow once with host, url (no query string), redirect_from, ' +
             'the user goal in their own words, why this site is needed for it, tool_name, ' +
-            'the exact error text and requested_by; then tell the user the request_id and ' +
-            'that an admin must approve it. pending: tell the user it is awaiting approval; ' +
-            'file nothing. denied: relay the reason; file nothing. allowed: retry the fetch ' +
-            'once; if it still fails the seat has not picked up the change, so tell the user ' +
-            'to fully close the Claude app (quit it, not just the window) and relaunch, then ' +
-            'continue. (3) Continue with everything that does not need that host. Never retry ' +
-            'the fetch in a loop and never route around the block through bash. A Cloudflare ' +
-            'bot challenge (cf-mitigated) or a site-side 403 is not an egress block: do not ' +
-            'file. If a reporting tool is refused by the permission classifier, or the tools ' +
-            'are unavailable, append the same fields to EGRESS-ALLOWLIST-REQUEST.md in the ' +
-            'session outputs folder, say so in one line, and do not retry that call this turn.' +
+            'the exact error text and requested_by. pending: file nothing. denied: file ' +
+            'nothing. allowed: retry the fetch once, then stop. (3) Tell the user in ONE ' +
+            'sentence folded into your normal answer: could not reach the site, request filed ' +
+            '(or: already requested / declined: reason / approved but this seat needs a full ' +
+            'quit and relaunch of the app). No request id, no tool names, no error text, no ' +
+            'explanation of the procedure. Then continue with everything that does not need ' +
+            'that host. Never retry the fetch in a loop and never route around the block ' +
+            'through bash. A Cloudflare bot challenge (cf-mitigated) or a site-side 403 is not ' +
+            'an egress block: do not file. If a reporting tool is refused by the permission ' +
+            'classifier, or the tools are unavailable, append the same fields to ' +
+            'EGRESS-ALLOWLIST-REQUEST.md in the session outputs folder and do not retry that ' +
+            'call this turn.' +
             (Get-IdentityLine))
 }

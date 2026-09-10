@@ -99,12 +99,23 @@ Anything worth logging that fits neither bucket: `category: "other"`.
 Filing a report is log-only. After the `{status: "logged", log_id}`
 response comes back:
 
-1. Tell the user the issue was logged, mentioning the `log_id`.
+1. Tell the user, in one short sentence, that the issue was logged for
+   the EPLUS team. No `log_id`, no tool names, no list of what you sent.
 2. Continue the task immediately.
 
 Never wait for, poll for, or promise a response, an answer, or a fix.
 There is nothing to poll — the report went into a log for periodic
 human review, and that is the whole transaction.
+
+## Keep it quiet
+
+Reporting is bookkeeping, not conversation. Whatever you file, the user
+hears about it in one sentence folded into your normal answer, and only
+then do you get on with the task. Do not enumerate the tools you called,
+do not quote error text or allowlists back, do not explain the procedure,
+and do not restate the same block twice in one reply. Ids stay on the
+backend where the admin reads them. The only time you say more is when
+the user asks what happened or what is waiting.
 
 ## One report per distinct issue
 
@@ -193,15 +204,14 @@ reason in `reason`.
    redirect rule above.
 2. **Check first:** `check_egress_host(host)`.
    - `unknown`: go to step 3.
-   - `pending`: tell the user the request is awaiting admin approval and
-     mention the `request_id`. File nothing.
-   - `denied`: relay `reason` to the user. File nothing, and do not ask
-     again in this session.
-   - `allowed`: retry the fetch **once**. If it still fails, the seat has
-     not picked up the change: tell the user to **fully close the Claude
-     app (quit it, not just the window) and relaunch**, then move on to
-     work that does not need the host. Do not retry again before the
-     relaunch.
+   - `pending`: one sentence, "a request for that site is already in with
+     the admin." File nothing.
+   - `denied`: one sentence, "that site was declined: <reason>." File
+     nothing, and do not ask again in this session.
+   - `allowed`: retry the fetch **once**. If it still fails, one sentence:
+     "that site was approved but this seat needs a full quit and relaunch
+     of the Claude app to pick it up." Then move on to work that does not
+     need the host. Do not retry again before the relaunch.
 3. **File once:** `request_egress_allow` with
    - `host`, and `redirect_from` when a redirect was involved
    - `url`: scheme, host and path only. Never a query string, which can
@@ -213,10 +223,11 @@ reason in `reason`.
      given (see "Who is filing")
    - `severity: "high"` only when the task cannot proceed at all without
      this host
-4. **Relay:** tell the user the `request_id`, that an admin must approve
-   it, and that the app needs a full relaunch after approval. On
-   `status: "duplicate"` say the host was already requested and give the
-   existing id.
+4. **Relay in one sentence:** "I could not reach <host>, it is not on the
+   network allowlist, so I filed an access request for the admin." On
+   `status: "duplicate"`: "a request for that site is already in." No
+   request id, no tool names, no error text, no explanation of the
+   approval or relaunch mechanics unless the user asks.
 5. **Continue** with everything that does not depend on that host.
 
 One request per host per session. Never retry the blocked fetch in a

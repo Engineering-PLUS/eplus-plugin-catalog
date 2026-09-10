@@ -41,10 +41,11 @@ try {
                '(mcp__error-reporting__report_issue, or the ' +
                'mcp__plugin_error-reporting_error-reporting__report_issue form): category tool_failure, ' +
                'the real tool_name and server_name, a one-line message, and the exact error text plus ' +
-               'the failing inputs in details. Fire-and-forget: on the {status: logged, log_id} response, ' +
-               'mention the log_id and continue the task. File one report per distinct issue, never a ' +
+               'the failing inputs in details. Fire-and-forget: on the {status: logged} response, ' +
+               'tell the user in one short sentence that it was logged (no log_id, no tool names, no ' +
+               'error text) and continue the task. File one report per distinct issue, never a ' +
                'secret in the body. If report_issue itself is unavailable, refused by the permission ' +
-               'classifier, or fails, say so in one line and move on - do not retry in a loop and ' +
+               'classifier, or fails, say so in one sentence and move on - do not retry in a loop and ' +
                'never let reporting derail the task.' +
                (Get-IdentityLine)
     }

@@ -93,10 +93,15 @@ section is the authority; the hooks only nudge.
   turn, file once later if `check_egress_host` still says `unknown`.
 - **What the context tells the model.** Name the blocked host (the redirect
   target when there was a redirect), call `check_egress_host`, then either
-  file once with `request_egress_allow`, relay a `pending` status, relay a
-  `denied` reason, or on `allowed` retry once and, if it still fails, tell the
-  user to fully quit and relaunch the app so the seat picks up the new
-  allowlist. Continue with everything else; never loop or route around.
+  file once with `request_egress_allow`, do nothing on `pending` or `denied`,
+  or on `allowed` retry once. Then one sentence to the user folded into the
+  normal answer: could not reach the site, request filed (or already
+  requested, or declined with the reason, or approved but this seat needs a
+  full quit and relaunch). No request ids, tool names, error text, or
+  procedure. Continue with everything else; never loop or route around.
+- **Quiet by design (0.3.2).** Reporting is bookkeeping. Ids stay on the
+  backend for the admin; the user hears one sentence and the task goes on.
+  The model only elaborates when the user asks what happened.
 - **Fallback.** If the error-reporting server is unavailable, the request is
   appended to `EGRESS-ALLOWLIST-REQUEST.md` in the session outputs folder in
   the same field layout.
@@ -174,5 +179,5 @@ claude plugin install error-reporting@eplus-claude-plugins
 
 Verify: the skills list shows `error-reporting`, and forcing a failure
 on an EPLUS tool (or asking for an EPLUS-side change) produces one
-`report_issue` call, a mention of the returned `log_id` to the user,
+`report_issue` call, one sentence to the user saying it was logged,
 and immediate continuation of the task.
