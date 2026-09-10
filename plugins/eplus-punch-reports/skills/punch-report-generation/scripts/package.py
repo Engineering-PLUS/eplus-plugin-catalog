@@ -92,6 +92,9 @@ def main():
     ap.add_argument("destination")
     ap.add_argument("--name", default=None)
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--pdf", action="store_true",
+                    help="also place the newest .pdf from _pipeline/build/ beside the zip "
+                         "(only when the user asked for a PDF; it is a convenience copy)")
     args = ap.parse_args()
 
     ws = os.path.abspath(args.workspace)
@@ -118,6 +121,16 @@ def main():
     if xlsx:
         xstem = os.path.splitext(os.path.basename(xlsx))[0]
         beside.append((xlsx, f"{xstem}{suffix}.xlsx"))
+    pdf = None
+    if args.pdf:
+        build = os.path.join(ws, "_pipeline", "build")
+        pdf = newest([os.path.join(build, f) for f in os.listdir(build)
+                      if f.lower().endswith(".pdf")]) if os.path.isdir(build) else None
+        if pdf:
+            pstem = os.path.splitext(os.path.basename(pdf))[0]
+            beside.append((pdf, f"{pstem}{suffix}.pdf"))
+        else:
+            print("WARNING: --pdf given but no .pdf in _pipeline/build/; run scripts/export_pdf.py first")
 
     print(f"workspace   : {ws}")
     print(f"destination : {dest}")
@@ -127,6 +140,8 @@ def main():
         print(f"review sheet: {os.path.relpath(xlsx, ws)} -> {beside[1][1]}")
     else:
         print("review sheet: (none found; review_sheet.py export not run)")
+    if pdf:
+        print(f"pdf         : {os.path.relpath(pdf, ws)} -> {beside[-1][1]}  (convenience copy, LibreOffice pagination)")
     if suffix:
         print(f"note        : an earlier delivery exists; this one carries the '{suffix}' suffix. Nothing was removed.")
     if args.dry_run:

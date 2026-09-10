@@ -14,12 +14,16 @@ Builds a complete pipeline in the session workspace, then walks the run: intake,
 consolidate, an interactive wording review (each item previewed as it will
 render, before its text is locked), draft in field-report voice, check
 precedent, extract the annotated sheet clips, render, verify. Output is a
-**.docx only** — one page per item, a real Word table of contents field, native
+**.docx**, the file of record — one page per item, a real Word table of contents field, native
 EPLUS letterhead. Revisions unzip the prior package into a fresh workspace and
 deliver again under a new name.
 
-The reviewer generates the PDF from Word. That is deliberate: Word recalculates
-the TOC page-number fields on open and on export, and LibreOffice does not.
+The Word file is the file of record; the reviewer issues the report by exporting
+it from Word, which recalculates the TOC page-number fields. PDFs for the
+model's own layout checks are fine and stay out of the package. When the user
+asks for a PDF from the pipeline, `scripts/export_pdf.py` produces a clearly
+labelled convenience copy (two LibreOffice passes, so its page numbers match
+its own pagination) and `package.py --pdf` delivers it beside the zip.
 
 **Temporary:** `/test-punch` runs a scripted, token-minimal smoke test of the
 hooks, the workspace flow, and `package.py` with no real data, for capturing
@@ -95,14 +99,18 @@ Response sizes vary by more than 50x across these tools, so routing matters:
 
 ## Hooks
 
-Three, all with an `EPLUS_NO_*` escape hatch. Two are context-only and can never
-block a tool call:
+Two, both context-only (they can never block a tool call), both with an
+`EPLUS_NO_*` escape hatch:
 
 | Event | What it does |
 |---|---|
 | `PostToolUse` (Write/Edit) | Sweeps `drafted_items.json` for photo-narration voice, third-person self-reference, and em/en dashes — at authoring time rather than at build time. |
 | `PostToolUse` (Bash) | After `gen_report.js`, reminds you to run `verify_report.py` and to deliver only through `package.py`. |
-| `PreToolUse` (Bash) | **Denies** converting a punch report to PDF with LibreOffice. Deliberately narrow: it requires both a PDF conversion and a path naming `_pipeline` or a `-DRAFT-v` report, so the `docx` skill's own soffice validation is untouched even in a folder named after punch work. `scripts/render_preview.py` is exempt by name: it converts in a scratch directory it deletes, purely to rasterise pages for a layout check. |
+
+The PreToolUse guard that denied LibreOffice PDF conversions was removed in
+0.6.4. The Word file is still the file of record, but PDFs for layout checks
+and the on-request convenience PDF are allowed, so there was nothing left for it
+to deny.
 
 `PostToolUseFailure` is deliberately **not** wired here — the `error-reporting`
 plugin owns that event, and a second wiring produces a duplicate nudge for the

@@ -12,13 +12,14 @@
 #
 # SCOPE is the ONLY place report scope lives. Unset means every item in the pull.
 #
-# Produces a .docx ONLY. No PDF is generated here, by design:
-#   - The reviewer generates the PDF from Word once markup is finished.
-#   - Word recalculates the TOC page number fields on open and on PDF export.
-#     LibreOffice does not, and it paginates differently from Word anyway, so a
-#     PDF produced here would carry page numbers that do not match the document
-#     the reviewer is actually editing. That was the original bug.
-# Do not add a soffice conversion step back into this script.
+# Produces the .docx, which is the file of record:
+#   - The reviewer issues the report from Word, which recalculates the TOC page
+#     number fields on open and on PDF export. LibreOffice does not, and it
+#     paginates differently, so a plain conversion here would carry page numbers
+#     that do not match the document. That was the original bug.
+#   - A PDF is made only when the user asks, by scripts/export_pdf.py (two
+#     LibreOffice passes so its numbers match its own pagination), and is
+#     labelled a convenience copy. Do not add a conversion step to this script.
 #
 set -euo pipefail
 

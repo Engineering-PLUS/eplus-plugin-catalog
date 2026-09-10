@@ -12,8 +12,10 @@ Draft punch report for the <date> site walk, plus the pipeline that generates it
 The report is a **draft for internal review**, not for issuance. Each item carries
 a red `EDITOR'S NOTE` box marked *delete before issuing*.
 
-**No PDF is produced by the pipeline, by design.** Generate it from Word when your
-markup is done; Word recalculates the page-number fields on export.
+**The Word file is the file of record.** Issue the report by exporting from Word
+when your markup is done; Word recalculates the page-number fields on export.
+If a `<report>-convenience.pdf` sits beside it, that is a LibreOffice render
+made on request for reading and markup, with its own pagination; do not issue it.
 
 ## Scope
 

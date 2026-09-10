@@ -85,12 +85,19 @@ bolded label inside body text.
 
 **Write to new filenames, never overwrite.**
 
-### The pipeline outputs .docx only, and the TOC uses live Word fields
+### The .docx is the file of record, and the TOC uses live Word fields
 
 These are linked. Do not undo either.
 
-**No PDF is generated.** The reviewer produces it from Word once markup is done.
-Word recalculates fields on open and on export.
+**The reviewer issues the report from Word**, which recalculates fields on
+open and on export. The pipeline's own output is the `.docx`. A PDF for a
+layout check is fine (`render_preview.py`, scratch only). When the user asks
+for a PDF, `scripts/export_pdf.py` makes a convenience copy in two LibreOffice
+passes (the first learns where LibreOffice put each item, the second renders a
+scratch copy with those numbers cached into the TOC), so its numbers match its
+own pagination; it is labelled as such and `package.py --pdf` delivers it. It
+is never the issued document, because LibreOffice and Word paginate
+differently.
 
 **The contents block is a real Word `TOC` field** (` TOC \o "1-1" \h \z \u `)
 whose **cached result** is the styled entry list — the exact structure Word

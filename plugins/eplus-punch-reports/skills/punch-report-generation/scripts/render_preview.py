@@ -2,27 +2,22 @@
 """
 render_preview.py, rasterise a report to PNG pages for visual spot checks.
 
-Why this is not "generate the PDF"
-----------------------------------
-The pipeline deliberately never ships a PDF: Word recalculates TOC page-number
-fields on open and on export, LibreOffice does not, and it paginates
-differently, so a LibreOffice PDF carries wrong page numbers. That ban is
-correct and stays.
-
-This is a different need. Verifying the OOXML tells you an element exists; it
-does not tell you the page LOOKS right. An empty photo grid can pass a cell
-count and still render as an invisible hairline. This converts to PDF in a
-scratch directory, rasterises to PNG, and DELETES THE PDF, so no PDF can ever
-be mistaken for a deliverable.
+Why this is a layout check, not the PDF
+---------------------------------------
+Verifying the OOXML tells you an element exists; it does not tell you the page
+LOOKS right. An empty photo grid can pass a cell count and still render as an
+invisible hairline. This converts to PDF in a scratch directory, rasterises to
+PNG, and deletes the PDF.
 
 READ THE OUTPUT AS LAYOUT ONLY. Page numbers, page counts and page breaks in
 this render are LibreOffice's, not Word's. Never quote a page number from it.
+The reviewer issues the report from Word; a PDF the user asks for comes from
+scripts/export_pdf.py and is labelled a convenience copy.
 
 Requirements: pymupdf and Pillow (requirements.txt) plus a `soffice` binary on
-PATH. Whether the Cowork sandbox ships soffice is UNVERIFIED; if it does not,
-this script fails at the conversion step and says so, and the OOXML checks in
-verify_report.py remain the only verification. The PreToolUse PDF guard
-(scripts/block-punch-pdf.ps1) exempts this script by name.
+PATH (the Cowork sandbox ships one; a Windows host may not). Without it this
+script fails at the conversion step and says so, and the OOXML checks in
+verify_report.py remain the only verification.
 
 Usage:
     python3 render_preview.py <report.docx> [-o review/pages] [--pages 4,19-21]

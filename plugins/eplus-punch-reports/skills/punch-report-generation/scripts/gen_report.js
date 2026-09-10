@@ -3,7 +3,8 @@
  *
  * Reads a build directory (report.config.json, master_report_items.json,
  * sheet_clip_dims_jpg.json, thumbs_uniform/, sheet_clips_jpg/, assets/) and
- * writes one .docx. Nothing else: no PDF, no LibreOffice.
+ * writes one .docx, the file of record. A PDF is a separate, on-request step
+ * (scripts/export_pdf.py), never part of the render.
  *
  * What it renders:
  *   - Cover section (optional: "include_cover": false in report.config.json

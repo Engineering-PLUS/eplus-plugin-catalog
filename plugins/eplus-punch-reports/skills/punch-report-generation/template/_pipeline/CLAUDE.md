@@ -155,14 +155,17 @@ item (`own_photos` renders a blank paste grid, `none` drops the grid and label,
 `reviewer_final` are human-approved and `build_master.py` never rewrites them,
 failing the build instead if they are not already clean.
 
-### No PDF is generated here, and the TOC is a real Word TOC field
+### The .docx is the file of record, and the TOC is a real Word TOC field
 
 These two facts are linked. Do not undo either.
 
-**We output .docx only.** The reviewer generates the PDF from Word when markup
-is finished. Word recalculates fields on open and on PDF export. LibreOffice
-paginates differently and does not update fields, so a PDF made with it carries
-wrong page numbers; that shipped once and is why the PDF guard hook exists.
+**The reviewer issues the report from Word**, which recalculates fields on open
+and on PDF export. LibreOffice paginates differently and does not update
+fields, so a plain LibreOffice conversion carries blank or wrong page numbers;
+that shipped once. PDFs for your own layout checks are fine and go under
+`build/_scratch/`. If the user asks for a PDF, `scripts/export_pdf.py` makes a
+convenience copy whose numbers match its own pagination (two passes), and
+`package.py --pdf` delivers it, labelled as a convenience copy.
 
 **The contents block is one `TOC \o "1-1" \h \z \u` field.** Its cached
 result, written by the renderer, is the styled entry list: one `PAGEREF` field

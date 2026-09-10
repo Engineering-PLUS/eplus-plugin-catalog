@@ -35,11 +35,12 @@ visible paste target from a collapsed hairline row. For layout changes, run
 python3 scripts/render_preview.py build/<output>.docx --pages 1,4
 ```
 
-It rasterises to PNG via a scratch-dir PDF **which it deletes** — no PDF
-survives to be mistaken for a deliverable (the PDF-block hook exempts this
-script by name). It needs a `soffice` binary on PATH; **whether the Cowork
-sandbox ships one is unverified** — if it does not, the script says so and the
-OOXML checks stand alone. Rule: **layout and appearance may be checked in the
+It rasterises to PNG via a scratch-dir PDF which it deletes. A full PDF for
+your own reading is also fine, under `build/_scratch/` so the packager skips
+it. It needs a `soffice` binary on PATH; the Cowork sandbox ships one (field
+result 2026-09-09). If the user wants a PDF delivered, that is
+`scripts/export_pdf.py` plus `package.py --pdf`, and it is described as a
+convenience copy. Rule: **layout and appearance may be checked in the
 preview; anything numeric must be checked in the OOXML** — the preview's
 pagination is LibreOffice's, not Word's, so never quote a page number from it.
 The one thing neither can prove is Word's own F9 behavior; after any

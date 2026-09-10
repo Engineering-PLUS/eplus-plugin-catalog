@@ -47,7 +47,7 @@ for s in consolidate.py normalize_photos.py extract_sheet_clips.py \
          build_master.py review_sheet.py verify_report.py read_comments.py \
          package.py fix_bookmark_ids.py render_preview.py \
          import_reviewed_docx.py fetch_photos.py adapt_mcp_pull.py \
-         extract_pdf_photos.py; do
+         extract_pdf_photos.py export_pdf.py; do
     if [ ! -f "$s" ]; then bad "$s is missing"; continue; fi
     out=$("$PY" "$s" --help 2>&1)
     case "$?:$out" in

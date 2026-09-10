@@ -52,7 +52,8 @@ bash scripts/smoke_test.sh     # tooling check
 bash scripts/run_pipeline.sh   # five steps + verify
 ```
 
-Outputs .docx only. Deps: `bash scripts/install_deps.sh`, then
+Outputs the .docx, the file of record (a convenience PDF only on request, via
+`scripts/export_pdf.py`). Deps: `bash scripts/install_deps.sh`, then
 `bash scripts/smoke_test.sh`.
 
 Scope lives in exactly one place, `SCOPE` in `run_pipeline.sh`. Cover and footer

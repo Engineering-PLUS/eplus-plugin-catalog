@@ -43,35 +43,31 @@ Record PASS if the smoke test's last lines show no `FAIL`; otherwise record the
 failing lines verbatim (they are the dependency evidence we want). Also note
 whether install_deps reported packages "already present" or installed them.
 
-**3. PDF guard via Bash** (Bash). Run exactly:
+**3. PDF conversion is allowed** (Bash). Run exactly:
 
 ```bash
-soffice --headless --convert-to pdf "$W/ws/_pipeline/build/TEST-DRAFT-v0.1.docx"
+soffice --headless --convert-to pdf --outdir /tmp "$W/ws/_pipeline/build/TEST-DRAFT-v0.1.docx"; echo "ran (exit $?)"
 ```
 
-Expected: the tool call is **denied before it runs** with a message that starts
-"The punch report pipeline outputs .docx only". Record DENIED if so. If the
-command actually executed (for example "soffice: command not found"), record
-NOT DENIED.
+Expected: the command runs (any output, including a conversion error on the
+placeholder file) and prints `ran`. Record PASS if it ran, DENIED if a hook
+blocked it (there is no PDF guard since 0.6.4, so DENIED means a stale plugin).
 
-**4. PDF guard via PowerShell** (PowerShell tool, if you have one; otherwise
-record SKIPPED). Run exactly:
-
-```powershell
-soffice --headless --convert-to pdf "$env:TEMP\_pipeline\TEST-DRAFT-v0.1.docx"
-```
-
-Same expectation and recording as step 3.
-
-**5. Unrelated conversion must NOT be denied** (Bash). The path must not
-contain `_pipeline` or `-DRAFT-v`, so it lives outside the workspace:
+**4. soffice present** (Bash):
 
 ```bash
-soffice --headless --convert-to pdf /tmp/memo.docx; echo "ran (exit $?)"
+which soffice && soffice --version | head -1
 ```
 
-Expected: the command runs (any output, including "not found") and prints
-`ran`. Record PASS if it ran, FAIL if it was denied.
+Record the version line, or MISSING.
+
+**5. export_pdf.py parses** (Bash):
+
+```bash
+cd "$W/ws/_pipeline" && python3 scripts/export_pdf.py --help | head -2
+```
+
+Record PASS if it prints usage, or the error line.
 
 **6. Voice check** (Write tool). Write this exact content to the file
 `<W>\ws\_pipeline\data\drafted_items.json`, using the Windows form of the
@@ -121,9 +117,9 @@ by one line: "Export this session now."
 |---|---|---|
 | 1 | workspace built | |
 | 2 | install_deps + smoke_test.sh | |
-| 3 | PDF guard, Bash | |
-| 4 | PDF guard, PowerShell | |
-| 5 | unrelated conversion allowed | |
+| 3 | PDF conversion allowed | |
+| 4 | soffice present | |
+| 5 | export_pdf.py parses | |
 | 6 | voice check context | |
 | 7 | render reminder context | |
 | 8 | package delivered | |

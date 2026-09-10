@@ -151,5 +151,10 @@ only when a re-delivery left an earlier copy behind. If there is something to
 remove there, make one request that names every file and says why, and let the
 user decide. That is the only point in the run where a delete is allowed.
 
-Do not generate a PDF. The reviewer produces it from Word, which recalculates
-the page-number fields on export.
+The `.docx` is the working file and the file of record; the reviewer issues
+the report from Word, which recalculates the page-number fields on export. A
+PDF for your own layout check is fine under `_pipeline/build/_scratch/`
+(`render_preview.py` does this and deletes its PDF). Package a PDF only when
+the user asks for one: `python3 scripts/export_pdf.py build/<report>.docx`,
+then `package.py ... --pdf`, and tell the user it is a convenience copy whose
+page numbers come from LibreOffice, not the issued document.

@@ -248,7 +248,11 @@ Standing decisions. Follow them unless told otherwise for a particular report:
   evidence a shot was missed and are worth seeing.
 - **Suspected misfire pins are surfaced as questions**, never deleted and never
   force-described.
-- **The report is .docx only.** No PDF, no LibreOffice step.
+- **The `.docx` is the working file and the file of record.** The reviewer
+  issues the report from Word. PDFs for your own layout checks are fine under
+  `build/_scratch/`; a PDF is packaged only when the user asks, via
+  `scripts/export_pdf.py` and `package.py --pdf`, and is described as a
+  convenience copy (LibreOffice pagination), never as the issued document.
 
 ## What good looks like
 
