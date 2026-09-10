@@ -127,4 +127,11 @@ previous package documented four behaviours its code did not have, and each cost
 real time later.
 
 
+**Handing Steps 8 and 9 to a worker:** paste `reference/worker-brief.md`, then
+name this file, the paths, and "stop before Step 10". Delivery (Step 10) is
+never delegated: it is the one write to the project folder, the main thread
+runs it, and if a delivery already exists there `package.py` suffixes the new
+files rather than replacing anything. Anything a worker thinks should be
+removed comes back under Files to remove and waits for the end of the run.
+
 Next: `reference/revising.md` when the reviewer returns the document or a further round is asked for.

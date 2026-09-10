@@ -140,6 +140,7 @@ do not read them all.**
 | The user asks to render, or `build/` holds no `.docx` yet | `reference/render.md` (Step 7, the docx-only / TOC rules) |
 | A `.docx` exists in `build/`; the user asks to check it, work reviewer comments, or deliver | `reference/verify-and-deliver.md` (Steps 8, 9, 10) |
 | A delivered package (`.zip`) already sits in the project folder, or the user has a reviewed `.docx` back from the reviewer | `reference/revising.md` |
+| Any stage is being handed to a worker (Agent tool) | `reference/worker-brief.md`, pasted verbatim at the top of the prompt |
 
 Each reference ends with a `Next:` line, so a full run chains through them in
 order. Steps 3 to 5 are judgment, not commands: **always read
@@ -202,6 +203,40 @@ python3 scripts/package.py <workspace> "<project folder>"
 
 A revision of an already-delivered report (the common case) starts from
 `reference/revising.md`, not from Step 1.
+
+## Delegating a stage to a worker
+
+Every Agent prompt sent during a run starts with the block in
+`reference/worker-brief.md`, pasted verbatim, followed only by the workspace
+and project paths, the stage and its one reference file, the decisions already
+made, and where to stop. Do not write worker instructions from scratch; the
+brief is the instruction set, and it already forbids the things that stalled
+field runs (deleting files, reading memory, studying scripts instead of running
+them, talking to the user).
+
+Workers make no decisions. A worker that reaches a decision the brief does not
+cover finishes what does not depend on it, stops, and returns the question
+under **Open questions** with the evidence both ways. It cannot be resumed.
+The main thread settles every open question before the next worker starts:
+ask the user (all questions at once, one `AskUserQuestion`) or, when the
+user's intent is not in doubt, decide from house policy and the decisions
+already on record. The answer goes into the next worker's brief as a settled
+decision so it cannot come back. When the main thread would have to guess, it
+asks. Never block inside an Agent call on something only the user can answer;
+the worker cannot ask, and the user cannot reach a worker. **Files to remove**
+waits for the end of the run.
+
+## Nothing is deleted during a run
+
+Deleting in a mounted folder needs a permission the user has to grant by hand,
+with no context for what is being removed. So: no deletes, moves, or renames in
+the workspace or the project folder while the run is in progress, by anyone.
+Scratch goes under `_pipeline/build/_scratch/` (never packaged) or `/tmp`.
+Re-deliveries get a new name from `package.py` rather than replacing the old
+files. If files genuinely need removing, do it once at the very end, after
+delivery and after the summary to the user: one request naming every file and
+why. The session outputs folder is never cleaned; only the project folder, and
+only when a re-delivery left an earlier copy behind.
 
 ## House policy
 

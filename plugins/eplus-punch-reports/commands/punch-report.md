@@ -105,6 +105,13 @@ Everything in steps 4 and 5 happens inside the workspace. Every step reads and
 writes there, so sources and outputs can never drift apart, and none of it is
 slowed by or visible on the project share until it is finished.
 
+Nothing is deleted, moved, or renamed in the workspace or the project folder
+while the run is in progress, by you or by a worker. Scratch goes under
+`_pipeline/build/_scratch/`. When you hand a stage to a worker, the prompt
+starts with the block in `reference/worker-brief.md`, verbatim; workers come
+back with "Open questions" (ask them once, after the worker returns) and
+"Files to remove" (handled in step 7, never before).
+
 ## 5. Run the workflow
 
 Follow the skill: consolidate, normalise photos, read the sources, draft every
@@ -130,8 +137,19 @@ the rendered `.docx` and the review `.xlsx` beside it so the reviewer can start
 reading without unzipping. It refuses to overwrite an existing delivery. Run it
 with `--dry-run` first if you want to see the manifest.
 
-That command is the only write to the project folder in the whole run. Tell the
-user what was delivered and where.
+That command is the only write to the project folder in the whole run. If a
+delivery already exists there, `package.py` suffixes the new files rather than
+replacing anything; it never needs the old ones removed. Tell the user what was
+delivered and where.
+
+## 7. Cleanup, last, and only if there is something to clean
+
+After delivery and after the summary to the user, look at every "Files to
+remove" list the workers returned. Files inside the session outputs folder
+stay; the session discards them. Only the project folder is ever cleaned, and
+only when a re-delivery left an earlier copy behind. If there is something to
+remove there, make one request that names every file and says why, and let the
+user decide. That is the only point in the run where a delete is allowed.
 
 Do not generate a PDF. The reviewer produces it from Word, which recalculates
 the page-number fields on export.

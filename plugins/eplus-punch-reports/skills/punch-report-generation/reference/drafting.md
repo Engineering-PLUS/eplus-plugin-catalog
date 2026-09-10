@@ -270,4 +270,16 @@ and state the gap in the item's Editor's Note rather than hiding it. Do not
 invent wording to fill the space.
 
 
+**Handing this stage to a worker:** paste `reference/worker-brief.md`, then name
+this file, the paths, the scope, the wording mode the user chose in Step 3.5,
+and "stop after `data/drafted_items.json` validates through `build_master.py`".
+Step 3.5 and the per-item review loop are the main thread's: they need
+`AskUserQuestion` and an artifact, which a worker cannot use. A worker drafts,
+marks `origin` and `confidence`, and runs the precedent pass. Items it cannot
+draft without a decision (a suspected misfire, a photo that contradicts the
+note, a source conflict) come back under Open questions, undrafted, and the
+worker stops; it does not pick a side. In modes 1 and 2 the main thread then
+runs the review loop over the flagged and low-confidence items and, if more
+drafting is needed, starts a new worker with the answers in its brief.
+
 Next: `reference/render.md` (assemble the master JSON and render the .docx).

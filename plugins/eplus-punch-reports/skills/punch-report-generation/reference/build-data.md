@@ -132,4 +132,12 @@ an earlier visit are simply absent from a later export. Ask for the missing
 export rather than salvaging clips from a previously rendered document.
 
 
+**Handing this stage to a worker:** paste `reference/worker-brief.md`, then name
+this file, the workspace and project paths, the scope, and "stop after Step 6;
+report the triage summary, the photo route, and the sheet-clip result". Give
+it the drop rules already agreed (deleted or archived pins, record-only
+phrases, title filters) as settled decisions. Anything those rules do not
+cover, a stray pin or a near-miss phrase, the worker returns under Open
+questions and stops; it does not decide.
+
 Next: `reference/drafting.md` (read every source and draft `data/drafted_items.json`).

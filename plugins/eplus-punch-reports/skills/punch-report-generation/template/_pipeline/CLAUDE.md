@@ -46,6 +46,15 @@ catching it.
 `_pipeline/scripts/` from the plugin, work there, and deliver again with a new
 package name. Never edit the delivered copy in place.
 
+**Nothing is deleted, moved, or renamed here while a run is in progress**, by
+the main thread or by a worker. Deletes in a mounted folder need a permission
+the user grants blind, and a worker cannot explain what it is removing. Write
+to new filenames; put scratch, test renders and preview PDFs under
+`build/_scratch/` (the packager skips it) or `/tmp`. Anything that should go is
+listed in the worker's "Files to remove" section and handled by the main
+thread once, after delivery. Workers do not read memory; this file and the one
+reference named in their brief are their only sources.
+
 ---
 
 ## The source data, and where it hides

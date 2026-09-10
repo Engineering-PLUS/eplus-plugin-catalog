@@ -129,4 +129,10 @@ field opens and closes around the entries, and that the cached entry count
 matches the item count.
 
 
+**Handing this stage to a worker:** paste `reference/worker-brief.md`, then name
+this file, the paths, and "run `bash scripts/run_pipeline.sh`, then stop after
+`verify_report.py` and the preview; do not deliver". Any test render or
+negative-control file goes under `build/_scratch/`, never beside the real
+output, and is never removed by the worker.
+
 Next: `reference/verify-and-deliver.md` (verify the OOXML, keep it editable, deliver once).
