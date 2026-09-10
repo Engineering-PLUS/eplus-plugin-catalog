@@ -57,6 +57,21 @@ sandbox; `run_pipeline.sh`, `smoke_test.sh` and `install_deps.sh` resolve the
 interpreter themselves, and on a Windows host the same commands are `python …`.
 
 `--only` accepts ranges and comma lists and is **the only place scope lives**.
+Three more rules, all from the intake answers and all passed through by
+`run_pipeline.sh` (`SCOPE`, `TITLE`, `CREATED_AFTER`, `DROP_PHRASES`):
+
+- `--title "Visit 2"` keeps only items with that title (the walk marker).
+- `--created-after 2026-08-31` keeps only items created after that date.
+- `--drop-phrase "Observation only for record"` (repeatable; the client
+  profile's `drop_phrases` list) drops items whose whole description is that
+  phrase. A description that shares the phrase's first two words but is not
+  the phrase ("Observation only, ignore.") is reported as **NEAR-MISS** and
+  kept; it goes into the intake question, and the answer, if "drop", is added
+  to `drop_phrases` so the next report does not ask again.
+
+Deleted and archived items are always dropped and listed. Run consolidate
+once with the known rules *before* the intake question, so the strays and
+near misses it reports can be asked about in the same round.
 
 It emits one record per live item (number, description, sheet ref, pin stamp,
 status, photos resolved to files on disk with capture time and photographer)

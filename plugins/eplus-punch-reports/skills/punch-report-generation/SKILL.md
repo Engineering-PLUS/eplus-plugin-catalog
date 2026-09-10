@@ -44,34 +44,32 @@ working folder, so it is not picked up automatically, and compaction drops what
 you had read. It carries this project's scope decision and the rules the
 renderer bakes in, so a run that skips it re-derives them the hard way.
 
-## Step 0 — Intake, before you start drafting
+## Step 0 — Intake: one round, after the pull, before you start drafting
 
-Confirm all four before touching the data. Two of these have been discovered
-mid-run before, which costs a restart:
+The `punch-report` command carries the full intake procedure and the exact
+question set; follow it. The shape is fixed: gather first (the client profile
+from the project folder, the pull, the Task Report PDF, a consolidate run with
+the known rules), then **one `AskUserQuestion` call** covering scope edge
+cases, issuance date, the identity block, and the cover mode. Field results
+2026-09-09 and 2026-09-10: three rounds on one report cost 47 minutes of
+waiting, and the cover fields that were never asked are why the reviewer
+rebuilds the cover by hand.
 
 | Input | Required? | Notes |
 |---|---|---|
-| PlanGrid pull | yes | a directory containing `tasks.json` |
-| **PlanGrid Task Report PDF** | for pin clips | **not part of an API pull.** Exported separately. The only source of per-item annotated sheet clips. |
-| Scope | yes | which item numbers this report covers, and what a prior report already covered |
+| `client-profile.json` | if present | client-level facts from earlier reports for this client; confirmed, not trusted blind, and written back at delivery |
+| PlanGrid pull | yes | a directory containing `tasks.json`, or built from the MCP (`reference/build-data.md` Step 0b) |
+| **PlanGrid Task Report PDF** | for pin clips | **not part of an API pull.** Exported separately. The only source of per-item annotated sheet clips. If it is missing, that is one of the intake questions. |
+| Scope rules | yes | `SCOPE`, `TITLE`, `CREATED_AFTER`, `DROP_PHRASES`; consolidate reports the strays and near misses those rules leave open, and they go into the intake question |
 | Walk notes | optional | often arrive as two near-identical files |
 
-**Ask for the Task Report and the scope up front.** Both were mid-run
-discoveries on the last job. If the Task Report is genuinely unavailable the
-pipeline still runs and items render `(no pin clip)`, but say so before drafting
-rather than after.
+**The issuance date is asked, never inferred**, never today by default. It is a
+contractual fact about when the report goes out and the reviewer decides it.
 
-**Use `AskUserQuestion` to get the issuance date.** Do not infer it, do not use
-today's date, and do not leave it blank. The issuance date is a contractual fact
-about when the report goes out, which is a decision the reviewer makes and often
-differs from both the walk date and the date the draft was compiled. Ask it
-explicitly as part of intake, alongside the walk date and scope.
-
-**The EP project number is internal tracking and is never rendered.** It lives in
-`report.config.json` as `ep_project_no` so runs stay traceable on our side, but it
-must not appear anywhere a client, GC or subcontractor reads, including the cover.
-`verify_report.py` asserts it is absent from the document text, so this fails the
-build rather than shipping.
+**The EP project number is captured at intake** into `report.config.json` as
+`ep_project_no` and into the client profile. Until the cover template lands it
+is not rendered and `verify_report.py` asserts that; the reviewer's issued
+cover carries it, and that policy changes with the template.
 
 Then install the dependencies and check the tooling actually works:
 

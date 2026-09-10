@@ -87,11 +87,24 @@ echo
 
 # --- 1. consolidate --------------------------------------------------------
 echo "==> 1/5 consolidate"
-if [ -n "${SCOPE:-}" ]; then
-    "$PY" scripts/consolidate.py "$PULL" -o data/items.json --only "$SCOPE"
-else
-    "$PY" scripts/consolidate.py "$PULL" -o data/items.json
+# Scope rules, all optional, all from the intake answers:
+#   SCOPE=11-30                       item numbers
+#   TITLE="Visit 2"                   keep only this title (the walk marker)
+#   CREATED_AFTER=2026-08-31          keep only items created after this date
+#   DROP_PHRASES="a; b"               record-only descriptions to drop (semicolon separated);
+#                                     near misses are reported, never dropped
+CONS_ARGS=()
+[ -n "${SCOPE:-}" ] && CONS_ARGS+=(--only "$SCOPE")
+[ -n "${TITLE:-}" ] && CONS_ARGS+=(--title "$TITLE")
+[ -n "${CREATED_AFTER:-}" ] && CONS_ARGS+=(--created-after "$CREATED_AFTER")
+if [ -n "${DROP_PHRASES:-}" ]; then
+    IFS=';' read -r -a _phrases <<< "$DROP_PHRASES"
+    for p in "${_phrases[@]}"; do
+        p="${p#"${p%%[![:space:]]*}"}"; p="${p%"${p##*[![:space:]]}"}"
+        [ -n "$p" ] && CONS_ARGS+=(--drop-phrase "$p")
+    done
 fi
+"$PY" scripts/consolidate.py "$PULL" -o data/items.json ${CONS_ARGS[@]+"${CONS_ARGS[@]}"}
 
 # --- 2. photos -------------------------------------------------------------
 # EXIF rotation is applied here. PIL does not apply it on save, and the

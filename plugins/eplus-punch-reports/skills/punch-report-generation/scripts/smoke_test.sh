@@ -135,6 +135,26 @@ items = {i["number"]: i for i in json.load(open(out, encoding="utf-8"))}
 assert set(items) == {1, 2, 3}, list(items)                  # nothing from an older delta lost
 assert items[1]["description"] == "one revised"              # later layer wins by uid
 assert "delta_2026-08-14" in r.stdout and "delta_2026-08-25" in r.stdout
+# scope rules: exact record-only phrase dropped, near miss kept and reported,
+# title and date filters, archived always dropped
+d2 = tempfile.mkdtemp()
+rows = [
+  dict(t(10, "a", "Observation only for record"), title="Visit 2", created_at="2026-09-03T10:00:00"),
+  dict(t(11, "b", "Observation only, ignore."), title="Visit 2", created_at="2026-09-03T10:00:00"),
+  dict(t(12, "c", "Missing box"), title="Visit 2", created_at="2026-09-03T10:00:00"),
+  dict(t(13, "d", "Missing box"), title="General", created_at="2026-09-03T10:00:00"),
+  dict(t(14, "e", "Missing box"), title="Visit 2", created_at="2026-08-20T10:00:00"),
+  dict(t(15, "f", "Missing box"), title="Visit 2", created_at="2026-09-03T10:00:00", archived=True),
+]
+os.makedirs(os.path.join(d2, "photos")); json.dump(rows, open(os.path.join(d2, "tasks.json"), "w"))
+json.dump([], open(os.path.join(d2, "sheets.json"), "w"))
+out2 = os.path.join(d2, "items.json")
+r = subprocess.run([sys.executable, "consolidate.py", d2, "-o", out2, "--drop-phrase", "Observation only for record",
+                    "--title", "Visit 2", "--created-after", "2026-08-31"], capture_output=True, text=True)
+assert r.returncode == 0, r.stdout + r.stderr
+kept = sorted(i["number"] for i in json.load(open(out2, encoding="utf-8")))
+assert kept == [11, 12], kept
+assert "NEAR-MISS" in r.stdout and "#11" in r.stdout, r.stdout
 PYCHECK
 
 "$PY" - <<'PYCHECK' 2>&1 && ok "fix_bookmark_ids.py: renumbers duplicate ids, canonical PAGEREF" \

@@ -14,14 +14,21 @@ The PlanGrid pull contains **<N>** items. This report covers **<which>**.
 <State what was excluded and by whose direction, and whether the excluded items
 are still open. If a prior report covered them, name it.>
 
-Scope lives in exactly one place, the `SCOPE` variable, which becomes
-`consolidate.py --only`:
+Scope lives in exactly one place, the variables in front of `run_pipeline.sh`,
+which become `consolidate.py` arguments:
 
 ```bash
-SCOPE=11-30 bash scripts/run_pipeline.sh
+SCOPE=11-30 TITLE="<walk marker>" CREATED_AFTER=<YYYY-MM-DD> \
+DROP_PHRASES="<record-only phrase>; <another>" bash scripts/run_pipeline.sh
 ```
 
-Nothing else in the pipeline hardcodes it. Unset `SCOPE` to include every item.
+**This report's values:** `SCOPE=<…>` `TITLE=<…>` `CREATED_AFTER=<…>`
+`DROP_PHRASES=<…>` (record them here at intake; they are the run's scope of
+record). Nothing else in the pipeline hardcodes scope. Unset a variable to
+apply no rule of that kind. Deleted and archived items are always dropped.
+Client-level facts (display name, address, EP number, inspector, reviewer,
+drop phrases, cover settings) live in `../client-profile.json`, which delivery
+copies into the project folder for the next report.
 
 ---
 

@@ -1,0 +1,13 @@
+{
+  "_about": "Client-level facts that hold across every report for this client. Read at intake from the project folder, confirmed in the one intake question, written back by package.py at delivery. Per-report facts (PlanGrid project, building, walk date, issuance date, scope) are never stored here.",
+  "client_display_name": "",
+  "site_address": [],
+  "ep_project_no": "",
+  "inspector": {"name": "", "title": ""},
+  "reviewer": {"name": "", "title": ""},
+  "drop_phrases": ["Observation only for record"],
+  "buildings_seen": [],
+  "cover_mode": "template",
+  "client_logo": null,
+  "report_kind": "Technology Site Observation Report"
+}

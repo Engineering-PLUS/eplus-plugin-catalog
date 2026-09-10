@@ -20,35 +20,51 @@ project folder is the single delivery in step 6. Never create, edit, or copy
 individual files there mid-run; that is how a rendered document and the file
 that generates it have disagreed before.
 
-## 1. Intake, before anything else
+## 1. Intake: one round, after the pull, before any drafting
 
-Inspect the project folder and report what you found, then confirm the four
-inputs with the user in **one** message rather than discovering them mid-run:
+Field result 2026-09-09: three question rounds on one report cost 47 minutes
+of waiting, and the identity fields were asked last, as plain text, at render
+time. Field result 2026-09-10: the cover fields were never asked, so the cover
+was rebuilt by hand. Intake is therefore **one `AskUserQuestion` call**, sent
+after the data is in hand, covering everything below. Nothing on this list is
+asked later unless the data forces it (a worker's Open question).
 
-- **The PlanGrid pull** — a directory containing `tasks.json`. Say how many
-  items it holds, and whether a `delta_<from>_to_<to>/` folder is present (if
-  so, the delta is the authoritative task list and you need both photo
-  directories plus the base's `sheets.json`).
-- **The PlanGrid Task Report PDF** — **not part of an API pull**, exported
-  separately, and the only source of the per-item annotated sheet clips. If it
-  is absent, ask for it. The pipeline still runs without it, but every item
-  renders `(no pin clip)`, so this is the user's call to make knowingly.
-- **Scope** — which item numbers this report covers. If the pull spans more
-  than one walk date, say so and propose a split; do not assume. Whatever is
-  agreed becomes `SCOPE`, and that is the only place scope lives.
-- **Report identity** — project name, building/area, walk date, who walked it,
-  and who reviews it. These fill `build/report.config.json`.
-- **Issuance date** — ask this one with `AskUserQuestion`. Never infer it, never
-  default to today. It is a contractual fact about when the report goes out, it is
-  the reviewer's decision, and it routinely differs from both the walk date and
-  the compile date.
-- **EP project number** — capture it into `report.config.json` as `ep_project_no`
-  for our own traceability, and make sure it is **not rendered**. It is internal
-  tracking, not client-facing, including on the cover. `verify_report.py` fails the
-  build if it reaches the document text.
+**Gather first, silently:**
 
-Ask about anything genuinely ambiguous here. Everything after this point is
-expensive to redo.
+1. `<project folder>/client-profile.json`, if present. It holds the
+   client-level facts from earlier reports for this client (display name,
+   address, EP number, inspector, reviewer, record-only drop phrases, cover
+   settings). If absent, stamp `template/client-profile.json` into the
+   workspace root and fill what you can.
+2. The pull: an exported folder with `tasks.json` (note any `delta_*` folders),
+   or the `plangrid` MCP (`list_projects`, then `pull_tasks`; see
+   `reference/build-data.md` Step 0b). The Task Report PDF from the uploads or
+   the project folder; it is the only source of pin clips, so if it is missing
+   that becomes a question.
+3. Run consolidate with the rules you already know (the profile's
+   `drop_phrases`, the user's title and date filters) so the triage summary
+   is in front of you: item count, deleted or archived strays, and any
+   **NEAR-MISS** descriptions it reports.
+
+**Then ask, in one call (four questions at most):**
+
+| # | Question | Options |
+|---|---|---|
+| 1 | Scope edge cases the rules did not settle: strays, near-miss phrases, a pull spanning two walk dates. Name the items. Skip this question if there are none and use the slot for the Task Report if that is missing. | drop / keep / other |
+| 2 | Issuance date. Never inferred, never defaulted to today; it is the reviewer's contractual decision. | today's date / the walk date / other |
+| 3 | Identity, shown as one block for confirmation: project name as it reads on the cover, building or area (the subtitle), client display name and street address, EP project number, walk date (from the pin dates), who walked it, who reviews it. Prefill from the profile and the PlanGrid project; mark anything blank as "missing". | correct / change (say what) |
+| 4 | Cover: the generated cover, a blank first page for the reviewer's own coversheet (numbering stays right), or none. Prefill from the profile's `cover_mode`. | template / blank / none |
+
+Free text arrives through "Other"; read it and apply it. A PDF is not asked
+about: it is made only if the user asks for one (step 6).
+
+**Then write the answers down, once:** the per-report facts into
+`_pipeline/build/report.config.json`, the client-level facts into the
+workspace's `client-profile.json` (delivery copies it into the project folder,
+the one file `package.py` updates in place), and the scope rules into the
+`SCOPE`, `TITLE`, `CREATED_AFTER` and `DROP_PHRASES` variables recorded in
+`_pipeline/CLAUDE.md`. From here on nothing about identity or scope is
+re-derived or re-asked.
 
 ## 2. Build the workspace
 

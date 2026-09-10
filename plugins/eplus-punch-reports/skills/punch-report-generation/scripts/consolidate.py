@@ -106,11 +106,26 @@ def main():
     ap.add_argument("project_root")
     ap.add_argument("-o", "--out", default="data/items.json")
     ap.add_argument("--only", default=None, help='e.g. "11-30" or "2,5,9-12"')
+    ap.add_argument("--drop-phrase", action="append", default=[],
+                    help="drop items whose whole description equals this phrase (case-insensitive, "
+                         "repeatable). Near misses are reported, never dropped.")
+    ap.add_argument("--title", default=None,
+                    help="keep only items whose title equals this (case-insensitive), e.g. the walk marker")
+    ap.add_argument("--created-after", default=None,
+                    help="keep only items created after this date, YYYY-MM-DD (exclusive)")
     args = ap.parse_args()
 
     root = os.path.abspath(args.project_root)
     deltas = find_deltas(root)
     keep = parse_only(args.only)
+    drop_phrases = [p.strip().lower() for p in args.drop_phrase if p.strip()]
+    # A near miss is a description that shares the first two words of a drop
+    # phrase but is not the phrase itself ("Observation only, ignore." against
+    # "Observation only for record"). It is a question for the user, not a call
+    # this script makes.
+    near_keys = {" ".join(p.split()[:2]) for p in drop_phrases if len(p.split()) >= 2}
+    title_filter = args.title.strip().lower() if args.title else None
+    created_after = args.created_after
 
     # Layers, oldest first: the base pull, then every delta in date order.
     # Later layers overwrite earlier ones on collision, so the newest state of
@@ -147,14 +162,30 @@ def main():
     filler = detect_filler_title(tasks)
 
     items, missing_photos = [], []
+    dropped_deleted, dropped_title, dropped_date, dropped_phrase, near_miss = [], [], [], [], []
     for t in sorted(tasks, key=lambda z: z.get("number", 0)):
         num = t.get("number")
         if keep is not None and num not in keep:
             continue
-        if t.get("deleted"):
+        if t.get("deleted") or t.get("archived"):
+            dropped_deleted.append(num)
             continue
 
         title = (t.get("title") or "").strip()
+        if title_filter is not None and title.lower() != title_filter:
+            dropped_title.append(num)
+            continue
+        if created_after and str(t.get("created_at") or "")[:10] <= created_after:
+            dropped_date.append(num)
+            continue
+        desc_norm = " ".join((t.get("description") or "").split()).strip().lower().rstrip(".")
+        if drop_phrases:
+            if desc_norm in {p.rstrip(".") for p in drop_phrases}:
+                dropped_phrase.append(num)
+                continue
+            if any(k in desc_norm for k in near_keys):
+                near_miss.append((num, (t.get("description") or "").strip()))
+
         if filler and title == filler:
             title = ""
 
@@ -210,6 +241,18 @@ def main():
 
     print(f"tasks source     : {tasks_src}")
     print(f"filler title     : {filler!r}" if filler else "filler title     : none detected")
+    if dropped_deleted:
+        print(f"dropped, deleted/archived : {dropped_deleted}")
+    if title_filter is not None:
+        print(f"dropped, title != {args.title!r} : {dropped_title}")
+    if created_after:
+        print(f"dropped, created on/before {created_after} : {dropped_date}")
+    if drop_phrases:
+        print(f"dropped, record-only phrase : {dropped_phrase}")
+    if near_miss:
+        print("NEAR-MISS (kept; ask the user before drafting):")
+        for num, desc in near_miss:
+            print(f"   #{num}: {desc!r}")
     print(f"items            : {len(items)}")
     print(f"  described      : {len(described)} -> {[i['number'] for i in described]}")
     print(f"  photo_only     : {len(photo_only)} -> {[i['number'] for i in photo_only]}")
