@@ -56,13 +56,19 @@ Create a workspace folder in the session's own outputs area (your working
 folder, not the project folder), named after the report, for example
 `<project>-punch-<walkdate>/`. Then:
 
-1. Copy `${CLAUDE_PLUGIN_ROOT}/skills/punch-report-generation/template/` into
-   the workspace, and
-   `${CLAUDE_PLUGIN_ROOT}/skills/punch-report-generation/scripts/` into
-   `_pipeline/scripts/`.
+1. Copy the skill's `template/` into the workspace, and its `scripts/` into
+   `_pipeline/scripts/`. **From bash in the sandbox the plugin lives at**
+   `/sessions/<session>/mnt/.local-plugins/marketplaces/eplus-claude-plugins/plugins/eplus-punch-reports/skills/punch-report-generation/`
+   (`<session>` is the first path segment under `/sessions/`; `ls /sessions`
+   shows it). `${CLAUDE_PLUGIN_ROOT}` is the same folder as seen by host tools
+   (Read, Grep) and does not exist inside the sandbox, so do not `find /` for
+   it and do not conclude the plugin is unreachable.
 2. Copy the inputs **once** from the project folder into the workspace root:
-   the PlanGrid pull directory (base and any delta) and the Task Report PDF.
-   `run_pipeline.sh` finds them there automatically, beside `_pipeline/`.
+   a pre-exported PlanGrid pull directory (base and any delta) and the Task
+   Report PDF. `run_pipeline.sh` finds them there automatically, beside
+   `_pipeline/`. If the pull comes from the `plangrid` MCP instead of a folder,
+   follow "Pulling from the MCP" in `reference/build-data.md`: raw material
+   goes to `plangrid_mcp/`, `scripts/adapt_mcp_pull.py` writes `plangrid_pull/`.
 3. Fill in `_pipeline/build/report.config.json` from the identity answers, and
    replace the `<PLACEHOLDER>` fields in `_pipeline/CLAUDE.md` with this
    project's real values as you learn them. That file is what the next run
@@ -70,8 +76,16 @@ folder, not the project folder), named after the report, for example
 
 If the project folder already holds a delivered package from a prior run,
 unzip that package into the workspace instead of stamping a fresh template,
-then refresh `_pipeline/scripts/` from the plugin. Report what you found and
-carry on from there; this is a re-run.
+**then overwrite `_pipeline/scripts/` from the plugin path above**. The
+package carries that run's data and decisions; the plugin carries the current
+scripts. A package's scripts are never the source for a new run, even when
+they look newer, because a fix made inside one session's workspace is not a
+plugin fix. Report what you found and carry on from there; this is a re-run.
+
+The scripts in the plugin are the only scripts. If one is wrong, fix it in the
+workspace to finish the run, then say so in `LESSONS-LEARNED.md` and file it
+with `report_issue` so the plugin gets the fix; do not rely on memory or on the
+next package to carry it.
 
 ## 3. Install dependencies and check the tooling
 

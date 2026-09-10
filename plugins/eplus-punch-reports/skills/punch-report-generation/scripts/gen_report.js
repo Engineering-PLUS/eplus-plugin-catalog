@@ -57,6 +57,32 @@ const BUILD = process.argv[2] || path.join(__dirname, '..');
 const CFG = JSON.parse(fs.readFileSync(path.join(BUILD, 'report.config.json')));
 const OUT = process.argv[3] || path.join(BUILD, CFG.output_filename);
 
+// -------------------------------------------------------------------- docx@9.7.1 bug fixes
+// 1. ImportedXmlComponent.fromXmlString() runs the string through xml2js with
+//    {compact:false}, which returns a top-level DOCUMENT node (type undefined, name
+//    undefined) wrapping the real element in .elements[0]. convertToXmlComponent()'s
+//    `case void 0:` treats that wrapper as a real element too, so it emits a literal
+//    <undefined>...</undefined> tag around every imported fragment. The XML stays
+//    well-formed (every lax parser, including LibreOffice, accepts it), but Word
+//    refuses to open a document containing an undeclared element name. The real
+//    element survives as the wrapper's first (only) child -- .root[0] -- so unwrap it
+//    there before handing it to a Paragraph.
+const importXml = (xmlString) => ImportedXmlComponent.fromXmlString(xmlString).root[0];
+
+// 2. DocProperties (the wp:docPr element every ImageRun's Drawing carries) builds a
+//    FRESH docPropertiesUniqueNumericIdGen() per instance when no explicit id is
+//    passed, so every image in the document gets id="1". Word keys on this id like
+//    it keys on bookmark ids, and duplicate docPr ids are a corruption trigger the
+//    same way duplicate bookmark ids are (see fix_bookmark_ids.py). Share one counter
+//    across the whole document and pass it through altText.id on every ImageRun so
+//    each drawing gets a distinct id.
+let _docPrIdSeq = 1000;
+const nextDocPrId = () => _docPrIdSeq++;
+const imageRun = (options) => new ImageRun({
+  ...options,
+  altText: { title: '', name: '', ...(options.altText || {}), id: nextDocPrId() },
+});
+
 const master = JSON.parse(fs.readFileSync(path.join(BUILD, CFG.master_file || 'master_report_items.json')));
 const clipDims = JSON.parse(fs.readFileSync(path.join(BUILD, 'sheet_clip_dims_jpg.json')));
 const PHOTO_DIR = path.join(BUILD, 'thumbs_uniform');
@@ -186,7 +212,7 @@ function metaTable(item) {
     clipCellChildren = [
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        children: [new ImageRun({
+        children: [imageRun({
           type: 'jpg',
           data: fs.readFileSync(clipPath),
           transformation: { width: dxaToPx(CLIP_IMG_W), height: dxaToPx(clipH) },
@@ -257,7 +283,7 @@ function photoCell(item, idx) {
   try {
     children.push(new Paragraph({
       alignment: AlignmentType.CENTER,
-      children: [new ImageRun({
+      children: [imageRun({
         type: 'jpg',
         data: fs.readFileSync(file),
         transformation: { width: dxaToPx(PHOTO_W_DXA), height: dxaToPx(PHOTO_H_DXA) },
@@ -565,7 +591,7 @@ function coverBackgroundRuns() {
   for (const l of layers) {
     const p = path.join(COVER_DIR, l.file);
     if (!fs.existsSync(p)) continue;
-    runs.push(new ImageRun({
+    runs.push(imageRun({
       type: l.type,
       data: fs.readFileSync(p),
       transformation: { width: Math.round(l.w * 96), height: Math.round(l.h * 96) },
@@ -586,14 +612,14 @@ function coverLogoRow() {
   const left = [
     new Paragraph({
       spacing: { before: 0, after: 60 },
-      children: [new ImageRun({
+      children: [imageRun({
         type: 'jpg', data: EP_LOGO,
         transformation: { width: dxaToPx(LH_LOGO_W), height: dxaToPx(LH_LOGO_H) },
       })],
     }),
     new Paragraph({
       spacing: { before: 0, after: 0 },
-      children: [new ImageRun({
+      children: [imageRun({
         type: 'png', data: EP_URL,
         transformation: { width: dxaToPx(LH_URL_W), height: dxaToPx(LH_URL_H) },
       })],
@@ -602,7 +628,7 @@ function coverLogoRow() {
   const right = fs.existsSync(clientLogo)
     ? [new Paragraph({
         alignment: AlignmentType.RIGHT,
-        children: [new ImageRun({
+        children: [imageRun({
           type: 'png', data: fs.readFileSync(clientLogo),
           transformation: { width: dxaToPx(2900), height: dxaToPx(Math.round(2900 * 0.225)) },
         })],
@@ -832,11 +858,11 @@ function tocEntry(item) {
 }
 
 const W_NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
-const fldChar = (type) => ImportedXmlComponent.fromXmlString(`<w:r ${W_NS}><w:fldChar w:fldCharType="${type}"/></w:r>`);
+const fldChar = (type) => importXml(`<w:r ${W_NS}><w:fldChar w:fldCharType="${type}"/></w:r>`);
 // Canonical instruction form: leading/trailing space, \h for hyperlinked entries,
 // \z (no leader in web view), \u (outline levels). \o "1-1" collects Heading 1,
 // which is what every item heading uses.
-const tocInstr = () => ImportedXmlComponent.fromXmlString(`<w:r ${W_NS}><w:instrText xml:space="preserve"> TOC \\o "1-1" \\h \\z \\u </w:instrText></w:r>`);
+const tocInstr = () => importXml(`<w:r ${W_NS}><w:instrText xml:space="preserve"> TOC \\o "1-1" \\h \\z \\u </w:instrText></w:r>`);
 
 cover.push(new Paragraph({ spacing: { after: 0 }, children: [fldChar('begin'), tocInstr(), fldChar('separate')] }));
 for (const item of master) cover.push(tocEntry(item));
@@ -866,14 +892,14 @@ const letterheadHeader = new Header({
               children: [
                 new Paragraph({
                   spacing: { before: 0, after: 60 },
-                  children: [new ImageRun({
+                  children: [imageRun({
                     type: 'jpg', data: EP_LOGO,
                     transformation: { width: dxaToPx(LH_LOGO_W), height: dxaToPx(LH_LOGO_H) },
                   })],
                 }),
                 new Paragraph({
                   spacing: { before: 0, after: 0 },
-                  children: [new ImageRun({
+                  children: [imageRun({
                     type: 'png', data: EP_URL,
                     transformation: { width: dxaToPx(LH_URL_W), height: dxaToPx(LH_URL_H) },
                   })],

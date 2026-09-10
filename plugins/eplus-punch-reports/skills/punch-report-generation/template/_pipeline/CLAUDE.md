@@ -50,7 +50,17 @@ package name. Never edit the delivered copy in place.
 
 ## The source data, and where it hides
 
-The pull is `<pull folder>/`. Two shapes to check for, every time:
+The pull is `<pull folder>/`. **Photo route this run: `<live | pdf | mixed>`**
+(from `adapt_mcp_pull.py`'s last line; if not `live`, name the host that failed
+and the request id filed for it). This line describes what happened on this
+run only. It is not a statement about what the next run can reach: the next
+run fetches the originals again regardless, per the skill.
+
+If the pull came from the `plangrid` MCP rather than an exported folder, the raw
+material (task rows, photo URLs, downloaded originals, PDF fallback crops) is in
+`../plangrid_mcp/` and the adapted pull the pipeline reads is `../plangrid_pull/`.
+
+Two shapes to check for, every time:
 
 1. **`delta_<from>_to_<to>/` folders, possibly several.** When a pull is taken
    across more than one session, each delta holds the tasks touched in its

@@ -95,6 +95,19 @@ def main():
                    f"matched {voice_hits}"))
     checks.append(("verbatim pin note not rendered", "original note" not in text, "found"))
 
+    # docx@9.7.1's ImportedXmlComponent.fromXmlString() (used for the TOC field's
+    # fldChar/instrText runs) returns a wrapper node with no element name for the
+    # top-level xml2js document node; convertToXmlComponent()'s `case void 0:`
+    # treats that wrapper as real and emits a literal <undefined>...</undefined>
+    # tag around the fragment. Every lax parser (including LibreOffice) accepts
+    # the well-formed-but-undeclared tag; Word does not, and refuses to open the
+    # file. gen_report.js's importXml() helper unwraps .root[0] to avoid this;
+    # this check asserts none slipped through.
+    illegal_tags = re.findall(r"</?undefined\b", doc)
+    checks.append(("no schema-illegal element names (e.g. <undefined>)",
+                   not illegal_tags,
+                   f"found {len(illegal_tags)} <undefined> tag(s) in word/document.xml"))
+
     # TOC must be live fields, not baked text
     checks.append((f"{n_items} PAGEREF fields present", len(pagerefs) == n_items,
                    f"got {len(pagerefs)}"))
@@ -110,6 +123,20 @@ def main():
     dup_ids = sorted({i for i in bm_ids if bm_ids.count(i) > 1})
     checks.append(("bookmark ids are unique", not dup_ids,
                    f"duplicated w:id {dup_ids}, run scripts/fix_bookmark_ids.py"))
+    # Same failure mode, different element: docx@9.7.1's DocProperties builds a
+    # fresh docPropertiesUniqueNumericIdGen() per instance when no explicit id is
+    # passed, so every wp:docPr (one per embedded image) gets id="1" by default.
+    # Word keys on this id the same way it keys on bookmark ids; duplicates are a
+    # corruption trigger. gen_report.js's imageRun() helper shares one counter
+    # across the document so each docPr gets a distinct id; this asserts it did.
+    docpr_ids = []
+    for tag in re.findall(r"<wp:docPr\b[^>]*/?>", doc):
+        m = re.search(r'id="(\d+)"', tag)
+        if m:
+            docpr_ids.append(m.group(1))
+    dup_docpr = sorted({i for i in docpr_ids if docpr_ids.count(i) > 1})
+    checks.append(("wp:docPr ids are unique", not dup_docpr,
+                   f"duplicated wp:docPr id {dup_docpr} ({len(docpr_ids)} docPr elements total)"))
     checks.append(("no stale hardcoded page numbers",
                    not re.findall(r">p\. \d+<", doc), "found baked 'p. N' text"))
     checks.append(("Word set to refresh fields on open",

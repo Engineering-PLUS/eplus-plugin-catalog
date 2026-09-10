@@ -48,8 +48,14 @@ fi
 # A PlanGrid pull is a directory holding tasks.json. A Task Report is a PDF
 # exported separately from PlanGrid; it is NOT part of an API pull, and it is
 # the only source of the per-item annotated sheet clips.
+# ../plangrid_pull is the canonical location (a pre-exported pull copied in, or
+# the output of scripts/adapt_mcp_pull.py). Prefer it so the raw MCP material in
+# ../plangrid_mcp, which also holds a tasks.json, is never picked up by mistake.
+if [ -z "${PULL:-}" ] && [ -f ../plangrid_pull/tasks.json ]; then
+    PULL=../plangrid_pull
+fi
 if [ -z "${PULL:-}" ]; then
-    PULL=$(find .. -maxdepth 2 -name tasks.json -not -path '*/delta_*' 2>/dev/null \
+    PULL=$(find .. -maxdepth 2 -name tasks.json -not -path '*/delta_*' -not -path '*/plangrid_mcp/*' 2>/dev/null \
            | head -1 | xargs -r dirname)
 fi
 if [ -z "${TASK_REPORT:-}" ]; then

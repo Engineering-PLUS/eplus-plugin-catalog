@@ -17,12 +17,20 @@ anything to start reading.
                folder name if no .docx has been rendered
 --dry-run      list what would be packaged and delivered, write nothing
 
-Excluded from the zip: node_modules/, __pycache__/, *.bak.json, .DS_Store.
-Everything else ships, sources included, so the delivered document and the
-files that generate it can never disagree.
+Where the deliverables are found: the newest .docx under _pipeline/build/ (the
+renderer writes there) and the newest .xlsx under _pipeline/ or _pipeline/build/
+(review_sheet.py writes there). Files at the workspace root are accepted too.
+Anything under _pipeline/build/_scratch/ is ignored and never packaged.
+
+Re-delivery: this script never deletes or overwrites anything in the
+destination. If the zip name is taken, every delivered file gets the next free
+"-2", "-3", ... suffix, so a second delivery needs no permission to remove the
+first one. Excluded from the zip: node_modules/, __pycache__/, _scratch/,
+*.bak.json, .DS_Store, Thumbs.db.
 
 Exit status is non-zero if the workspace has no _pipeline/, if the destination
-is missing, or if the zip written does not contain every file that was counted.
+is missing, if no rendered .docx exists, or if the zip written does not contain
+every file that was counted.
 """
 import argparse
 import os
@@ -30,7 +38,7 @@ import shutil
 import sys
 import zipfile
 
-EXCLUDE_DIRS = {"node_modules", "__pycache__"}
+EXCLUDE_DIRS = {"node_modules", "__pycache__", "_scratch"}
 EXCLUDE_SUFFIXES = (".bak.json",)
 EXCLUDE_NAMES = {".DS_Store", "Thumbs.db"}
 
@@ -42,6 +50,40 @@ def iter_files(root):
             if f in EXCLUDE_NAMES or f.endswith(EXCLUDE_SUFFIXES):
                 continue
             yield os.path.join(dirpath, f)
+
+
+def newest(paths):
+    paths = [p for p in paths if os.path.isfile(p)]
+    return max(paths, key=os.path.getmtime) if paths else None
+
+
+def find_deliverables(ws):
+    """Newest .docx and .xlsx the pipeline produced, wherever it put them."""
+    build = os.path.join(ws, "_pipeline", "build")
+    pipe = os.path.join(ws, "_pipeline")
+    docx, xlsx = [], []
+    for d in (build, pipe, ws):
+        if not os.path.isdir(d):
+            continue
+        for f in os.listdir(d):
+            if f.startswith("~$"):
+                continue
+            p = os.path.join(d, f)
+            if f.lower().endswith(".docx"):
+                docx.append(p)
+            elif f.lower().endswith(".xlsx"):
+                xlsx.append(p)
+    return newest(docx), newest(xlsx)
+
+
+def free_suffix(dest, stem, names):
+    """Smallest suffix such that none of <stem><suffix><ext> already exist in dest."""
+    n = 1
+    while True:
+        suffix = "" if n == 1 else f"-{n}"
+        if not any(os.path.exists(os.path.join(dest, f"{stem}{suffix}{ext}")) for ext in names):
+            return suffix
+        n += 1
 
 
 def main():
@@ -59,27 +101,38 @@ def main():
     if not os.path.isdir(dest):
         sys.exit(f"ERROR: destination {dest} does not exist")
 
-    top_level = sorted(os.listdir(ws))
-    docx = [f for f in top_level if f.lower().endswith(".docx") and not f.startswith("~$")]
-    xlsx = [f for f in top_level if f.lower().endswith(".xlsx") and not f.startswith("~$")]
-    stem = args.name or (os.path.splitext(docx[0])[0] if docx else os.path.basename(ws))
-    zip_path = os.path.join(dest, stem + ".zip")
+    docx, xlsx = find_deliverables(ws)
+    if not docx:
+        sys.exit("ERROR: no rendered .docx under _pipeline/build/; render before delivering")
+    stem = args.name or os.path.splitext(os.path.basename(docx))[0]
 
     files = list(iter_files(ws))
     total = sum(os.path.getsize(f) for f in files)
+
+    # One suffix for the whole delivery, so the zip, the .docx and the .xlsx
+    # always share a name and never collide with an earlier delivery.
+    exts = [".zip", ".docx"] + ([".xlsx"] if xlsx else [])
+    suffix = free_suffix(dest, stem, exts)
+    zip_path = os.path.join(dest, f"{stem}{suffix}.zip")
+    beside = [(docx, f"{stem}{suffix}.docx")]
+    if xlsx:
+        xstem = os.path.splitext(os.path.basename(xlsx))[0]
+        beside.append((xlsx, f"{xstem}{suffix}.xlsx"))
+
     print(f"workspace   : {ws}")
     print(f"destination : {dest}")
     print(f"package     : {os.path.basename(zip_path)}  ({len(files)} files, {total / 1048576:.1f} MB)")
-    print(f"beside it   : {', '.join(docx + xlsx) or '(no .docx/.xlsx at workspace root yet)'}")
-    if not docx:
-        print("WARNING: no rendered .docx at the workspace root; delivering the pipeline without a report.")
+    print(f"report      : {os.path.relpath(docx, ws)} -> {beside[0][1]}")
+    if xlsx:
+        print(f"review sheet: {os.path.relpath(xlsx, ws)} -> {beside[1][1]}")
+    else:
+        print("review sheet: (none found; review_sheet.py export not run)")
+    if suffix:
+        print(f"note        : an earlier delivery exists; this one carries the '{suffix}' suffix. Nothing was removed.")
     if args.dry_run:
         for f in files:
             print("  ", os.path.relpath(f, ws))
         return 0
-
-    if os.path.exists(zip_path):
-        sys.exit(f"ERROR: {zip_path} already exists; pick another --name rather than overwrite a delivery")
 
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         for f in files:
@@ -87,16 +140,16 @@ def main():
     with zipfile.ZipFile(zip_path) as zf:
         n = len(zf.namelist())
         if n != len(files):
-            os.remove(zip_path)
-            sys.exit(f"ERROR: zip holds {n} entries but {len(files)} were counted; delivery removed")
+            sys.exit(f"ERROR: zip holds {n} entries but {len(files)} were counted; "
+                     f"delivery at {zip_path} is incomplete, deliver again under a new --name")
 
-    for f in docx + xlsx:
-        target = os.path.join(dest, f)
+    for src, name in beside:
+        target = os.path.join(dest, name)
         if os.path.exists(target):
-            print(f"WARNING: {f} already exists in the destination; leaving it, the copy inside the zip is current")
+            print(f"WARNING: {name} already exists in the destination; left as is, the copy inside the zip is current")
             continue
-        shutil.copy2(os.path.join(ws, f), target)
-        print(f"delivered   : {f}")
+        shutil.copy2(src, target)
+        print(f"delivered   : {name}")
     print(f"delivered   : {os.path.basename(zip_path)}")
     return 0
 

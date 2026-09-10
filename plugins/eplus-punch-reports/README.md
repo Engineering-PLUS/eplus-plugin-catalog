@@ -33,7 +33,9 @@ and review `.xlsx` beside it. Inside the package:
 ```
 _pipeline/
   CLAUDE.md              this project's operating manual, read first
-  scripts/               the pipeline scripts, smoke test, and packager
+  scripts/               the pipeline scripts, smoke test, and packager; also the
+                         MCP-pull route (fetch_photos.py for the originals,
+                         extract_pdf_photos.py as the fallback, adapt_mcp_pull.py)
   data/                  items.json (facts) + drafted_items.json (judgment)
   build/                 what the renderer reads, report.config.json, the .docx
   ISSUES-LIST.md         open questions for the reviewer

@@ -4,6 +4,48 @@ Covers consolidating the PlanGrid pull, normalising photos and extracting sheet 
 Assumes intake (SKILL.md Step 0) is done, dependencies are installed, and the pull and
 Task Report PDF sit beside `_pipeline/` in the workspace; `data/items.json` may not exist yet.
 
+### Step 0b — Pulling from the MCP (when there is no pre-exported pull folder)
+
+The `plangrid` MCP hands back flat task rows with every value as a string, no
+photo binaries, and usually no sheet names. Three scripts turn that into the
+pull shape Step 1 reads. Raw material goes in `<workspace>/plangrid_mcp/`
+(beside `_pipeline/`), the adapted pull in `<workspace>/plangrid_pull/`, which
+`run_pipeline.sh` finds on its own.
+
+1. Write `../plangrid_mcp/tasks.json` (the task rows from `pull_tasks`, or one
+   `get_task` result per item when descriptions are needed for a filter) and
+   `../plangrid_mcp/mcp_photo_urls.json`:
+   `{"<task number>": [{"uid", "title", "created_at", "url"}, ...]}` from each
+   item's `get_task` photos. Cap `get_task` at four in flight; the server
+   answers serially and a burst of thirty took under a minute to drain.
+2. **Fetch the originals, every run:**
+   ```bash
+   python3 scripts/fetch_photos.py --pull ../plangrid_mcp
+   ```
+   This is not optional and is not skipped because a memory note, a prior
+   package, or last week's run said the photo host was blocked. Reachability is
+   a property of the seat on the day. The originals are full resolution; the
+   fallback below yields about 350 x 620 px, which is visibly soft in the
+   rendered grid.
+3. **Only if the fetch reported failures**, recover the missing photos and the
+   sheet names from the Task Report PDF:
+   ```bash
+   python3 scripts/extract_pdf_photos.py "../<Task Report>.pdf" --pull ../plangrid_mcp
+   ```
+   It skips photos the live fetch already got. If the failure was an egress
+   block, file the host with `request_egress_allow` (error-reporting skill) and
+   carry on; do not stop the run for it.
+4. **Adapt:**
+   ```bash
+   python3 scripts/adapt_mcp_pull.py        # ../plangrid_mcp -> ../plangrid_pull
+   ```
+   It coerces the string fields, nests the annotation and photo counts the way
+   `consolidate.py` expects, builds `sheets.json` from the MCP names or the PDF
+   names, and copies each photo from `photos/` first and `pdf_photos/` second.
+   Its last line, `photo route : live | pdf | mixed`, goes into
+   `PROCESS-LOG.md` and the workspace `CLAUDE.md` verbatim, with the failed host
+   when it is not `live`.
+
 ### Step 1 — Consolidate
 
 ```bash

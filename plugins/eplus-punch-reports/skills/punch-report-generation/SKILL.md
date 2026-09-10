@@ -20,6 +20,24 @@ PDF) in beside `_pipeline/` once. Work only there. The template's
 `_pipeline/CLAUDE.md` is the operating manual for that project and is the file
 a future run reads first — fill it in as you go rather than at the end.
 
+**Where the template and scripts are.** From bash in the sandbox this skill is
+at `/sessions/<session>/mnt/.local-plugins/marketplaces/eplus-claude-plugins/plugins/eplus-punch-reports/skills/punch-report-generation/`
+(`ls /sessions` gives `<session>`). The host-side path in this file's "Base
+directory" line is the same folder seen by Read and Grep; it is not visible to
+bash. Stamp from the plugin path every run, including re-runs that unzip a
+prior package: the package supplies data and decisions, the plugin supplies
+scripts.
+
+**Tooling facts come from this skill, not from memory.** Memory entries and a
+prior package's CLAUDE.md, PROCESS-LOG and LESSONS-LEARNED are good sources for
+project facts: client conventions, names, addresses, what an earlier report
+covered. They are not sources for what is reachable, installed, or broken on
+this seat today. Egress, missing packages and script bugs are re-tested on
+every run (the live photo fetch in `reference/build-data.md` is the usual
+case). When a memory entry contradicts this skill on tooling, the skill wins,
+and the main thread corrects that memory entry at the end of the run so the
+next one does not inherit it. Workers do not read memory at all.
+
 **Re-read `_pipeline/CLAUDE.md` whenever you resume a session, and again after a
 context compaction.** Nothing loads it for you: it sits one level below the
 working folder, so it is not picked up automatically, and compaction drops what
@@ -139,6 +157,12 @@ verification in one go once `data/drafted_items.json` exists; `SCOPE=11-30`
 in front of it sets the scope.
 
 ```bash
+# Step 0b Only when the pull comes from the plangrid MCP  -> reference/build-data.md
+#         (write ../plangrid_mcp/tasks.json and mcp_photo_urls.json from the tool results first)
+python3 scripts/fetch_photos.py --pull ../plangrid_mcp              # live originals, every run
+python3 scripts/extract_pdf_photos.py "../<Task Report>.pdf" --pull ../plangrid_mcp   # only for photos fetch_photos could not get
+python3 scripts/adapt_mcp_pull.py                                   # ../plangrid_mcp -> ../plangrid_pull
+
 # Step 1  Consolidate                         -> reference/build-data.md
 python3 scripts/consolidate.py <pull_dir> -o data/items.json [--only 11-30]
 

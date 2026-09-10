@@ -46,7 +46,8 @@ echo
 for s in consolidate.py normalize_photos.py extract_sheet_clips.py \
          build_master.py review_sheet.py verify_report.py read_comments.py \
          package.py fix_bookmark_ids.py render_preview.py \
-         import_reviewed_docx.py; do
+         import_reviewed_docx.py fetch_photos.py adapt_mcp_pull.py \
+         extract_pdf_photos.py; do
     if [ ! -f "$s" ]; then bad "$s is missing"; continue; fi
     out=$("$PY" "$s" --help 2>&1)
     case "$?:$out" in
@@ -157,6 +158,62 @@ assert ids == ["1", "2"], ids
 assert ' PAGEREF punchitem1 \\h ' in x, x
 assert zipfile.ZipFile(p).namelist()[0] == "[Content_Types].xml"
 PYCHECK
+
+# Render a one-item fixture end to end and check the two defects only Word
+# rejects: a literal <undefined> element (docx@9.7.1 ImportedXmlComponent bug)
+# and duplicate wp:docPr ids (docx@9.7.1 DocProperties bug). Both shipped to a
+# reviewer once (2026-09-09) with verify_report.py passing 16/16, because the
+# checks lived only in a session workspace. They now live here.
+if node -e 'require("docx")' >/dev/null 2>&1; then
+"$PY" - <<'PYCHECK' 2>&1 && ok "gen_report.js: fixture renders, no <undefined>, unique wp:docPr ids, verify passes" \
+    || bad "gen_report.js render check failed"
+import json, os, re, shutil, subprocess, sys, tempfile, zipfile
+here = os.getcwd()
+assets = None
+for cand in ("../template/_pipeline/build/assets", "../build/assets"):
+    if os.path.isdir(os.path.join(here, cand, "logos")):
+        assets = os.path.join(here, cand)
+        break
+assert assets, "no assets/logos folder found (expected ../template/_pipeline/build/assets or ../build/assets)"
+d = tempfile.mkdtemp()
+shutil.copytree(assets, os.path.join(d, "assets"))
+os.makedirs(os.path.join(d, "thumbs_uniform"))
+os.makedirs(os.path.join(d, "sheet_clips_jpg"))
+items = [{"number": 1, "photos": [], "sheet_name": "T02-01A", "sheet_description": "Plan",
+          "room": "", "status": "open", "created_at": "2026-01-01T10:00:00"}]
+drafted = {"items": [{"number": 1, "title": "Alpha", "description": "Conduit stubbed up.",
+                      "corrective_action": "Cap it.", "origin": "authored", "photo_mode": "none"}]}
+json.dump(items, open(os.path.join(d, "items.json"), "w", encoding="utf-8"))
+json.dump(drafted, open(os.path.join(d, "drafted.json"), "w", encoding="utf-8"))
+master = os.path.join(d, "master_report_items.json")
+r = subprocess.run([sys.executable, "build_master.py", "--items", os.path.join(d, "items.json"),
+                    "--drafted", os.path.join(d, "drafted.json"), "-o", master],
+                   capture_output=True, text=True)
+assert r.returncode == 0, r.stdout + r.stderr
+json.dump({"master_file": "master_report_items.json", "output_filename": "fixture.docx",
+           "include_cover": True, "cover_eyebrow": "Technology Site Inspection",
+           "cover_title": "Fixture", "cover_subtitle": "", "site_address": [],
+           "walk_date": "Site walk: January 1, 2026", "issuance_date": "January 2, 2026",
+           "inspector": "Fixture", "site_location": "Fixture", "prepared_by": "Fixture",
+           "compiled_line": "Fixture", "draft_warning": "Fixture", "footer_text": "Fixture"},
+          open(os.path.join(d, "report.config.json"), "w", encoding="utf-8"))
+json.dump({}, open(os.path.join(d, "sheet_clip_dims_jpg.json"), "w", encoding="utf-8"))
+r = subprocess.run(["node", "gen_report.js", d], capture_output=True, text=True)
+assert r.returncode == 0, r.stdout + r.stderr
+out = os.path.join(d, "fixture.docx")
+x = zipfile.ZipFile(out).read("word/document.xml").decode("utf-8")
+assert "<undefined" not in x, "literal <undefined> element rendered: gen_report.js lost the importXml() unwrap"
+ids = re.findall(r'<wp:docPr[^>]*\bid="(\d+)"', x)
+assert ids and len(ids) == len(set(ids)), f"duplicate wp:docPr ids: {ids}"
+r = subprocess.run([sys.executable, "fix_bookmark_ids.py", out], capture_output=True, text=True)
+assert r.returncode == 0, r.stdout + r.stderr
+r = subprocess.run([sys.executable, "verify_report.py", out, master], capture_output=True, text=True)
+assert r.returncode == 0, r.stdout + r.stderr
+shutil.rmtree(d, ignore_errors=True)
+PYCHECK
+else
+    bad "gen_report.js render check skipped: docx package not installed (bash scripts/install_deps.sh)"
+fi
 
 # The wording-review preview markup ships with the skill, not the workspace, so
 # only assert it when running from a skill checkout.
