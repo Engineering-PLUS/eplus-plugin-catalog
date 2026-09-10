@@ -83,6 +83,7 @@ def main():
     master = load(os.path.join(build, "master_report_items.json"), [])
     cfg = load(os.path.join(build, "report.config.json"), {})
     clips = load(os.path.join(build, "sheet_clip_dims_jpg.json"), {})
+    sim = load(os.path.join(build, "sheet_clip_similarity.json"), {})
     pull = args.pull or prev.get("inputs", {}).get("pull")
     task_report = args.task_report or prev.get("inputs", {}).get("task_report")
     route = load(os.path.join(pull, "photo_route.json"), {}) if pull else {}
@@ -118,6 +119,7 @@ def main():
                    "photo_route": route.get("route", "unknown"), "photo_route_detail": route},
         "scope_rules": scope,
         "triage": triage,
+        "clip_similarity": sim,
         "counts": {
             "items": len(items), "described": described, "photo_only": photo_only,
             "no_photos": no_content, "valid_sheet": len(valid_sheet), "photos": photos,
@@ -156,6 +158,8 @@ def main():
         f"| Filler title dropped | {tri.get('filler_title') or 'none detected'} |",
         f"| Dropped by rule | {', '.join(f'{k[8:]} {v}' for k, v in dropped.items()) or 'none'} |",
         f"| Near misses reported | {', '.join('#' + str(n) for n, _ in tri.get('near_miss', [])) or 'none'} |",
+        f"| Possible duplicates, shared photo | {', '.join(f'#{a} and #{b}' for a, b in tri.get('possible_duplicates', [])) or 'none'} |",
+        f"| Adjacent pins, near-identical clips | {', '.join(f'#{a} and #{b}' for a, b, _ in sim.get('near_identical', [])) or 'none'} |",
         "",
         "| Count | Value |",
         "|---|---|",

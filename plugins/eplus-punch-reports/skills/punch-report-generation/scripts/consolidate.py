@@ -228,6 +228,33 @@ def main():
             "created_by": (t.get("created_by") or {}).get("email"),
         })
 
+    # Possible duplicate pins, from data only: two items sharing a photo uid, or
+    # two photo files with identical bytes. Similar-looking photos are NOT a
+    # signal (field result 2026-09-09: two distinct blank-wall pins were raised as
+    # a possible duplicate and the reviewer had to disprove it). Pin proximity
+    # comes from extract_sheet_clips.py's clip similarity, not from here.
+    import hashlib
+    by_uid_items, by_hash_items = {}, {}
+    for i in items:
+        for p in i["photos"]:
+            by_uid_items.setdefault(p["uid"], set()).add(i["number"])
+            try:
+                with open(p["path"], "rb") as fh:
+                    h = hashlib.sha1(fh.read()).hexdigest()
+                by_hash_items.setdefault(h, set()).add(i["number"])
+            except OSError:
+                pass
+    dup_pairs = set()
+    for group in list(by_uid_items.values()) + list(by_hash_items.values()):
+        nums = sorted(group)
+        for a_i, a in enumerate(nums):
+            for b in nums[a_i + 1:]:
+                dup_pairs.add((a, b))
+    for i in items:
+        others = sorted({b if a == i["number"] else a for a, b in dup_pairs if i["number"] in (a, b)})
+        i["possible_duplicate"] = others
+    possible_duplicates = sorted(dup_pairs)
+
     os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
     with open(args.out, "w", encoding="utf-8") as fh:
         json.dump(items, fh, indent=2)
@@ -239,6 +266,7 @@ def main():
             "dropped_deleted_or_archived": dropped_deleted, "dropped_title": dropped_title,
             "dropped_created_on_or_before": dropped_date, "dropped_phrase": dropped_phrase,
             "near_miss": near_miss,
+            "possible_duplicates": possible_duplicates,
             "rules": {"only": args.only, "title": args.title, "created_after": created_after,
                       "drop_phrases": args.drop_phrase},
         }, fh, indent=1)
@@ -274,6 +302,8 @@ def main():
           f" (declared {sum(i['photo_count_field'] or 0 for i in items)})")
     if missing_photos:
         print(f"MISSING BINARIES : {missing_photos}", file=sys.stderr)
+    if possible_duplicates:
+        print(f"POSSIBLE DUPLICATE PINS (shared photo) : {possible_duplicates}  <- ask the user; the only photo-based duplicate signal")
     print("sheet usage      :", dict(Counter(i["sheet_name"] for i in items)))
     print(f"wrote {args.out}")
 

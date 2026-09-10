@@ -145,6 +145,14 @@ different pins** (every emitted clip is sha1-hashed): that has shipped once, two
 items showing the same drawing, one of them therefore wrong, and nobody caught
 it by eye.
 
+It also writes `build/sheet_clip_similarity.json`: pairs of clips whose
+difference hashes are within a small Hamming distance are `near_identical`,
+which means two pins at nearly the same spot on the same sheet (the MCP rows
+carry no pin coordinates; the clip, centred on its pin, is the position
+signal). With `consolidate.py`'s shared-photo check this is the only evidence
+a draft may use to call two items a possible duplicate; see
+`reference/drafting.md`.
+
 **A Task Report only covers the export window it was generated for.** A
 multi-visit report needs one Task Report export per visit; clips for items from
 an earlier visit are simply absent from a later export. Ask for the missing

@@ -177,6 +177,24 @@ shows a person, a vehicle, an office interior, or a blank wall, the pin is almos
 certainly a camera misfire. Surface it as *"should this item be in the report?"*
 Do not delete it silently either — that is the human's call.
 
+#### Duplicates are established by data, never by eye
+
+Two pins may be raised as a possible duplicate only when the data says so:
+`consolidate.py` flagged them (`possible_duplicate` on the item, a shared photo
+uid or byte-identical photo files) or `extract_sheet_clips.py` listed them as
+`near_identical` in `build/sheet_clip_similarity.json` (clips centred on
+pins that sit at nearly the same spot on the same sheet). Both signals are in
+the run record. Site photos that *look* alike are not a signal: PlanGrid pins
+are placed by the engineer at distinct locations, and two blank walls
+photograph the same. Field result 2026-09-09: two distinct pins with the same
+generic note and similar photos were raised in the issues list as a possible
+duplicate photo of one spot; the reviewer had to disprove it.
+
+When the data does not flag a pair and the notes or photos still read alike,
+draft each item from its own pin and, if a remark is needed at all, put
+*"distinct pin; photo similar to item N"* in the Editor's Note, not in the
+issues list.
+
 #### Field-report voice, enforced
 
 The report is written **by** the field engineer, describing the site. Two things

@@ -115,7 +115,10 @@ were not given, suspected misfires as questions, items where the photo contradic
 the description, multi-condition pins for a split/keep decision, everything
 drafted from photos rather than authored, authored-but-photoless items, and any
 pattern that belongs above item level. Call out the few that genuinely block
-issuance.
+issuance. A "possible duplicate" entry is allowed only when the run record
+lists the pair under shared photo or near-identical clips; similar-looking
+photos alone never put a duplicate question in front of the reviewer
+(`reference/drafting.md`, "Duplicates are established by data").
 
 **The handoff** (`_pipeline/PROCESS-LOG.md`, `LESSONS-LEARNED.md`,
 `handoff/HANDOFF.md`) is how the next run gets better than this one. The

@@ -37,6 +37,17 @@ THE THREE TRAPS, and how this version handles them:
    items carried byte-identical clips and one was therefore showing the wrong
    drawing. Every emitted clip is sha1-hashed and a collision exits non-zero.
 
+5. Adjacent pins. The MCP task rows carry no pin coordinates, but PlanGrid
+   centres every clip on its pin, so two clips that look the same are two pins
+   at (nearly) the same spot on the same sheet. Each clip gets a 64-bit
+   difference hash; pairs within a small Hamming distance are written to
+   build/sheet_clip_similarity.json as "near_identical". That file, with the
+   shared-photo check in consolidate.py, is the only evidence a draft may cite
+   for "these two items might be the same condition". Similar-looking site
+   photos are not evidence (field result 2026-09-09: two distinct blank-wall
+   pins were flagged as a possible duplicate photo and the reviewer had to
+   disprove it).
+
 Usage:
     bash scripts/install_deps.sh
     python3 extract_sheet_clips.py "<Task Report>.pdf" build/sheet_clips_jpg \
@@ -113,6 +124,8 @@ def main():
     # gets bigger and blurrier.
     ap.add_argument("--zoom", type=float, default=6.0)
     ap.add_argument("--quality", type=int, default=80)
+    ap.add_argument("--near-threshold", type=int, default=6,
+                    help="max Hamming distance (of 64) between clip difference hashes to call two pins adjacent")
     args = ap.parse_args()
 
     doc = pymupdf.open(args.pdf)
@@ -171,10 +184,41 @@ def main():
     os.makedirs(os.path.dirname(os.path.abspath(args.dims_out)) or ".", exist_ok=True)
     json.dump(dims, open(args.dims_out, "w", encoding="utf-8"), indent=1)
 
+    # Adjacent pins: difference-hash every clip and compare all pairs. Clips are
+    # centred on their pin, so a small Hamming distance means two pins at nearly
+    # the same spot. Written beside the dims file for run_record.py and drafting.
+    near = []
+    try:
+        from PIL import Image
+        hashes = {}
+        for name in dims:
+            im = Image.open(os.path.join(args.out_dir, name)).convert("L").resize((9, 8), Image.BILINEAR)
+            px = im.tobytes()  # 72 grey values, row-major
+            bits = 0
+            for row in range(8):
+                for col in range(8):
+                    bits = (bits << 1) | (1 if px[row * 9 + col] > px[row * 9 + col + 1] else 0)
+            hashes[int(name[5:-4])] = bits
+        nums = sorted(hashes)
+        for i, a in enumerate(nums):
+            for b in nums[i + 1:]:
+                dist = bin(hashes[a] ^ hashes[b]).count("1")
+                if dist <= args.near_threshold:
+                    near.append([a, b, dist])
+    except ImportError:
+        print("  (Pillow missing; clip similarity not computed)")
+    sim_path = os.path.join(os.path.dirname(os.path.abspath(args.dims_out)), "sheet_clip_similarity.json")
+    json.dump({"near_identical": near, "byte_identical": duplicates,
+               "threshold": args.near_threshold,
+               "meaning": "near_identical pairs are pins at nearly the same spot on the same sheet; "
+                          "the only clip-based evidence for a possible duplicate item"},
+              open(sim_path, "w", encoding="utf-8"), indent=1)
+
     print(f"extracted {len(dims)}/{len(targets)} sheet clips -> {args.out_dir}")
     print(f"  used overflow fallback : {fallback or 'none'}")
     print(f"  missing                : {missing or 'none'}")
     print(f"  duplicate clips        : {duplicates or 'none'}")
+    print(f"  near-identical clips   : {[(a, b) for a, b, _ in near] or 'none'}  (adjacent pins; see {os.path.basename(sim_path)})")
     print(f"  wrote {args.dims_out}")
     if missing:
         print("  CHECK the missing items by hand before rendering.")

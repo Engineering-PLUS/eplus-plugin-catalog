@@ -148,13 +148,22 @@ rows = [
 ]
 os.makedirs(os.path.join(d2, "photos")); json.dump(rows, open(os.path.join(d2, "tasks.json"), "w"))
 json.dump([], open(os.path.join(d2, "sheets.json"), "w"))
+# two kept items pointing at the same photo uid: the shared-photo duplicate signal
+os.makedirs(os.path.join(d2, "task_details"))
+open(os.path.join(d2, "photos", "p1__20260903_100000_x.jpg"), "wb").write(b"\xff\xd8\xff\xd9")
+for uid in ("b", "c"):
+    json.dump({"task_uid": uid, "photos": [{"uid": "p1", "title": "20260903_100000_x", "created_by": {"email": "e"}}]},
+              open(os.path.join(d2, "task_details", uid + ".json"), "w"))
 out2 = os.path.join(d2, "items.json")
 r = subprocess.run([sys.executable, "consolidate.py", d2, "-o", out2, "--drop-phrase", "Observation only for record",
                     "--title", "Visit 2", "--created-after", "2026-08-31"], capture_output=True, text=True)
 assert r.returncode == 0, r.stdout + r.stderr
-kept = sorted(i["number"] for i in json.load(open(out2, encoding="utf-8")))
-assert kept == [11, 12], kept
+got = {i["number"]: i for i in json.load(open(out2, encoding="utf-8"))}
+assert sorted(got) == [11, 12], sorted(got)
 assert "NEAR-MISS" in r.stdout and "#11" in r.stdout, r.stdout
+assert got[11]["possible_duplicate"] == [12] and got[12]["possible_duplicate"] == [11], got
+tri = json.load(open(os.path.join(d2, "triage.json"), encoding="utf-8"))
+assert tri["possible_duplicates"] == [[11, 12]], tri
 PYCHECK
 
 "$PY" - <<'PYCHECK' 2>&1 && ok "fix_bookmark_ids.py: renumbers duplicate ids, canonical PAGEREF" \
