@@ -118,10 +118,19 @@ pattern that belongs above item level. Call out the few that genuinely block
 issuance.
 
 **The handoff** (`_pipeline/PROCESS-LOG.md`, `LESSONS-LEARNED.md`,
-`handoff/HANDOFF.md`) is how the next run gets better than this one. Fill these in
-as you go. Write down what broke, the root cause rather than the symptom, and
-whether the fix is enforced in code or only written down — a rule that is only
-written down will be broken again.
+`handoff/HANDOFF.md`) is how the next run gets better than this one. The
+numbers are not yours to type: `run_pipeline.sh` ends by running
+`scripts/run_record.py`, which writes `build/run.json`, the generated block in
+`PROCESS-LOG.md` (inputs, scope rules, counts, drafting tally, verifier output,
+script versions) and the current-output line and data-quality block in
+`CLAUDE.md`. Hand-write only what the record cannot see: the scope decision
+and its reasoning, review rounds, limitations, the precedent split between
+verified citations and documented gaps, lessons learned. Field result
+2026-09-10: a worker spent seven minutes renumbering these figures by hand
+after a scope change; now a scope change is a re-run and the numbers follow.
+Write down what broke, the root cause rather than the symptom, and whether the
+fix is enforced in code or only written down — a rule that is only written
+down will be broken again.
 
 **Write the process log from what the code does, not what it should do.** The
 previous package documented four behaviours its code did not have, and each cost

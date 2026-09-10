@@ -152,7 +152,11 @@ def main():
     if missing:
         print(f"MISSING      : {missing}  (neither photos/ nor pdf_photos/ has them)")
     route = "live" if from_live and not from_pdf else ("pdf" if from_pdf and not from_live else "mixed")
-    print(f"photo route  : {route}")
+    if not from_live and not from_pdf:
+        route = "none"
+    with open(os.path.join(dest, "photo_route.json"), "w", encoding="utf-8") as f:
+        json.dump({"route": route, "live": from_live, "pdf": from_pdf, "missing": missing}, f, indent=1)
+    print(f"photo route  : {route}  (recorded in {dest}/photo_route.json for run_record.py)")
     return 0
 
 

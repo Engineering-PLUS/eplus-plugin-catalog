@@ -47,7 +47,7 @@ for s in consolidate.py normalize_photos.py extract_sheet_clips.py \
          build_master.py review_sheet.py verify_report.py read_comments.py \
          package.py fix_bookmark_ids.py render_preview.py \
          import_reviewed_docx.py fetch_photos.py adapt_mcp_pull.py \
-         extract_pdf_photos.py export_pdf.py; do
+         extract_pdf_photos.py export_pdf.py run_record.py; do
     if [ ! -f "$s" ]; then bad "$s is missing"; continue; fi
     out=$("$PY" "$s" --help 2>&1)
     case "$?:$out" in
@@ -229,6 +229,13 @@ r = subprocess.run([sys.executable, "fix_bookmark_ids.py", out], capture_output=
 assert r.returncode == 0, r.stdout + r.stderr
 r = subprocess.run([sys.executable, "verify_report.py", out, master], capture_output=True, text=True)
 assert r.returncode == 0, r.stdout + r.stderr
+open(os.path.join(d, "verify_output.txt"), "w", encoding="utf-8").write(r.stdout)
+# the run record reads the same artifacts and must never need a hand-typed number
+r = subprocess.run([sys.executable, "run_record.py", "--pipeline", d, "--build", ".", "--data", ".", "--no-docs"],
+                   capture_output=True, text=True)
+assert r.returncode == 0, r.stdout + r.stderr
+rec = json.load(open(os.path.join(d, "run.json"), encoding="utf-8"))
+assert rec["counts"]["items"] == 1 and rec["output"]["verified"] is True, rec
 shutil.rmtree(d, ignore_errors=True)
 PYCHECK
 else

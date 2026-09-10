@@ -231,6 +231,17 @@ def main():
     os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
     with open(args.out, "w", encoding="utf-8") as fh:
         json.dump(items, fh, indent=2)
+    # Structured copy of the triage summary for run_record.py, beside items.json.
+    triage_path = os.path.join(os.path.dirname(os.path.abspath(args.out)), "triage.json")
+    with open(triage_path, "w", encoding="utf-8") as fh:
+        json.dump({
+            "tasks_source": tasks_src, "filler_title": filler,
+            "dropped_deleted_or_archived": dropped_deleted, "dropped_title": dropped_title,
+            "dropped_created_on_or_before": dropped_date, "dropped_phrase": dropped_phrase,
+            "near_miss": near_miss,
+            "rules": {"only": args.only, "title": args.title, "created_after": created_after,
+                      "drop_phrases": args.drop_phrase},
+        }, fh, indent=1)
 
     # triage summary, read this before anything else
     described = [i for i in items if i["description"]]

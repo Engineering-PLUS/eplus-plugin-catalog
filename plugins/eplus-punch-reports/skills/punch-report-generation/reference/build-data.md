@@ -16,8 +16,12 @@ pull shape Step 1 reads. Raw material goes in `<workspace>/plangrid_mcp/`
    `get_task` result per item when descriptions are needed for a filter) and
    `../plangrid_mcp/mcp_photo_urls.json`:
    `{"<task number>": [{"uid", "title", "created_at", "url"}, ...]}` from each
-   item's `get_task` photos. Cap `get_task` at four in flight; the server
-   answers serially and a burst of thirty took under a minute to drain.
+   item's `get_task` photos. **Cap `get_task` at four in flight**; the server
+   answers serially and a burst of thirty-three took a 52-second tail (field
+   result 2026-09-09). Two shortcuts: if a `get_photos` call returns URLs for
+   many tasks at once, use it and skip `get_task` for photos; and the Task
+   Report PDF already carries every description, so when a description filter
+   is the only reason for `get_task`, read the PDF text instead.
 2. **Fetch the originals, every run:**
    ```bash
    python3 scripts/fetch_photos.py --pull ../plangrid_mcp

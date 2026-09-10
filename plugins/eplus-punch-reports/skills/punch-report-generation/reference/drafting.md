@@ -108,6 +108,15 @@ with no entry fails the build, so undeterminable items get an entry too.
 **Items with an authored description:** the engineer's wording is authoritative.
 Polish to report voice; never change technical meaning.
 
+**Open photos only when the wording needs them.** Every photo opened is an
+image in context for the rest of the drafting turn. Photo-only and
+no-description items always need their photos read. Authored items need them
+only when the wording mode chosen in Step 3.5 is "expand from photos"; in
+"stay close to the engineer's words" mode the note is the description and the
+photo is not opened. Read the normalised thumbnail in `build/thumbs_uniform/`,
+never the original. Field result 2026-09-10: a worker opened every thumbnail
+one Read at a time for eight items that were all authored.
+
 **Photo-only items:** check the walk notes first. Then, **before writing one off
 as undeterminable, resolve its sheet name and check the other items on the same
 sheet.** This is cheap and it works: a photo-only pin showing a boarded-out room

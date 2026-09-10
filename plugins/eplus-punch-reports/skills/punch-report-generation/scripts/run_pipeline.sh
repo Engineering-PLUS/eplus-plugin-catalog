@@ -144,7 +144,18 @@ OUT=$("$PY" -c "import json;print(json.load(open('$BUILD/report.config.json', en
 "$PY" scripts/fix_bookmark_ids.py "$BUILD/$OUT"
 
 echo "==> verify"
-"$PY" scripts/verify_report.py "$BUILD/$OUT" "$BUILD/master_report_items.json"
+# Captured as well as shown, so run_record.py can quote it verbatim.
+set +e
+"$PY" scripts/verify_report.py "$BUILD/$OUT" "$BUILD/master_report_items.json" 2>&1 | tee "$BUILD/verify_output.txt"
+VERIFY_RC=${PIPESTATUS[0]}
+set -e
+
+# The run record: build/run.json plus the generated blocks in PROCESS-LOG.md and
+# CLAUDE.md. Written from the artifacts, never typed by hand, so a scope change
+# is a re-run and the numbers follow.
+echo "==> run record"
+"$PY" scripts/run_record.py --pull "${PULL:-}" --task-report "${TASK_REPORT:-}"
+[ "$VERIFY_RC" -eq 0 ] || exit "$VERIFY_RC"
 
 echo
 echo "==> done: $BUILD/$OUT"

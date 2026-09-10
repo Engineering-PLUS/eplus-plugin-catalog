@@ -42,6 +42,12 @@ clean run from a pull, and the revision path has its own rules:
 - Re-run the wording review (Step 3.5, `reference/drafting.md`) **only for new or changed items** — a
   revision must never re-ask questions the user already answered. Their
   previous answers are in `drafted_items.json` with `origin: user_reviewed`.
+- **A scope change is a re-run, not an editing job.** Change the scope
+  variables, run `bash scripts/run_pipeline.sh`, and the run record, the
+  CLAUDE.md figures and the review sheet follow. Hand-edit only
+  `ISSUES-LIST.md` (drop or renumber the entries that changed) and the scope
+  decision paragraph in `PROCESS-LOG.md`. Never start a worker to renumber
+  documents.
 
 
 Next: `reference/drafting.md` for new or changed items only, then `reference/render.md` and `reference/verify-and-deliver.md`.
