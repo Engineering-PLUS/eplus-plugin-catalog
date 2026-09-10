@@ -1,10 +1,13 @@
 # Shared pieces for the error-reporting hooks. Dot-sourced by report-tool-failure.ps1
-# (PostToolUseFailure), egress-request-nudge.ps1 (PostToolUse on web_fetch) and
-# note-identity.ps1 (SessionStart). PowerShell 5.1-compatible, ASCII only, no BOM.
-# Nothing here touches the network; the only side effect is a marker file under TEMP
-# used to de-duplicate a nudge when both tool-event hooks fire for the same call.
+# (PostToolUseFailure) and note-identity.ps1 (SessionStart). PowerShell 5.1-compatible,
+# ASCII only, no BOM. Nothing here touches the network or the filesystem.
+#
+# 0.3.1: the PostToolUse web_fetch wiring and its marker-file dedupe are gone.
+# PostToolUseFailure is field-proven on mcp__workspace__web_fetch egress blocks
+# (exports of 2026-09-09: three sessions, one nudge per refused fetch), so a second
+# wiring only added a spawn.
 
-# The three block shapes seen in exports (2026-08-14, 2026-09-09):
+# The block shapes seen in exports (2026-08-14, 2026-09-09):
 #   host-side web_fetch : Host "x" is not on the network allowlist (cowork-egress-blocked)
 #   in-VM curl / pip    : curl: (56) Received HTTP code 403 from proxy after CONNECT
 # A bare "HTTP 403: Forbidden" is deliberately NOT a signature: it is also what
@@ -13,13 +16,19 @@ $script:EgressSignature = 'cowork-egress-blocked|not on the network allowlist|Re
 
 function Get-EplusIdentity {
     # Who is sitting at this seat. Hooks run on the Windows host under the signed-in
-    # user's account, so the environment is authoritative; the model itself has no
-    # real identity on the 3P deployment (the app's account is a placeholder
-    # address, verified in the 2026-09-09 exports). Format: DOMAIN\user@MACHINE.
-    $u = $env:USERNAME
+    # user's account. Read through the .NET API first: on one pilot seat (2026-09-09)
+    # COMPUTERNAME was missing from the hook environment while USERNAME was present,
+    # so environment variables are only the fallback. The model itself has no real
+    # identity on the 3P deployment (the app account is a placeholder address).
+    # Format: DOMAIN\user@MACHINE.
+    $u = ''; $d = ''; $m = ''
+    try { $u = [Environment]::UserName } catch { }
+    try { $d = [Environment]::UserDomainName } catch { }
+    try { $m = [Environment]::MachineName } catch { }
+    if (-not $u) { $u = $env:USERNAME }
+    if (-not $d) { $d = $env:USERDOMAIN }
+    if (-not $m) { $m = $env:COMPUTERNAME }
     if (-not $u) { return 'unknown' }
-    $d = $env:USERDOMAIN
-    $m = $env:COMPUTERNAME
     $id = $u
     if ($d) { $id = $d + '\' + $u }
     if ($m) { $id = $id + '@' + $m }
@@ -34,42 +43,8 @@ function Get-IdentityLine {
             'request_egress_allow call; never guess a different name.')
 }
 
-function Get-HookField {
-    # Pulls a top-level string field out of the raw hook payload without parsing
-    # the whole JSON (tool_response can be 70k+ characters).
-    param([string]$Raw, [string]$Name)
-    $m = [regex]::Match($Raw, '"' + $Name + '"\s*:\s*"([^"]*)"')
-    if ($m.Success) { return $m.Groups[1].Value }
-    return ''
-}
-
-function Test-EgressAlreadyNudged {
-    # Returns $true when another hook already nudged for this tool_use_id in this
-    # session. Creates the marker otherwise. Any failure to read or write the
-    # marker returns $false so the nudge is never lost to a filesystem hiccup.
-    param([string]$Raw)
-    try {
-        $sid = Get-HookField -Raw $Raw -Name 'session_id'
-        $tid = Get-HookField -Raw $Raw -Name 'tool_use_id'
-        if (-not $sid -or -not $tid) { return $false }
-        $sid = ($sid -replace '[^A-Za-z0-9_.-]', '_')
-        $tid = ($tid -replace '[^A-Za-z0-9_.-]', '_')
-        $base = $env:TEMP
-        if (-not $base) { return $false }
-        $dir = Join-Path (Join-Path $base 'eplus-error-reporting') $sid
-        $marker = Join-Path $dir $tid
-        if (Test-Path -LiteralPath $marker) { return $true }
-        if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
-        [IO.File]::WriteAllText($marker, (Get-Date).ToString('o'))
-        return $false
-    } catch {
-        return $false
-    }
-}
-
 function Get-EgressContext {
-    # The additionalContext injected after an egress block. Kept as one string so
-    # both hook events say exactly the same thing. Wording mirrors the
+    # The additionalContext injected after an egress block. Wording mirrors the
     # "Egress allow requests" section of skills/error-reporting/SKILL.md.
     return ('[error-reporting] That failure is a network egress block, not a site error. ' +
             'Per the error-reporting skill: (1) Name the blocked host. If the request was ' +
@@ -87,7 +62,8 @@ function Get-EgressContext {
             'continue. (3) Continue with everything that does not need that host. Never retry ' +
             'the fetch in a loop and never route around the block through bash. A Cloudflare ' +
             'bot challenge (cf-mitigated) or a site-side 403 is not an egress block: do not ' +
-            'file. If the error-reporting tools are unavailable, append the same fields to ' +
-            'EGRESS-ALLOWLIST-REQUEST.md in the session outputs folder and say so in one line.' +
+            'file. If a reporting tool is refused by the permission classifier, or the tools ' +
+            'are unavailable, append the same fields to EGRESS-ALLOWLIST-REQUEST.md in the ' +
+            'session outputs folder, say so in one line, and do not retry that call this turn.' +
             (Get-IdentityLine))
 }

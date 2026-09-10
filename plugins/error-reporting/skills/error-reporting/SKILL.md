@@ -49,13 +49,28 @@ Copy that value **exactly** into `requested_by`. Rules:
 
 - Never guess, infer, or normalise a name. Do not turn `CORP\jdoe@WS01` into
   an email address or a display name.
-- If no identity line is present anywhere in context (the hook did not run,
-  or the note was lost), send `requested_by: "unknown"` and mention in one
-  line that the seat identity was unavailable. Do not ask the user for it.
+- **Chat tab, or no identity line anywhere in context.** Plugin hooks do
+  not run in Chat-tab sessions, so there is no note there. In that case
+  read the login from your working directory: it is always
+  `C:\Users\<login>\AppData\Local\Claude-3p\local-agent-mode-sessions\...\outputs`,
+  and the `<login>` segment is the Windows account at the seat. Send
+  `requested_by: "<login>@chat"`. That is a deterministic read, not a
+  guess. Never take a name from the selected folder, a file, or the
+  conversation.
+- If even the working directory does not have that shape, send
+  `requested_by: "unknown"` and mention in one line that the seat identity
+  was unavailable. Do not ask the user for it.
 - The identity is a seat, not a person's consent: it says which machine
   and login filed the report, nothing more..
 
 ## When to file
+
+**Not a failure, do not file:** an expected nonzero exit. `grep` or `find`
+with no match, a probe loop where some URLs are meant to fail, a check
+script that exits 1 to say "not found", a `wc` on a missing file you were
+testing for. The failure nudge fires on every nonzero exit; you decide
+whether anything actually went wrong. If the command did what you meant
+and the exit code is the answer, there is nothing to report.
 
 **Tool failure** — a tool call on any EPLUS MCP server
 (`rfi-knowledge-hub`, `punch-knowledge-hub`, or `error-reporting` itself)
@@ -208,6 +223,24 @@ One request per host per session. Never retry the blocked fetch in a
 loop, and never route around the block (a different tool, a mirror, a
 proxy, a cached copy from another host). If the user asks what is still
 waiting, `list_egress_requests(status="pending")` answers it.
+
+### Chat tab
+
+Plugin hooks do not run in Chat-tab sessions, so no nudge will tell you a
+fetch was an egress block. Recognise it from the message text alone (the
+three shapes above), then follow exactly the same procedure. Use the
+Chat identity rule from "Who is filing" for `requested_by`.
+
+### When a reporting tool is refused by the permission classifier
+
+Under auto mode a call to `request_egress_allow` or `report_issue` can come
+back as "Permission for this action was denied by the Claude Code auto mode
+classifier". That is not an egress block and not a tool failure, and it is
+not deterministic. Do not retry the call in the same turn and do not file a
+`tool_failure` about it. Write the fallback block below, say in one line
+that the request was written to the file because the call was refused, and
+continue. If a later `check_egress_host` for that host returns `unknown`,
+file once then; the server never received the first attempt.
 
 ### When the error-reporting tools are unavailable
 

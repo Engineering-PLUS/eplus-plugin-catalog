@@ -17,8 +17,8 @@ The plugin ships no server definition and no credential.
 |-----------|------|---------|
 | Manifest  | [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) | Plugin identity and metadata |
 | Skill     | [`skills/error-reporting/SKILL.md`](skills/error-reporting/SKILL.md) | When to file (tool_failure vs change_request), fire-and-forget contract, one-report-per-issue, no secrets, never block the task; the egress allow-request procedure |
-| Hooks     | [`hooks/hooks.json`](hooks/hooks.json) | `SessionStart` identity note, `PostToolUseFailure` nudge to auto-file failures, plus a `PostToolUse` nudge on the fetch tools for egress blocks (see below) |
-| Scripts   | [`scripts/`](scripts/) | `note-identity.ps1`, `report-tool-failure.ps1`, `egress-request-nudge.ps1`, and the shared `egress-common.ps1` (signature, context text, identity, dedupe marker) |
+| Hooks     | [`hooks/hooks.json`](hooks/hooks.json) | `SessionStart` identity note and the `PostToolUseFailure` nudge, which covers both tool failures and egress blocks (see below) |
+| Scripts   | [`scripts/`](scripts/) | `note-identity.ps1`, `report-tool-failure.ps1`, and the shared `egress-common.ps1` (signature, context text, identity) |
 
 ## Who is filing (`requested_by`)
 
@@ -26,11 +26,19 @@ Every `report_issue` and `request_egress_allow` call carries `requested_by`. On
 the 3P deployment the model's environment has no real user name (the app's
 account identity is the placeholder `cowork-3p@localhost`), so a `SessionStart`
 hook (`note-identity.ps1`, firing on startup, resume, and compaction) injects
-one line with the seat identity read from the Windows host environment:
-`USERDOMAIN\USERNAME@COMPUTERNAME`. Every failure nudge repeats the same line so
-the value survives compaction. The skill tells the model to copy it exactly,
-never to guess a name, and to send `unknown` if the line is absent.
+one line with the seat identity, `DOMAIN\user@MACHINE`, read through the .NET
+API (`[Environment]::UserDomainName`, `UserName`, `MachineName`); environment
+variables are only the fallback, because on one pilot seat `COMPUTERNAME` was
+absent from the hook environment. Every failure nudge repeats the same line so
+the value survives compaction. The skill tells the model to copy it exactly and
+never to guess a name.
 
+- **Chat tab.** No hooks run there. The skill has the model read the login from
+  the session working directory, which is always
+  `C:\Users\<login>\AppData\Local\Claude-3p\local-agent-mode-sessions\...\outputs`
+  (verified on four seats; the selected folder is a separate mount and never the
+  cwd), and send `<login>@chat`. Only if the cwd does not have that shape does
+  it send `unknown`.
 - **Disable per-machine:** `EPLUS_NO_IDENTITY_NOTE=1` (`EPLUS_NO_ERROR_NUDGE=1`
   silences it too).
 - The server cannot derive this itself: every seat authenticates with the same
@@ -69,17 +77,20 @@ section is the authority; the hooks only nudge.
   `Received HTTP code 403 from proxy after CONNECT` anywhere in the failure
   payload. A bare `HTTP 403: Forbidden` is deliberately not a signature: it is
   also what Cloudflare bot challenges and SAS permission errors return.
-- **Two wirings, one nudge.** `report-tool-failure.ps1` (PostToolUseFailure,
-  every tool) swaps its generic text for the egress context when the signature
-  is present. `egress-request-nudge.ps1` (PostToolUse, matched only on
-  `mcp__workspace__web_fetch|WebFetch`) emits the same context when
-  `tool_response` carries the signature and exits silently otherwise. A
-  web_fetch block is returned as an `is_error` tool result and it is not yet
-  field-verified whether that raises PostToolUseFailure (proven for
-  `mcp__workspace__bash` on 2026-09-01) or only PostToolUse, so both are wired;
-  a marker under `%TEMP%\eplus-error-reporting\<session_id>\<tool_use_id>`
-  guarantees one nudge per call. The losing wiring is removed after the field
-  test.
+- **One wiring.** `report-tool-failure.ps1` (PostToolUseFailure, every tool)
+  swaps its generic text for the egress context when the signature is present.
+  Field-verified on 2026-09-09 across three exports: PostToolUseFailure fires
+  for `mcp__workspace__web_fetch` refusals returned as `is_error` results, one
+  nudge per refused fetch, so the provisional 0.3.0 PostToolUse wiring on the
+  fetch tools was redundant and was removed in 0.3.1 with its marker-file
+  dedupe.
+- **Chat tab.** Plugin hooks do not load in Chat-tab sessions at all, so no
+  nudge fires there. The skill carries the same procedure from the message
+  text alone, and a Chat identity rule for `requested_by` (below).
+- **Classifier refusals.** Under auto mode the permission classifier can refuse
+  a reporting call non-deterministically. The skill treats that as neither
+  egress nor a tool failure: fallback file, one line to the user, no retry that
+  turn, file once later if `check_egress_host` still says `unknown`.
 - **What the context tells the model.** Name the blocked host (the redirect
   target when there was a redirect), call `check_egress_host`, then either
   file once with `request_egress_allow`, relay a `pending` status, relay a
