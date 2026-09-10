@@ -96,8 +96,14 @@ timestamped `.bak.json` is written before anything changes.
 
 ### Step 10 — Deliver the draft, the issues list, and the handoff
 
-Three deliverables, not one, and they leave the workspace together in one
-package:
+Four deliverables, not one, and they leave the workspace together in one
+package: the body `.docx` (page 1 blank), the `-Cover.docx` when
+`cover_mode` is `template`, the review `.xlsx`, and the issues list. The
+verifier already checked the cover file beside the body (EP number present,
+building present, dates MM/DD/YYYY, no draft warning, no header, no Word-only
+defects). A stapled PDF is offered, never assumed: `scripts/staple_pdf.py`
+replaces the body PDF's blank page 1 with the cover PDF once the user has both
+and has said yes.
 
 ```bash
 python3 scripts/package.py <workspace> "<project folder>"

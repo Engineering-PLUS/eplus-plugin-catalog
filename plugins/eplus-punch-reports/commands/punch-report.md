@@ -53,7 +53,7 @@ asked later unless the data forces it (a worker's Open question).
 | 1 | Scope edge cases the rules did not settle: strays, near-miss phrases, a pull spanning two walk dates. Name the items. Skip this question if there are none and use the slot for the Task Report if that is missing. | drop / keep / other |
 | 2 | Issuance date. Never inferred, never defaulted to today; it is the reviewer's contractual decision. | today's date / the walk date / other |
 | 3 | Identity, shown as one block for confirmation: project name as it reads on the cover, building or area (the subtitle), client display name and street address, EP project number, walk date (from the pin dates), who walked it, who reviews it. Prefill from the profile and the PlanGrid project; mark anything blank as "missing". | correct / change (say what) |
-| 4 | Cover: the generated cover, a blank first page for the reviewer's own coversheet (numbering stays right), or none. Prefill from the profile's `cover_mode`. | template / blank / none |
+| 4 | Cover: generate one for review (a separate `-Cover.docx`, body page 1 left blank), the reviewer supplies their own (body page 1 left blank; ask for the file), blank page only, or none. Prefill from the profile's `cover_mode`. | template / supplied / blank / none |
 
 Free text arrives through "Other"; read it and apply it. A PDF is not asked
 about: it is made only if the user asks for one (step 6).
@@ -149,9 +149,18 @@ python3 scripts/package.py <workspace> "<project folder>"
 
 It zips the entire workspace (pipeline, sources, data, build, handoff; not
 `node_modules` or caches) into `<report>.zip` in the project folder and places
-the rendered `.docx` and the review `.xlsx` beside it so the reviewer can start
-reading without unzipping. It refuses to overwrite an existing delivery. Run it
-with `--dry-run` first if you want to see the manifest.
+the rendered `.docx`, the `-Cover.docx` when one was generated, and the review
+`.xlsx` beside it so the reviewer can start reading without unzipping. It
+never overwrites an existing delivery. Run it with `--dry-run` first if you
+want to see the manifest.
+
+Two Word files go out, not one: the body, whose page 1 is intentionally blank,
+and the cover (generated, or the reviewer's own). Tell the user that, and that
+the blank page is where the cover goes. Offer, do not do: once the user has
+both as PDFs (Word export, or `scripts/export_pdf.py` on request),
+`python3 scripts/staple_pdf.py <cover.pdf> <body.pdf>` replaces the blank
+page with the cover. Only after they say yes; the Word files stay the files
+of record and they may still be editing.
 
 That command is the only write to the project folder in the whole run. If a
 delivery already exists there, `package.py` suffixes the new files rather than

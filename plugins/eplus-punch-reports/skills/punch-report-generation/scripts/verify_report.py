@@ -200,16 +200,51 @@ def main():
                    f"header parts {header_parts}: native={native_found}, "
                    f"lone drawing without a table in {lone_bitmap}"))
 
-    # The EP project number is internal tracking. It belongs in report.config.json
-    # and in our own records, never on a page a client, GC or subcontractor reads.
-    # Asserted rather than remembered, because it is the kind of thing that gets
-    # pasted onto a cover once and then ships for years.
+    # The EP project number belongs on the cover (the issued coversheet leads
+    # with it) and nowhere else. The body is verified here; the cover file, when
+    # one was written, is verified below.
     ep_no = str(cfg.get("ep_project_no") or "").strip()
     if ep_no and not ep_no.startswith("<"):
         norm = re.sub(r"\s+", " ", text)
-        checks.append(("EP project number not rendered (internal only)",
+        checks.append(("EP project number not in the body (cover only)",
                        ep_no not in norm,
-                       f"'{ep_no}' appears in the document text"))
+                       f"'{ep_no}' appears in the body text"))
+
+    # Page 1 of the body is blank in every cover_mode but "none": its own section
+    # with no header reference of its own, so the reviewer's coversheet swap keeps
+    # the numbering right. Checked as the first sectPr carrying no headerReference
+    # to the letterhead part.
+    cover_mode = cfg.get("cover_mode") or ("none" if cfg.get("include_cover") is False else "template")
+    sect_count = doc.count("<w:sectPr")
+    if cover_mode != "none":
+        checks.append(("body page 1 is a blank section (cover swapped in later)",
+                       sect_count >= 2, f"{sect_count} section(s); expected a blank first section"))
+
+    # The cover is a separate file in "template" mode: <output>-Cover.docx beside
+    # the body. Same two Word-only defects can bite it, and its content must
+    # carry what the issued coversheet carries.
+    cover_path = re.sub(r"\.docx$", "-Cover.docx", path, flags=re.I)
+    if cover_mode == "template" and os.path.isfile(cover_path):
+        cz = zipfile.ZipFile(cover_path)
+        cdoc = cz.read("word/document.xml").decode("utf8")
+        ctext = re.sub(r"\s+", " ", " ".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", cdoc)))
+        cids = [m.group(1) for m in re.finditer(r'<wp:docPr\b[^>]*id="(\d+)"', cdoc)]
+        checks.append(("cover: no schema-illegal element names", "<undefined" not in cdoc, "found <undefined>"))
+        checks.append(("cover: wp:docPr ids are unique", len(cids) == len(set(cids)), f"{cids}"))
+        checks.append(("cover: one page, no letterhead header",
+                       cdoc.count("<w:sectPr") == 1 and not any(re.match(r"word/header\d*\.xml$", n) for n in cz.namelist()),
+                       "cover should be a single section with no header parts"))
+        if ep_no and not ep_no.startswith("<"):
+            checks.append(("cover: EP project number present", ep_no in ctext, f"'{ep_no}' missing from the cover"))
+        sub = str(cfg.get("cover_subtitle") or "").strip()
+        if sub and not sub.startswith("<"):
+            checks.append(("cover: building / subtitle present", sub in ctext, f"'{sub}' missing"))
+        checks.append(("cover: dates in MM/DD/YYYY", len(re.findall(r"\b\d{2}/\d{2}/\d{4}\b", ctext)) >= 2,
+                       "expected inspection and issuance dates as MM/DD/YYYY"))
+        checks.append(("cover: no draft warning on the cover", "DRAFT" not in ctext.upper() or "FOR INTERNAL REVIEW" not in ctext.upper(),
+                       "the draft block belongs in the first Editor's Note, not on the cover"))
+    elif cover_mode == "template":
+        checks.append(("cover file written beside the body", False, f"{os.path.basename(cover_path)} not found"))
 
     print(f"verifying {os.path.basename(path)}  ({n_items} items)\n")
     failed = 0

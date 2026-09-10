@@ -109,8 +109,11 @@ def main():
     if not scope and prev.get("scope_rules"):
         scope = prev["scope_rules"]
     output = os.path.join(build, cfg.get("output_filename", "")) if cfg.get("output_filename") else None
-    docx = [f for f in glob.glob(os.path.join(build, "*.docx")) if not os.path.basename(f).startswith("~$")]
+    docx = [f for f in glob.glob(os.path.join(build, "*.docx"))
+            if not os.path.basename(f).startswith("~$") and not f.lower().endswith("-cover.docx")]
     newest = max(docx, key=os.path.getmtime) if docx else output
+    cover_file = re.sub(r"\.docx$", "-Cover.docx", newest, flags=re.I) if newest else None
+    cover_file = os.path.basename(cover_file) if cover_file and os.path.isfile(cover_file) else None
     verified_ok = "all checks passed" in verify
 
     rec = {
@@ -129,6 +132,8 @@ def main():
         "drafting": {"origins": dict(origins), "confidence": dict(confidence),
                      "with_precedent_note": len(with_precedent), "with_editor_note": len(with_editor_note)},
         "output": {"file": os.path.basename(newest) if newest else None,
+                   "cover_file": cover_file,
+                   "cover_mode": cfg.get("cover_mode") or ("none" if cfg.get("include_cover") is False else "template"),
                    "size_mb": round(os.path.getsize(newest) / 1e6, 1) if newest and os.path.isfile(newest) else None,
                    "verified": verified_ok},
         "verify_output": verify,
@@ -170,6 +175,9 @@ def main():
         f"| Photos resolved | {c['photos']} (shot {', '.join(c['photo_dates']) or 'n/a'} by {', '.join(c['photographers']) or 'n/a'}) |",
         f"| Sheet clips | {c['sheet_clips']} found{', missing for ' + str(c['clip_missing']) if c['clip_missing'] else ''} |",
         f"| Valid sheet ref | {c['valid_sheet']} of {c['items']} |",
+        f"| Sheet titles | {sum(1 for i in items if (i.get('sheet_description') or '').strip())} of {c['items']} items carry a sheet title"
+        + ("" if all((i.get('sheet_description') or '').strip() for i in items) else
+           " (MISSING: the MCP pull returns no sheet list; fill sheet_titles in the client profile)") + " |",
         f"| Room recorded | {c['with_room']} of {c['items']} |",
         "",
         "| Drafting | Value |",
@@ -179,7 +187,8 @@ def main():
         f"| Precedent note present | {len(with_precedent)} of {len(master)} (citations and documented gaps both count; see ISSUES-LIST for the split) |",
         f"| Editor's note present | {len(with_editor_note)} of {len(master)} |",
         "",
-        f"Output: `{rec['output']['file']}` ({rec['output']['size_mb']} MB), verifier {'passed' if verified_ok else 'FAILED or not run'}.",
+        f"Output: `{rec['output']['file']}` ({rec['output']['size_mb']} MB), cover_mode {rec['output']['cover_mode']}"
+        + (f", cover file `{cover_file}`" if cover_file else "") + f", verifier {'passed' if verified_ok else 'FAILED or not run'}.",
         "",
         "```",
         verify,

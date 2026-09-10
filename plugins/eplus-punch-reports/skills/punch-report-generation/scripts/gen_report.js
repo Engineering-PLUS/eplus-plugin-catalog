@@ -7,9 +7,14 @@
  * (scripts/export_pdf.py), never part of the render.
  *
  * What it renders:
- *   - Cover section (optional: "include_cover": false in report.config.json
- *     drops it): the EPLUS coversheet artwork as page-anchored floating images,
- *     the EP logo row, and native, config-driven title and info blocks.
+ *   - Page 1 of the body is BLANK (own section, no header or footer) in every
+ *     cover_mode but "none", so the reviewer can swap in a coversheet and the
+ *     page numbers stay right. In "template" mode the cover itself is written
+ *     to a SEPARATE file, <output>-Cover.docx: the EPLUS coversheet artwork as
+ *     page-anchored floating images with native, config-driven text blocks
+ *     measured from the issued coversheet (EP logo and address, eyebrow and
+ *     building on the band, client name and address, EP project number and
+ *     dates, optional client logo).
  *   - Contents section: a heading, a red delete-before-printing note, and a REAL
  *     Word TOC field (TOC \o "1-1" \h \z \u) whose cached result is one styled
  *     entry per item, each entry a PAGEREF field on the item heading's bookmark
@@ -573,11 +578,20 @@ const totalPhotos = master.reduce((s, m) => s + m.photo_paths.length, 0);
 //
 // The client logo is deliberately NOT bundled with this skill: it is the end client's
 // trademark and it changes per project. Supply it per project as
-// build/assets/cover/client_logo.png and it renders top right; omit it and the cover
+// build/assets/cover/client_logo.png and it renders bottom right; omit it and the cover
 // simply renders without it.
 const EMU_PER_IN = 914400;
 const inEMU = (n) => Math.round(n * EMU_PER_IN);
-const INCLUDE_COVER = CFG.include_cover !== false;
+// cover_mode in report.config.json:
+//   template  write <output>-Cover.docx (this file's layout) and leave page 1 of the body blank
+//   supplied  the reviewer has a coversheet; body page 1 blank, no cover written
+//   blank     body page 1 blank only, no cover written
+//   none      no cover page at all; the Table of Contents is page 1
+// include_cover: false (legacy) means none.
+const COVER_MODE = CFG.cover_mode || (CFG.include_cover === false ? 'none' : 'template');
+const BLANK_FIRST_PAGE = COVER_MODE !== 'none';
+const WRITE_COVER = COVER_MODE === 'template';
+const COVER_OUT = OUT.replace(/\.docx$/i, '') + '-Cover.docx';
 const COVER_DIR = path.join(BUILD, 'assets/cover');
 // 0.25in from the paper edge, the same inset as the body pages' letterhead
 // (HEADER_MARGIN), so the cover logos and the interior letterhead line up.
@@ -608,101 +622,45 @@ function coverBackgroundRuns() {
   return runs;
 }
 
-function coverLogoRow() {
-  const clientLogo = path.join(COVER_DIR, 'client_logo.png');
-  const left = [
-    new Paragraph({
-      spacing: { before: 0, after: 60 },
-      children: [imageRun({
-        type: 'jpg', data: EP_LOGO,
-        transformation: { width: dxaToPx(LH_LOGO_W), height: dxaToPx(LH_LOGO_H) },
-      })],
-    }),
-    new Paragraph({
-      spacing: { before: 0, after: 0 },
-      children: [imageRun({
-        type: 'png', data: EP_URL,
-        transformation: { width: dxaToPx(LH_URL_W), height: dxaToPx(LH_URL_H) },
-      })],
-    }),
-  ];
-  const right = fs.existsSync(clientLogo)
-    ? [new Paragraph({
-        alignment: AlignmentType.RIGHT,
-        children: [imageRun({
-          type: 'png', data: fs.readFileSync(clientLogo),
-          transformation: { width: dxaToPx(2900), height: dxaToPx(Math.round(2900 * 0.225)) },
-        })],
-      })]
-    : [new Paragraph({ text: '' })];
+// ------------------------------------------------------------------ cover layout
+// Measured from the coversheet EPLUS issues (2026-09-10 field reference, US Letter):
+//
+//   EP logo                     top left, in the white band above the artwork
+//   address line                x 0.75in  y 1.09in  10.5pt   (constant, below)
+//   eplusadvisors.com           x 0.75in  y 1.28in  14pt
+//   eyebrow                     x 0.75in  y 3.56in  16pt     white, on the dark band
+//   building (title)            x 0.75in  y 4.04in  22pt     white, bold
+//   client name                 right-aligned to x 7.75in, y 8.38in, 20pt bold
+//   client address lines        right-aligned to x 7.75in, from y 8.71in, 14pt
+//   EP Project No / Inspection Date / Issuance Date / Inspector
+//                               x 1.43in  y 9.25in  12pt, one line each, label bold
+//   client logo (optional)      x 4.96in  y 9.36in  3.19 x 0.73in box, bottom right
+//
+// The reference is set in Montserrat; the seats do not carry that font, so this
+// uses the document font (Arial) at the same sizes. When the fleet standardises
+// a brand font, FONT is the one constant to change.
+//
+// Every block is a page-anchored floating table (see floatingBlock), never a
+// pasted bitmap: the text tracks the page and stays editable in Word.
+const EPLUS_ADDRESS = '9018 Heritage Parkway  •  Suite 1000  •  Woodridge, IL 60517  •  P: 630.786.4200  •  F: 630-786-4201';
+const EPLUS_URL = 'eplusadvisors.com';
+const inDxa = (n) => Math.round(n * 1440);
 
-  // Page anchored, like the other two cover blocks, so the logo row sits at a known
-  // distance from the paper edge instead of wherever the section's top margin and the
-  // image heights happen to put it. COVER_LOGO_Y matches HEADER_MARGIN, the body pages'
-  // letterhead inset, so the cover and the interior pages start at the same height.
-  return new Table({
-    float: {
-      horizontalAnchor: TableAnchorType.PAGE,
-      verticalAnchor: TableAnchorType.PAGE,
-      absoluteHorizontalPosition: MARGIN_LR,
-      absoluteVerticalPosition: COVER_LOGO_Y,
-      overlap: OverlapType.OVERLAP,
-    },
-    width: { size: USABLE_W, type: WidthType.DXA },
-    columnWidths: [LH_LEFT_W, LH_RIGHT_W],
-    borders: noBorders(),
-    rows: [new TableRow({
-      cantSplit: true,
-      children: [
-        new TableCell({
-          width: { size: LH_LEFT_W, type: WidthType.DXA }, borders: noBorders(),
-          margins: { top: 0, bottom: 0, left: 0, right: 0 },
-          verticalAlign: VerticalAlign.TOP, children: left,
-        }),
-        new TableCell({
-          width: { size: LH_RIGHT_W, type: WidthType.DXA }, borders: noBorders(),
-          margins: { top: 0, bottom: 0, left: 0, right: 0 },
-          verticalAlign: VerticalAlign.TOP, children: right,
-        }),
-      ],
-    })],
-  });
+function fmtDate(v) {
+  // MM/DD/YYYY on the cover. Accepts ISO (YYYY-MM-DD), the legacy "Site walk:
+  // Month D, YYYY" strings, or anything Date can parse; passes through otherwise.
+  if (!v) return '';
+  const s = String(v).replace(/^Site walk:\s*/i, '').trim();
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return `${m[2]}/${m[3]}/${m[1]}`;
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+  const d = new Date(s);
+  if (!isNaN(d)) {
+    const p = (n) => String(n).padStart(2, '0');
+    return `${p(d.getMonth() + 1)}/${p(d.getDate())}/${d.getFullYear()}`;
+  }
+  return s;
 }
-
-// Cover text blocks are ABSOLUTELY POSITIONED against the page, not pushed down the
-// page with spacer paragraphs. The first attempt used spacers and the text landed on
-// the wrong part of the artwork: the diagonal band runs down the LEFT side for almost
-// the full page, so left aligned blocks near the bottom sat on dark blue and were
-// unreadable. Stacked spacers also depend on how tall the logo images and each line of
-// text happen to render, which is not knowable here.
-//
-// The reference coversheet solves this with positioned text boxes, so this does the
-// same, using floating tables anchored to the page. Positions are now a stated fact
-// about the artwork rather than the result of accumulated guesses:
-//
-//   TITLE  x 0.75in  y 4.75in  w 2.20in   over the solid dark band, text is WHITE
-//   INFO   x 3.54in  y 7.95in  w 4.21in   right of the diagonal, white panel, DARK text
-//
-// These are measured, not eyeballed. The band is a DIAGONAL, so the usable dark width
-// shrinks steadily down the page: sampling the composited artwork gives 3.65in of safe
-// width at y=4.25 but only 2.35in by y=7.00. A tall block therefore runs off the band at
-// its BOTTOM corner, which is exactly what went wrong first time round: the title was
-// placed lower and wider and measured 1.7:1 against a pale #c5c8d9, i.e. unreadable.
-//
-// The position below is the LOWEST one, closest to the original composition, at which
-// white text holds 4.5:1 across the whole box. Measured worst case here is 4.8:1.
-// Widening or lowering the box trades directly against contrast:
-//     w 2.60in -> lowest y 3.95in     w 2.20in -> lowest y 4.75in
-//     w 2.40in -> lowest y 4.35in     w 2.00in -> lowest y 5.15in
-// If cover_subtitle grows much beyond "Building A" it will wrap, making the box taller
-// and pushing its bottom corner into the pale zone. Re-run the contrast sampling in
-// that case rather than nudging values by eye.
-//
-// The info panel is explicitly filled white. The artwork behind it is already white
-// (verified by sampling), so the fill is invisible here and matches the reference; if a
-// future artwork revision changes that, the fill is what keeps the text readable.
-const COVER_TITLE_X = 1080, COVER_TITLE_Y = 6836, COVER_TITLE_W = 3168;
-const COVER_INFO_X = 5100, COVER_INFO_Y = 11448, COVER_INFO_W = 6060;
 
 function floatingBlock(x, y, w, children, fill) {
   return new Table({
@@ -721,7 +679,7 @@ function floatingBlock(x, y, w, children, fill) {
       children: [new TableCell({
         width: { size: w, type: WidthType.DXA },
         borders: noBorders(),
-        margins: { top: 80, bottom: 80, left: 80, right: 80 },
+        margins: { top: 0, bottom: 0, left: 0, right: 0 },
         ...(fill ? { shading: { type: ShadingType.CLEAR, color: 'auto', fill } } : {}),
         children,
       })],
@@ -730,62 +688,106 @@ function floatingBlock(x, y, w, children, fill) {
 }
 
 const metaLine = (label, value) => new Paragraph({
-  spacing: { before: 0, after: 20 },
+  spacing: { before: 0, after: 40, line: 276, lineRule: 'auto' },
   children: [
-    run(`${label}: `, { bold: true, size: 19, color: BLUE }),
-    run(value, { size: 19, color: DARKGREY }),
+    run(`${label}: `, { bold: true, size: 24, color: DARKGREY }),
+    run(value, { size: 24, color: DARKGREY }),
   ],
 });
 
-const coverTitleBlock = floatingBlock(COVER_TITLE_X, COVER_TITLE_Y, COVER_TITLE_W, [
+// Top left: EP logo, the address line, the URL. Native text under the brand mark.
+const coverBrandBlock = floatingBlock(inDxa(0.75), inDxa(0.35), inDxa(7.0), [
   new Paragraph({
-    spacing: { before: 0, after: 40 },
-    // 11pt, not 12: "Technology Site Inspection" is about 2.17in at 12pt Arial, which
-    // exactly fills the 2.20in box and would wrap on any longer eyebrow.
-    children: [run(CFG.cover_eyebrow || 'Technology Site Inspection', { size: 22, color: 'FFFFFF' })],
+    spacing: { before: 0, after: 80 },
+    children: [imageRun({
+      type: 'jpg', data: EP_LOGO,
+      transformation: { width: dxaToPx(LH_LOGO_W), height: dxaToPx(LH_LOGO_H) },
+    })],
+  }),
+  new Paragraph({ spacing: { before: 0, after: 20 }, children: [run(EPLUS_ADDRESS, { size: 17, color: DARKGREY })] }),
+  new Paragraph({ spacing: { before: 0, after: 0 }, children: [run(EPLUS_URL, { size: 24, color: DARKGREY })] }),
+]);
+
+// Left, on the dark band: eyebrow, short white rule, building name.
+const coverTitleBlock = floatingBlock(inDxa(0.75), inDxa(3.50), inDxa(3.4), [
+  new Paragraph({
+    spacing: { before: 0, after: 60 },
+    children: [run(CFG.cover_eyebrow || 'Technology Site Inspection', { size: 32, color: 'FFFFFF' })],
   }),
   new Paragraph({
-    spacing: { before: 0, after: 110 },
-    border: { bottom: { style: BorderStyle.SINGLE, size: 10, color: 'FFFFFF', space: 1 } },
-    indent: { right: Math.round(COVER_TITLE_W * 0.45) },
+    spacing: { before: 0, after: 120 },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 12, color: 'FFFFFF', space: 1 } },
+    indent: { right: inDxa(1.0) },
     children: [run('', { size: 2 })],
   }),
   new Paragraph({
     spacing: { before: 0, after: 0 },
-    children: [run(CFG.cover_subtitle, { bold: true, size: 44, color: 'FFFFFF' })],
+    children: [run(CFG.cover_subtitle || '', { bold: true, size: 44, color: 'FFFFFF' })],
   }),
 ]);
 
-const coverInfoBlock = floatingBlock(COVER_INFO_X, COVER_INFO_Y, COVER_INFO_W, [
+// Bottom right: client display name and address, right-aligned to the text edge.
+const clientName = CFG.client_display_name || CFG.cover_title || '';
+const coverClientBlock = floatingBlock(inDxa(4.25), inDxa(8.32), inDxa(3.5), [
   new Paragraph({
-    spacing: { before: 0, after: 30 },
-    children: [run(CFG.cover_title, { bold: true, size: 26, color: BLUE })],
+    alignment: AlignmentType.RIGHT,
+    spacing: { before: 0, after: 60 },
+    children: [run(clientName, { bold: true, size: 40, color: BLUE })],
   }),
   ...(CFG.site_address || []).map((line) => new Paragraph({
-    spacing: { before: 0, after: 10 },
-    children: [run(line, { size: 20, color: DARKGREY })],
+    alignment: AlignmentType.RIGHT,
+    spacing: { before: 0, after: 20 },
+    children: [run(line, { size: 28, color: DARKGREY })],
   })),
-  new Paragraph({ spacing: { before: 0, after: 0, line: 200, lineRule: 'exact' }, children: [run('', { size: 2 })] }),
-  // EP project number is INTERNAL and is never rendered here. verify_report.py asserts it.
-  ...(CFG.walk_date ? [metaLine('Inspection Date', String(CFG.walk_date).replace(/^Site walk:\s*/i, ''))] : []),
-  ...(CFG.issuance_date ? [metaLine('Issuance Date', CFG.issuance_date)] : []),
+]);
+
+// Bottom left: the four meta lines. EP project number first, as on the issued sheet.
+const coverMetaBlock = floatingBlock(inDxa(1.43), inDxa(9.20), inDxa(3.3), [
+  ...(CFG.ep_project_no && !String(CFG.ep_project_no).startsWith('<')
+    ? [metaLine('EP Project No', String(CFG.ep_project_no))] : []),
+  metaLine('Inspection Date', fmtDate(CFG.inspection_date || CFG.walk_date)),
+  metaLine('Issuance Date', fmtDate(CFG.issuance_date)),
   ...(CFG.inspector ? [metaLine('Inspector', CFG.inspector)] : []),
-  new Paragraph({ spacing: { before: 0, after: 0, line: 200, lineRule: 'exact' }, children: [run('', { size: 2 })] }),
-  new Paragraph({
-    spacing: { before: 0, after: 30 },
-    children: [run('DRAFT, FOR INTERNAL REVIEW ONLY', { bold: true, color: ALERT_RED, size: 20 })],
-  }),
-  new Paragraph({
+]);
+
+// Bottom right: the client's logo, only when a file is present. It is the end
+// client's trademark and changes per project, so it is never bundled. Fitted
+// inside a 3.19 x 0.73in box, aspect preserved.
+function coverClientLogo() {
+  const p = path.join(COVER_DIR, 'client_logo.png');
+  if (!fs.existsSync(p)) return [];
+  let w = 3.19, h = 0.73;
+  try {
+    const buf = fs.readFileSync(p);
+    // PNG IHDR: width at byte 16, height at byte 20 (big-endian)
+    const pw = buf.readUInt32BE(16), ph = buf.readUInt32BE(20);
+    if (pw > 0 && ph > 0) {
+      const scale = Math.min(3.19 / pw, 0.73 / ph);
+      w = pw * scale; h = ph * scale;
+    }
+  } catch (e) { /* keep the box size */ }
+  return [new Paragraph({
     spacing: { before: 0, after: 0 },
-    children: [run(CFG.draft_warning, { italics: true, size: 15, color: ALERT_RED })],
-  }),
-], 'FFFFFF');
+    children: [imageRun({
+      type: 'png', data: fs.readFileSync(p),
+      transformation: { width: Math.round(w * 96), height: Math.round(h * 96) },
+      floating: {
+        horizontalPosition: { relative: HorizontalPositionRelativeFrom.PAGE, offset: inEMU(8.15 - w) },
+        verticalPosition: { relative: VerticalPositionRelativeFrom.PAGE, offset: inEMU(9.36) },
+        allowOverlap: true,
+        wrap: { type: TextWrappingType.NONE },
+      },
+    })],
+  })];
+}
 
 const coverPage = [
   new Paragraph({ children: coverBackgroundRuns(), spacing: { before: 0, after: 0 } }),
-  coverLogoRow(),
+  coverBrandBlock,
   coverTitleBlock,
-  coverInfoBlock,
+  coverClientBlock,
+  coverMetaBlock,
+  ...coverClientLogo(),
   // A floating table must be followed by an anchor paragraph in the flow, or Word has
   // nothing to hang the section's final properties on.
   new Paragraph({ spacing: { before: 0, after: 0 }, children: [run('', { size: 2 })] }),
@@ -939,12 +941,16 @@ const letterheadHeader = new Header({
   ],
 });
 
+// Footer wording is derived, not free text: the letterhead says Technology
+// System / Punch List and the footer says the same, whatever the file is called.
+const footerText = CFG.footer_text
+  || `Engineering PLUS  •  ${[CFG.client_display_name || CFG.cover_title, CFG.cover_subtitle].filter(Boolean).join(' ')} Technology System Punch List`;
 const footer = new Footer({
   children: [new Paragraph({
     alignment: AlignmentType.CENTER,
     border: { top: { style: BorderStyle.SINGLE, size: 4, color: LIGHTGREY, space: 4 } },
     children: [
-      run(`${CFG.footer_text}  •  Page `, { size: 14, color: LIGHTGREY }),
+      run(`${footerText}  •  Page `, { size: 14, color: LIGHTGREY }),
       new TextRun({ children: [PageNumber.CURRENT], font: FONT, size: 14, color: LIGHTGREY }),
       run(' of ', { size: 14, color: LIGHTGREY }),
       new TextRun({ children: [PageNumber.TOTAL_PAGES], font: FONT, size: 14, color: LIGHTGREY }),
@@ -987,28 +993,20 @@ const doc = new Document({
     }],
   },
   sections: [
-    // The cover is its own section: no letterhead header and no page footer, because
-    // the cover carries its own branding and a "Page 1 of N" strip across the artwork
-    // reads as a mistake. Its top margin is small so the logo row sits in the white
-    // band above the photo.
-    //
-    // Set "include_cover": false in report.config.json to omit it. Some clients
-    // issue their own coversheet and combine PDFs by hand, in which case a
-    // generated cover is a page they delete every time. Dropping the section is
-    // safe: the Table of Contents paragraph carries no pageBreakBefore, so it
-    // simply becomes page 1.
-    ...(INCLUDE_COVER ? [{
+    // Page 1 of the body is BLANK in every mode but "none": its own section, no
+    // header, no footer, nothing on it. The reviewer's workflow is to replace
+    // page 1 of the exported PDF with the coversheet (theirs, or the one this
+    // script writes to a separate file), so the body's page numbers and its
+    // "of N" count are right without any field tricks. In "none" mode the
+    // Table of Contents is page 1.
+    ...(BLANK_FIRST_PAGE ? [{
       properties: {
         page: {
           size: { width: PAGE_W, height: PAGE_H },
-          margin: {
-            top: 720, bottom: 720,
-            left: MARGIN_LR, right: MARGIN_LR,
-            header: 0, footer: 0,
-          },
+          margin: { top: 720, bottom: 720, left: MARGIN_LR, right: MARGIN_LR, header: 0, footer: 0 },
         },
       },
-      children: coverPage,
+      children: [new Paragraph({ spacing: { before: 0, after: 0 }, children: [run('', { size: 2 })] })],
     }] : []),
     {
       properties: {
@@ -1028,9 +1026,30 @@ const doc = new Document({
   ],
 });
 
-Packer.toBuffer(doc).then(buf => {
+// The cover is a SEPARATE document: one page, its own branding, no letterhead
+// header and no page footer. Written only in "template" mode; in "supplied"
+// mode the reviewer already has a cover, and in "blank" mode they will add one.
+const coverDoc = WRITE_COVER ? new Document({
+  styles: { default: { document: { run: { font: FONT, color: DARKGREY, size: 21 } } } },
+  sections: [{
+    properties: {
+      page: {
+        size: { width: PAGE_W, height: PAGE_H },
+        margin: { top: 720, bottom: 720, left: MARGIN_LR, right: MARGIN_LR, header: 0, footer: 0 },
+      },
+    },
+    children: coverPage,
+  }],
+}) : null;
+
+Packer.toBuffer(doc).then(async (buf) => {
   fs.writeFileSync(OUT, buf);
-  console.log('wrote', OUT, (buf.length / 1048576).toFixed(1), 'MB');
+  console.log('wrote', OUT, (buf.length / 1048576).toFixed(1), 'MB', `(cover_mode=${COVER_MODE}${BLANK_FIRST_PAGE ? ', page 1 blank' : ''})`);
+  if (coverDoc) {
+    const cbuf = await Packer.toBuffer(coverDoc);
+    fs.writeFileSync(COVER_OUT, cbuf);
+    console.log('wrote', COVER_OUT, (cbuf.length / 1048576).toFixed(1), 'MB', '(cover, separate file)');
+  }
   const undetermined = master.filter(m => m.corrective_action.startsWith('N/A')).length;
   console.log(`items=${master.length} precedent=${withPrecedent} editor_notes=${editorNoted} undetermined=${undetermined} photos=${totalPhotos}`);
 });

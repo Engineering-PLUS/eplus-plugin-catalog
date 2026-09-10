@@ -48,8 +48,13 @@ _pipeline/
   handoff/HANDOFF.md     entry point for the next run
 ```
 
-Three deliverables come out, not one: the draft, the issues list, and the
-handoff. The issues list is where the reviewer's attention gets directed.
+Four deliverables come out, not one: the draft body (page 1 left blank for the
+coversheet), the cover as its own Word file when one is generated, the issues
+list, and the handoff. The issues list is where the reviewer's attention gets
+directed. The cover layout is measured from the issued EPLUS coversheet and
+driven entirely by `report.config.json`; the reviewer can use it, edit it, or
+swap in their own, and `scripts/staple_pdf.py` puts a cover PDF in front of the
+body PDF on request.
 
 ## Searching the corpus
 

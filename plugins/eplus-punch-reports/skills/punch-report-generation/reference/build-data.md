@@ -46,6 +46,16 @@ pull shape Step 1 reads. Raw material goes in `<workspace>/plangrid_mcp/`
    It coerces the string fields, nests the annotation and photo counts the way
    `consolidate.py` expects, builds `sheets.json` from the MCP names or the PDF
    names, and copies each photo from `photos/` first and `pdf_photos/` second.
+   **Sheet titles are the known gap on this route.** An exported pull folder
+   carries each sheet's number and title ("T01-01, TECHNOLOGY SITE PLAN"); the
+   MCP pull returns an empty sheet list and the Task Report prints only the
+   number, so an MCP-built report shows "T01-01" alone (field result
+   2026-09-10, noticed by a reviewer comparing two reports). Until the server
+   returns sheets, put `{"<number>": "<title>"}` in the client profile's
+   `sheet_titles` (once per project; a prior exported pull's `sheets.json` or
+   the drawing index is the source) and the adapter applies it. The adapter
+   and the run record both say when titles are missing; the delivery summary
+   must repeat it rather than let the reviewer discover it.
    Its last line, `photo route : live | pdf | mixed`, goes into
    `PROCESS-LOG.md` and the workspace `CLAUDE.md` verbatim, with the failed host
    when it is not `live`.

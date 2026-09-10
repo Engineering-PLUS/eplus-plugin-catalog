@@ -22,34 +22,53 @@ capitalised corrective actions, photo paths as basenames only (an absolute sourc
 path silently renders the unnormalised, EXIF-sideways original), and a loud
 failure on any item with no drafted entry.
 
-Report identity — cover title, subtitle, walk date, prepared-by, footer — lives in
-`build/report.config.json`, **not** in the renderer. Change it there. The same
-file carries `"include_cover"`: set it to `false` when the client issues its own
-coversheet and combines PDFs by hand, in which case a generated cover is a page
-they delete every time. Dropping it is safe; the Table of Contents simply
-becomes page 1.
+Report identity — building, client display name and address, EP project
+number, inspection and issuance dates, inspector — lives in
+`build/report.config.json`, **not** in the renderer. Change it there. The footer
+is derived from it (`Engineering PLUS  •  <client> <building> Technology System
+Punch List  •  Page N of M`); the letterhead reads Technology System / Punch
+List whatever the file is called.
+
+**Two files, and the body's page 1 is blank.** `cover_mode` in the config:
+
+| `cover_mode` | Body page 1 | Cover file written | Use when |
+|---|---|---|---|
+| `template` | blank | `<output>-Cover.docx` | default: the reviewer gets a cover to review and can still swap it |
+| `supplied` | blank | no | the reviewer handed over their own coversheet |
+| `blank` | blank | no | the reviewer will make a cover later |
+| `none` | no blank page, TOC is page 1 | no | a client that issues the report without a cover |
+
+The blank page is the reviewer's workflow made explicit: page 1 of the
+exported body PDF gets replaced by the coversheet (in Bluebeam, or with
+`scripts/staple_pdf.py` once both PDFs exist), and because the body already
+counted that page, "Page 2 of 10" stays right with no field tricks. Never put
+a header or footer on that section.
 
 Read the `docx` skill for mechanics and `eplus-branding-default-fonts` for styling
 if you need to modify the renderer. Its defaults are all learned the hard way —
 **do not re-derive them**:
 
-**The cover is the issued EPLUS coversheet design.** Two raster pieces are reused
-as artwork, because artwork is what they are: `assets/cover/cover_hero.jpg` (stock
-brand imagery) and `assets/cover/cover_bands.png` (the EP diagonal band graphic, a
-full-page transparent overlay). Both are page-anchored floating images behind the
-text; **the hero is emitted first** because docx derives z order from document
-order and the bands belong on top. Every piece of cover text is native and comes
-from `report.config.json`, so it tracks page size and stays editable.
+**The cover is the issued EPLUS coversheet, measured, not approximated.** The
+layout constants in `gen_report.js` (positions, sizes, alignment of every text
+block) were read off an issued coversheet PDF on 2026-09-10: EP logo and
+address line at the top, eyebrow and building on the dark band, client name and
+address right-aligned at the bottom, EP project number and the two dates and
+the inspector as four lines bottom left, MM/DD/YYYY. Two raster pieces are the
+artwork: `assets/cover/cover_hero.jpg` and `assets/cover/cover_bands.png`, both
+page-anchored floating images behind the text; **the hero is emitted first**
+because docx derives z order from document order and the bands belong on top.
+Every piece of cover text is native and page-anchored, so it stays editable in
+Word and lines up at print size. No draft warning on the cover; the first
+Editor's Note in the body carries it. The original is set in Montserrat, which
+the seats do not have, so the cover uses the document font (Arial) at the same
+sizes; when the fleet standardises a brand font, `FONT` is the one constant.
 
-The **client logo is per project and is not bundled with this skill** — it is the
-end client's trademark and changes every job. Drop it at
-`build/assets/cover/client_logo.png` to have it render top right; omit it and the
-cover renders without it.
-
-The cover is **its own section**, with no letterhead header and no footer, since a
-page-number strip across the artwork reads as a mistake. The section break already
-starts the following page, so the Table of Contents paragraph must not also carry
-`pageBreakBefore` or Word emits a blank page.
+The **client logo is per project and is not bundled with this skill** — it is
+the end client's trademark. Drop it at `build/assets/cover/client_logo.png` and
+it renders bottom right inside a 3.19 x 0.73 in box; omit it and the cover
+renders without it. How a project's logo file gets there is still an open
+question (it usually lives inside a document); leave the slot empty rather than
+guess.
 
 **The letterhead is built natively, never pasted in as a bitmap.** This was
 raised on two consecutive reports. The root cause is not image size: a

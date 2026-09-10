@@ -35,6 +35,7 @@ Photo source per photo: photos/ first, pdf_photos/ second. The summary line
 import argparse
 import json
 import os
+import re
 import shutil
 import sys
 
@@ -62,6 +63,13 @@ def load(path, default):
     return default
 
 
+def normalize(sheet):
+    """Sheet number as a lookup key: upper-case, trimmed, PlanGrid's OCR letter-O
+    after a leading T read as a zero (TO2-01A -> T02-01A), matching build_master."""
+    s = str(sheet or "").strip().upper()
+    return re.sub(r"^T[O0]", "T0", s)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--pull", default="../plangrid_mcp", help="raw MCP material")
@@ -86,18 +94,38 @@ def main():
     mcp_sheets = load(os.path.join(pull, "sheets.json"), [])
 
     # --- sheets: MCP names if present, else names recovered from the PDF ----
-    sheet_uid_to_name = {}
+    sheet_uid_to_name, sheet_uid_to_desc = {}, {}
     for s in mcp_sheets if isinstance(mcp_sheets, list) else []:
         if s.get("uid") and s.get("name"):
             sheet_uid_to_name[s["uid"]] = s["name"]
+            if s.get("description"):
+                sheet_uid_to_desc[s["uid"]] = s["description"]
     for t in tasks:
         name = by_item.get(str(as_int(t.get("number"))))
         if name and t.get("sheet_uid"):
             sheet_uid_to_name.setdefault(t["sheet_uid"], name)
-    sheets_out = [{"uid": uid, "name": name, "description": ""}
+
+    # Sheet TITLES ("TECHNOLOGY SITE PLAN") are not in the Task Report PDF text
+    # and, as of 2026-09-10, the MCP pull returns an empty sheet list, so the
+    # report shows the number alone (field result: a reviewer noticed the title
+    # was present on an export-folder run and missing on an MCP run). Until the
+    # server returns sheets, titles come from a per-project map: <pull>/
+    # sheet_titles.json or the client profile's "sheet_titles", {number: title}.
+    titles = {}
+    for cand in (os.path.join(pull, "sheet_titles.json"),
+                 os.path.join(os.path.dirname(dest), "client-profile.json")):
+        data = load(cand, {})
+        m = data.get("sheet_titles", data) if isinstance(data, dict) else {}
+        if isinstance(m, dict):
+            titles.update({normalize(k): v for k, v in m.items() if isinstance(v, str) and v.strip()})
+    for uid, name in sheet_uid_to_name.items():
+        if uid not in sheet_uid_to_desc and normalize(name) in titles:
+            sheet_uid_to_desc[uid] = titles[normalize(name)]
+    sheets_out = [{"uid": uid, "name": name, "description": sheet_uid_to_desc.get(uid, "")}
                   for uid, name in sheet_uid_to_name.items()]
     with open(os.path.join(dest, "sheets.json"), "w", encoding="utf-8") as f:
         json.dump(sheets_out, f, indent=1)
+    untitled = sorted(s["name"] for s in sheets_out if not s["description"])
 
     # --- tasks and photos ---------------------------------------------------
     nested = []
@@ -148,6 +176,13 @@ def main():
     print(f"sheets       : {len(sheets_out)} named "
           f"({'MCP' if mcp_sheets else 'PDF'} source)"
           + ("" if sheets_out else "  <- no sheet names; items will show no sheet ref"))
+    if untitled:
+        print(f"sheet titles : MISSING for {untitled}. The MCP pull carries no sheet list and the Task "
+              f"Report prints only the number, so the report will show the number alone. Add "
+              f"{{\"<number>\": \"<title>\"}} to the client profile's sheet_titles (or {os.path.basename(pull)}/sheet_titles.json) "
+              f"and re-run adapt, or tell the user the titles are missing.")
+    else:
+        print(f"sheet titles : all {len(sheets_out)} sheets titled")
     print(f"photos       : {from_live} live originals, {from_pdf} from the Task Report PDF")
     if missing:
         print(f"MISSING      : {missing}  (neither photos/ nor pdf_photos/ has them)")

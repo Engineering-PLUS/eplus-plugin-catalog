@@ -255,23 +255,28 @@ timestamped `.bak.json` is written before anything changes.
   back at them reads as third person. It is carried as `field_note` for
   traceability and appears in the review spreadsheet. If you re-add it, also
   restore its allowance in `estimateOverheadDXA()` or the photo grid under-packs.
-- **The cover is the issued EPLUS coversheet design, rebuilt natively.** Two raster
-  pieces are reused as artwork because that is what they are:
-  `assets/cover/cover_hero.jpg` (stock brand imagery) and
-  `assets/cover/cover_bands.png` (the EP diagonal band graphic, a full-page
-  transparent overlay). Both are placed as page-anchored floating images behind the
-  text, at the geometry taken from the reference document: bands 8.49 x 10.98in at
-  (0.00, 0.01), hero 8.53 x 6.37in at (0.00, 1.01). **The hero must be emitted
-  first**, because docx derives z order from document order and the bands sit on
-  top. All cover text is native and comes from `report.config.json`.
-- **The client logo is per project and is not bundled.** It is the end client's
-  trademark and changes every job. Drop it at
-  `build/assets/cover/client_logo.png` and it renders top right; leave it out and
-  the cover renders without it.
-- **The cover is its own section**, with no letterhead header and no page footer.
-  A "Page 1 of N" strip across the artwork reads as a mistake. Because the section
-  break already starts the next page, the Table of Contents paragraph must NOT also
-  carry `pageBreakBefore`, or Word emits a blank page between them.
+- **Two files: the body, whose page 1 is blank, and the cover.** `cover_mode` in
+  `report.config.json` is `template` (write `<output>-Cover.docx`, body page 1
+  blank), `supplied` or `blank` (body page 1 blank, no cover written) or `none`
+  (no blank page, the TOC is page 1). The blank page is the reviewer's swap
+  slot: page 1 of the exported body PDF is replaced by the coversheet, so the
+  page numbers and the "of N" count are already right. That section carries no
+  header and no footer.
+- **The cover is the issued EPLUS coversheet, measured.** Positions and sizes of
+  every text block were read off an issued coversheet PDF; the two rasters
+  (`assets/cover/cover_hero.jpg`, `assets/cover/cover_bands.png`) are the
+  artwork, page-anchored behind the text, hero first so the bands sit on top.
+  Content, all from `report.config.json`: eyebrow and building on the band,
+  client display name and address bottom right, EP project number, inspection
+  date, issuance date and inspector bottom left, dates MM/DD/YYYY. No draft
+  warning on the cover. Arial at the reference sizes (the original is
+  Montserrat, which the seats do not carry).
+- **The client logo is per project and is not bundled.** Drop it at
+  `build/assets/cover/client_logo.png` and it renders bottom right; leave it out
+  and the cover renders without it.
+- **The footer is derived**: `Engineering PLUS  •  <client> <building> Technology
+  System Punch List  •  Page N of M`. The letterhead says Technology System /
+  Punch List regardless of what the file is called.
 - **The meta table is two rows: Drawing Sheet and Date Recorded.** Location was
   removed because PlanGrid's `room` is empty on every pin, so the row only ever
   printed a placeholder, which reads as noise. The Photos count went with it: the
@@ -290,9 +295,9 @@ timestamped `.bak.json` is written before anything changes.
   still gets one empty row as a paste target unless its `photo_mode` is `none`,
   and the "Photos" label carries no count, which would go stale on the first
   edit.
-- **The cover is optional.** `"include_cover": false` in `report.config.json`
-  drops the cover section for clients who issue their own coversheet; the
-  contents page then becomes page 1.
+- **`cover_mode: none`** drops the blank first page for a client that issues the
+  report without a cover; the contents page then becomes page 1. Every other
+  mode keeps the blank page (see the two-files rule above).
 - **Sheet designators are normalised `TO` to `T0`.** PlanGrid's sheet-name OCR
   reads the character after a leading T as a letter O rather than a zero at upload
   time. The upstream fix is to correct each sheet name by hand when uploading
@@ -320,14 +325,14 @@ timestamped `.bak.json` is written before anything changes.
 Cover and footer strings are **not** hardcoded. They live in
 `build/report.config.json`. Change them there, not in the renderer.
 
-`include_cover` (default `true`) also lives there; see the renderer rules above.
+`cover_mode` (default `template`) also lives there; see the renderer rules above.
 
 Two rules about that file:
 
-- **`ep_project_no` is internal tracking and is never rendered.** It is there so
-  runs stay traceable on our side. It must not appear anywhere a client, GC or
-  subcontractor reads, the cover included. `verify_report.py` asserts it is absent
-  from the document text and fails the build if it is not.
+- **`ep_project_no` is rendered on the cover only**, as the issued coversheet
+  does (EP Project No is its first meta line). It never appears in the body.
+  `verify_report.py` asserts both: present on the cover file, absent from the
+  body text.
 - **The issuance date is asked for, never inferred.** It is a contractual fact
   about when the report goes out, decided by the reviewer, and it routinely
   differs from both the walk date and the compile date. A draft that is not yet

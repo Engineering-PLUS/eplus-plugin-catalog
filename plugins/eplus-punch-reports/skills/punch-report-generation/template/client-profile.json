@@ -7,7 +7,11 @@
   "reviewer": {"name": "", "title": ""},
   "drop_phrases": ["Observation only for record"],
   "buildings_seen": [],
+  "sheet_titles": {},
+  "_sheet_titles": "{\"T01-01\": \"TECHNOLOGY SITE PLAN\", ...}. The MCP pull returns no sheet list and the Task Report prints only the sheet number, so without this map the report shows the number alone. Fill it once per project; adapt_mcp_pull.py applies it.",
   "cover_mode": "template",
+  "_cover_mode": "template (generate -Cover.docx for review) | supplied (reviewer's own cover) | blank | none",
   "client_logo": null,
+  "_client_logo": "path to a PNG of the client's logo if one is on hand; copied to build/assets/cover/client_logo.png. Usually not available; leave null.",
   "report_kind": "Technology Site Observation Report"
 }

@@ -1,21 +1,22 @@
 {
   "master_file": "master_report_items.json",
-  "ep_project_no": "<EP project number, INTERNAL TRACKING ONLY, never rendered>",
   "output_filename": "<PROJECT>-Punch-Report-DRAFT-v0.1.docx",
-  "include_cover": true,
+
+  "cover_mode": "template",
+  "_cover_mode": "template = write <output>-Cover.docx and leave body page 1 blank; supplied = reviewer has a cover, body page 1 blank; blank = body page 1 blank only; none = no cover page, TOC is page 1",
+
   "cover_eyebrow": "Technology Site Inspection",
-  "cover_title": "<Client project name, e.g. Example Project>",
-  "cover_subtitle": "<Building / area, e.g. Building A>",
+  "cover_subtitle": "<Building / area as it reads on the cover, e.g. Building A>",
+  "client_display_name": "<Client and project as it reads on the cover, e.g. Example Client Project>",
   "site_address": [
     "<street address,>",
     "<city, state>"
   ],
-  "walk_date": "Site walk: <Month D, YYYY>",
-  "issuance_date": "<ASK the reviewer with AskUserQuestion, never infer>",
+  "ep_project_no": "<EP project number; rendered on the cover only>",
+  "inspection_date": "<YYYY-MM-DD, the walk date>",
+  "issuance_date": "<YYYY-MM-DD; ASK the reviewer at intake, never infer>",
   "inspector": "<Name of the engineer who walked the site>",
-  "site_location": "<Project>, <Building / area>",
-  "prepared_by": "Field observations by: <Name>, Engineering PLUS (EPLUS Advisors)",
-  "compiled_line": "Draft compiled: <Month D, YYYY>  •  Revision 0.1",
-  "draft_warning": "Not for issuance to Owner, GC, or Subcontractors until reviewed and edited by <reviewer>",
-  "footer_text": "Engineering PLUS  •  <Project> <Building> Draft Punch Report"
+
+  "cover_title": "<PlanGrid project name, internal; falls back as the client display name if that is blank>",
+  "_footer": "The footer is derived: Engineering PLUS  •  <client_display_name> <cover_subtitle> Technology System Punch List  •  Page N of M. Set footer_text only to override it."
 }

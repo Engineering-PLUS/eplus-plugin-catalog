@@ -67,9 +67,9 @@ rebuilds the cover by hand.
 contractual fact about when the report goes out and the reviewer decides it.
 
 **The EP project number is captured at intake** into `report.config.json` as
-`ep_project_no` and into the client profile. Until the cover template lands it
-is not rendered and `verify_report.py` asserts that; the reviewer's issued
-cover carries it, and that policy changes with the template.
+`ep_project_no` and into the client profile. It is rendered on the cover only,
+as the issued coversheet does; `verify_report.py` asserts it is on the cover
+and absent from the body.
 
 Then install the dependencies and check the tooling actually works:
 

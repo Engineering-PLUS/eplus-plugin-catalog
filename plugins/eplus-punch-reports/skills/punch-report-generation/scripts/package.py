@@ -34,6 +34,7 @@ every file that was counted.
 """
 import argparse
 import os
+import re
 import shutil
 import sys
 import zipfile
@@ -69,6 +70,8 @@ def find_deliverables(ws):
             if f.startswith("~$"):
                 continue
             p = os.path.join(d, f)
+            if f.lower().endswith("-cover.docx"):
+                continue  # the cover is paired with its body below, never the deliverable itself
             if f.lower().endswith(".docx"):
                 docx.append(p)
             elif f.lower().endswith(".xlsx"):
@@ -108,6 +111,10 @@ def main():
     if not docx:
         sys.exit("ERROR: no rendered .docx under _pipeline/build/; render before delivering")
     stem = args.name or os.path.splitext(os.path.basename(docx))[0]
+    # The cover is a separate file when cover_mode is "template"; deliver it
+    # beside the body under the same suffix so the two stay paired.
+    cover = re.sub(r"\.docx$", "-Cover.docx", docx, flags=re.I)
+    cover = cover if os.path.isfile(cover) else None
 
     files = list(iter_files(ws))
     total = sum(os.path.getsize(f) for f in files)
@@ -118,6 +125,8 @@ def main():
     suffix = free_suffix(dest, stem, exts)
     zip_path = os.path.join(dest, f"{stem}{suffix}.zip")
     beside = [(docx, f"{stem}{suffix}.docx")]
+    if cover:
+        beside.append((cover, f"{stem}{suffix}-Cover.docx"))
     if xlsx:
         xstem = os.path.splitext(os.path.basename(xlsx))[0]
         beside.append((xlsx, f"{xstem}{suffix}.xlsx"))
@@ -136,8 +145,11 @@ def main():
     print(f"destination : {dest}")
     print(f"package     : {os.path.basename(zip_path)}  ({len(files)} files, {total / 1048576:.1f} MB)")
     print(f"report      : {os.path.relpath(docx, ws)} -> {beside[0][1]}")
+    if cover:
+        print(f"cover       : {os.path.relpath(cover, ws)} -> {stem}{suffix}-Cover.docx  (separate file; body page 1 is blank for it)")
     if xlsx:
-        print(f"review sheet: {os.path.relpath(xlsx, ws)} -> {beside[1][1]}")
+        xname = next(n for s, n in beside if s == xlsx)
+        print(f"review sheet: {os.path.relpath(xlsx, ws)} -> {xname}")
     else:
         print("review sheet: (none found; review_sheet.py export not run)")
     if pdf:

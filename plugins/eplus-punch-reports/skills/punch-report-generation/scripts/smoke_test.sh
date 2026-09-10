@@ -47,7 +47,7 @@ for s in consolidate.py normalize_photos.py extract_sheet_clips.py \
          build_master.py review_sheet.py verify_report.py read_comments.py \
          package.py fix_bookmark_ids.py render_preview.py \
          import_reviewed_docx.py fetch_photos.py adapt_mcp_pull.py \
-         extract_pdf_photos.py export_pdf.py run_record.py; do
+         extract_pdf_photos.py export_pdf.py run_record.py staple_pdf.py; do
     if [ ! -f "$s" ]; then bad "$s is missing"; continue; fi
     out=$("$PY" "$s" --help 2>&1)
     case "$?:$out" in
@@ -220,11 +220,10 @@ r = subprocess.run([sys.executable, "build_master.py", "--items", os.path.join(d
                    capture_output=True, text=True)
 assert r.returncode == 0, r.stdout + r.stderr
 json.dump({"master_file": "master_report_items.json", "output_filename": "fixture.docx",
-           "include_cover": True, "cover_eyebrow": "Technology Site Inspection",
-           "cover_title": "Fixture", "cover_subtitle": "", "site_address": [],
-           "walk_date": "Site walk: January 1, 2026", "issuance_date": "January 2, 2026",
-           "inspector": "Fixture", "site_location": "Fixture", "prepared_by": "Fixture",
-           "compiled_line": "Fixture", "draft_warning": "Fixture", "footer_text": "Fixture"},
+           "cover_mode": "template", "cover_eyebrow": "Technology Site Inspection",
+           "cover_subtitle": "Building X", "client_display_name": "Fixture Client Project",
+           "site_address": ["1 Fixture St.,", "Town, ST"], "ep_project_no": "99999",
+           "inspection_date": "2026-01-01", "issuance_date": "2026-01-02", "inspector": "Fixture"},
           open(os.path.join(d, "report.config.json"), "w", encoding="utf-8"))
 json.dump({}, open(os.path.join(d, "sheet_clip_dims_jpg.json"), "w", encoding="utf-8"))
 r = subprocess.run(["node", "gen_report.js", d], capture_output=True, text=True)
@@ -233,7 +232,22 @@ out = os.path.join(d, "fixture.docx")
 x = zipfile.ZipFile(out).read("word/document.xml").decode("utf-8")
 assert "<undefined" not in x, "literal <undefined> element rendered: gen_report.js lost the importXml() unwrap"
 ids = re.findall(r'<wp:docPr[^>]*\bid="(\d+)"', x)
-assert ids and len(ids) == len(set(ids)), f"duplicate wp:docPr ids: {ids}"
+assert len(ids) == len(set(ids)), f"duplicate wp:docPr ids: {ids}"  # body may hold no images at all
+assert x.count("<w:sectPr") == 2, "body must carry a blank first section in template mode"
+body_text = " ".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", x))
+assert "99999" not in body_text, "EP project number leaked into the body"
+cz = zipfile.ZipFile(os.path.join(d, "fixture-Cover.docx"))
+cx = cz.read("word/document.xml").decode("utf-8")
+ctext = " ".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", cx))
+assert "<undefined" not in cx
+cids = re.findall(r'<wp:docPr[^>]*\bid="(\d+)"', cx)
+assert cids and len(cids) == len(set(cids)), f"duplicate wp:docPr ids in cover: {cids}"
+for needle in ("99999", "Building X", "Fixture Client Project", "01/01/2026", "01/02/2026", "Technology Site Inspection"):
+    assert needle in ctext, f"cover missing {needle!r}"
+assert "DRAFT" not in ctext.upper(), "draft warning must not be on the cover"
+assert not any(re.match(r"word/header\d*\.xml$", n) for n in cz.namelist()), "cover must have no letterhead header"
+fx = zipfile.ZipFile(out).read("word/footer1.xml").decode("utf-8") if "word/footer1.xml" in zipfile.ZipFile(out).namelist() else ""
+assert "Technology System Punch List" in " ".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", fx)), "footer wording not derived"
 r = subprocess.run([sys.executable, "fix_bookmark_ids.py", out], capture_output=True, text=True)
 assert r.returncode == 0, r.stdout + r.stderr
 r = subprocess.run([sys.executable, "verify_report.py", out, master], capture_output=True, text=True)
