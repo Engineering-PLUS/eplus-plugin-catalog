@@ -49,8 +49,9 @@ Copy that value **exactly** into `requested_by`. Rules:
 
 - Never guess, infer, or normalise a name. Do not turn `CORP\jdoe@WS01` into
   an email address or a display name.
-- **Chat tab, or no identity line anywhere in context.** Plugin hooks do
-  not run in Chat-tab sessions, so there is no note there. In that case
+- **No identity line anywhere in context.** (Older app builds ran no plugin
+  hooks in Chat-tab sessions; builds from 2026-09-11 on do, so the line
+  normally arrives there as well.) In that case
   read the login from your working directory: it is always
   `C:\Users\<login>\AppData\Local\Claude-3p\local-agent-mode-sessions\...\outputs`,
   and the `<login>` segment is the Windows account at the seat. Send
@@ -235,12 +236,14 @@ loop, and never route around the block (a different tool, a mirror, a
 proxy, a cached copy from another host). If the user asks what is still
 waiting, `list_egress_requests(status="pending")` answers it.
 
-### Chat tab
+### No nudge arrived
 
-Plugin hooks do not run in Chat-tab sessions, so no nudge will tell you a
-fetch was an egress block. Recognise it from the message text alone (the
-three shapes above), then follow exactly the same procedure. Use the
-Chat identity rule from "Who is filing" for `requested_by`.
+On app builds before 2026-09-11 plugin hooks did not run in Chat-tab
+sessions, so no nudge told you a fetch was an egress block; a nudge is also
+absent when the seat has the hooks switched off. Recognise the block from
+the message text alone (the three shapes above), then follow exactly the
+same procedure. If no identity line is in context either, use the
+no-identity-line rule from "Who is filing" for `requested_by`.
 
 ### When a reporting tool is refused by the permission classifier
 

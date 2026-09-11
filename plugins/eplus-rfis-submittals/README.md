@@ -48,7 +48,11 @@ skill enforces that with an `AskUserQuestion` gate; `hooks/hooks.json` adds a
 runtime enforcement: a `PreToolUse` hook on `commit_approved_rfi` (both tool
 name forms) returns `permissionDecision: "ask"`, so the harness itself
 prompts before any write to the knowledge base, whatever the model decided.
-Disable with `EPLUS_NO_RFI_COMMIT_GATE=1`.
+Disable with `EPLUS_NO_RFI_COMMIT_GATE=1`. Since the desktop app release of
+2026-09-11 organization-plugin hooks also run in Chat-tab sessions, so the
+gate holds wherever the connector is reachable; on older builds the skill's
+`AskUserQuestion` gate was the only enforcement in Chat. Not yet confirmed
+from a Chat export.
 
 The second hook, `SubagentStop` scoped to `^eplus-rfis-submittals:rfi-researcher$`,
 appends the researcher's full brief (with a 220-character excerpt header) to

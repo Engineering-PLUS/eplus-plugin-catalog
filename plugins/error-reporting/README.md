@@ -33,8 +33,13 @@ absent from the hook environment. Every failure nudge repeats the same line so
 the value survives compaction. The skill tells the model to copy it exactly and
 never to guess a name.
 
-- **Chat tab.** No hooks run there. The skill has the model read the login from
-  the session working directory, which is always
+- **Chat tab.** Since the desktop app release of 2026-09-11, organization-plugin
+  hooks run in Chat too (matching Cowork and Code), so the same identity line
+  arrives there and a Chat report carries `DOMAIN\user@MACHINE` like any other.
+  Not yet confirmed from a Chat export. On older builds no plugin hook loaded in
+  Chat; for those, and for any session where no identity line is in context,
+  the skill has the model read the login from the session working directory,
+  which is always
   `C:\Users\<login>\AppData\Local\Claude-3p\local-agent-mode-sessions\...\outputs`
   (verified on four seats; the selected folder is a separate mount and never the
   cwd), and send `<login>@chat`. Only if the cwd does not have that shape does
@@ -84,9 +89,11 @@ section is the authority; the hooks only nudge.
   nudge per refused fetch, so the provisional 0.3.0 PostToolUse wiring on the
   fetch tools was redundant and was removed in 0.3.1 with its marker-file
   dedupe.
-- **Chat tab.** Plugin hooks do not load in Chat-tab sessions at all, so no
-  nudge fires there. The skill carries the same procedure from the message
-  text alone, and a Chat identity rule for `requested_by` (below).
+- **Chat tab.** The nudge fires in Chat too since the desktop app release of
+  2026-09-11 (organization-plugin hooks now run in Chat, matching Cowork and
+  Code; not yet confirmed from a Chat export). On older builds no plugin hook
+  loaded there. Either way the skill carries the same procedure from the
+  message text alone, and the no-identity-line rule for `requested_by` (below).
 - **Classifier refusals.** Under auto mode the permission classifier can refuse
   a reporting call non-deterministically. The skill treats that as neither
   egress nor a tool failure: fallback file, one line to the user, no retry that
