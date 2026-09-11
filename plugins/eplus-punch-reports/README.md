@@ -25,7 +25,7 @@ asks for a PDF from the pipeline, `scripts/export_pdf.py` produces a clearly
 labelled convenience copy (two LibreOffice passes, so its page numbers match
 its own pagination) and `package.py --pdf` delivers it beside the zip.
 
-**Temporary:** `/test-punch [project] [numbers]` runs a scripted, token-minimal
+**Temporary:** `/test-punch [project] [days back]` runs a scripted, token-minimal
 smoke test of the workspace flow, the build rules, `package.py`, and the
 `plangrid` MCP route (`list_projects`, `list_sheets`, `get_tasks`, then
 `fetch_photos.py`, `adapt_mcp_pull.py` and `consolidate.py` on the real

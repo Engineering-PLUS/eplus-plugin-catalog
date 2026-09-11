@@ -1,6 +1,6 @@
 ---
 description: TEMPORARY smoke test of the punch plugin's workspace flow, build rules, packaging, and the plangrid MCP route (list_projects, list_sheets, get_tasks, then fetch, adapt and consolidate on the real result). Fixed script, minimal tokens. Remove before wide rollout.
-argument-hint: [project name fragment] [task numbers, e.g. 41,42,43]
+argument-hint: [project name fragment] [days back, default 30]
 ---
 
 Run the punch plugin smoke test. This is a scripted, token-minimal test whose
@@ -24,9 +24,9 @@ the session's outputs folder (your own working folder, never a user folder).
 `W/ws` is the pipeline workspace and `W/project` stands in for a project folder.
 
 Arguments: `$ARGUMENTS`. The first word, if any, is a fragment of the PlanGrid
-project name to use in steps 10 to 12; the second, if any, is a comma list of
-task numbers. Defaults: the first project `list_projects` returns, and the
-numbers `1,2,3`.
+project name to use in steps 10 to 12; the second, if any, is how many days
+back step 12 looks. Defaults: the most recently updated project, and 30 days.
+Nobody has to know task numbers; the server finds the recent ones.
 
 ## Steps
 
@@ -119,9 +119,9 @@ verbatim. If it answers, record PRESENT and the response size in one phrase
 `plangrid` server (`mcp__plangrid__list_projects`; the bundled form would be
 `mcp__plugin_eplus-punch-reports_plangrid__list_projects`) with no arguments.
 If the tool is not in your list, record NO TOOL and record steps 11 to 13 as
-SKIPPED. Pick the project whose name contains the first argument, or the first
-project when there is no argument; keep its `uid` for the next two steps.
-Record the project count and the chosen project's name.
+SKIPPED. Pick the project whose name contains the first argument, or, with no
+argument, the one with the latest `updated_at`; keep its `uid` for the next
+two steps. Record the project count and the chosen project's name.
 
 **11. plangrid MCP: sheets** (one tool call, then one Write). Call
 `list_sheets(project_uid=<uid>)`. Write the result verbatim, as JSON, with the
@@ -131,13 +131,16 @@ in step 6). Record the sheet count and how many carry a non-empty title
 error.
 
 **12. plangrid MCP: tasks** (one tool call, then one Write). Call
-`get_tasks(project_uid=<uid>, numbers=[<the numbers>])` with no other
-arguments. Write the result verbatim, as JSON, to
-`<W>\ws\plangrid_mcp\tasks.json`. Record the `coverage` block in one phrase
-(selected, not_found, failed), the total photo count across the rows, and
-whether every photo carries a `download_url` on the MCP host, for example
-"3 selected, 0 not found, 5 photos, all download_url". Record the first line
-of the error if it fails.
+`get_tasks(project_uid=<uid>, since="<YYYY-MM-DD>")` where the date is today
+minus the days-back argument (30 when none was given), with no other
+arguments. That selects every task created or updated in that window, the
+same call a real run makes with the walk date. Write the result verbatim, as
+JSON, to `<W>\ws\plangrid_mcp\tasks.json`. Record the `coverage` block in one
+phrase (selected, failed), the total photo count across the rows, and whether
+every photo carries a `download_url` on the MCP host, for example
+"12 selected, 0 failed, 31 photos, all download_url". If it selected nothing,
+record "0 selected" and still do step 13. Record the first line of the error
+if it fails.
 
 **13. MCP route through the scripts** (Bash, one command). This is the same
 sequence a real run uses on that material:
@@ -150,8 +153,8 @@ Record three things verbatim: the `route` line from fetch_photos (`live` means
 the sandbox reached the MCP photo host; `FALLBACK NEEDED` with the host name
 means it did not), the `sheets` and `sheet titles` lines from the adapter
 (which source filled the titles), and whether consolidate wrote
-`data/items_mcp.json`. If step 12 failed, run the command anyway and record
-the first error line.
+`data/items_mcp.json`. If step 12 failed or selected nothing, run the
+command anyway and record the first error line.
 
 **14. Results.** Write `<W>/TEST-RESULTS.md` (Write tool) containing only the
 table below, then print the same table as your entire final message, followed
