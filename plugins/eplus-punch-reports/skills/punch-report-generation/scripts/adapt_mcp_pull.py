@@ -16,7 +16,7 @@ consolidate.py reads the older PlanGrid export shape:
     <pull>/photos/<uid>__<title>.jpg
 
 Input folder (default ../plangrid_mcp, i.e. beside _pipeline/):
-    tasks.json                the get_tasks result saved as-is ({"coverage","tasks"}),
+    tasks.json                the get_tasks packet fetched by pull_mcp.sh ({"coverage","tasks"}),
                               or a bare list of rows (pull_tasks / get_task per item).
                               Rows from MCP 0.7+ carry `description`, `sheet`
                               {uid,name,description} and `photos` inline.
@@ -24,7 +24,7 @@ Input folder (default ../plangrid_mcp, i.e. beside _pipeline/):
                               "title","created_at","url"|"download_url"|"source_url"}]}
     photos/                   originals downloaded by fetch_photos.py (preferred)
     pdf_photos/               fallback crops from extract_pdf_photos.py
-    sheets.json               optional: a list_sheets result saved as-is, or an
+    sheets.json               optional: the list_sheets packet (pull_mcp.sh), or an
                               exported pull's [{"uid","name","description"}]
     sheets.json.by_item.json  optional, {"<number>": "<sheet name>"} from extract_pdf_photos.py
 
@@ -103,7 +103,7 @@ def main():
     by_item = load(os.path.join(pull, "sheets.json.by_item.json"), {})
     mcp_sheets = load(os.path.join(pull, "sheets.json"), [])
     if isinstance(mcp_sheets, dict):
-        mcp_sheets = mcp_sheets.get("sheets", [])   # list_sheets result saved as-is
+        mcp_sheets = mcp_sheets.get("sheets", [])   # list_sheets packet shape
 
     # --- sheets, best source first --------------------------------------------
     #   1. the resolved `sheet` object on each task row (get_tasks / pull_tasks, MCP 0.7+)

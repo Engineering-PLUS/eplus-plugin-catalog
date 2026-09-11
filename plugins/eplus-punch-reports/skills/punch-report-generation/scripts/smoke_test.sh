@@ -265,7 +265,7 @@ else
     bad "gen_report.js render check skipped: docx package not installed (bash scripts/install_deps.sh)"
 fi
 
-# MCP route: a get_tasks result saved as-is (photos and sheets inline, native
+# MCP route: a get_tasks packet as pull_mcp.sh fetches it (photos and sheets inline, native
 # types) must flow through fetch_photos -> adapt_mcp_pull -> consolidate with
 # titles and photos intact, and list_sheets must fill a title a row lacks.
 "$PY" - <<'PYCHECK' 2>&1 && ok "MCP route: get_tasks shape -> fetch -> adapt -> consolidate" \

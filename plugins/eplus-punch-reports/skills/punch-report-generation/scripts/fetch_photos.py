@@ -103,7 +103,7 @@ def main():
             print(f"photo metadata   : taken from the photos inline in tasks.json -> {os.path.basename(meta_path)}")
     if not meta:
         print(f"ERROR: no photo metadata: neither {meta_path} nor inline photos in tasks.json "
-              "(save the get_tasks result as tasks.json, or write mcp_photo_urls.json from get_task results)",
+              "(fetch the get_tasks packet with scripts/pull_mcp.sh, or write mcp_photo_urls.json from get_task results)",
               file=sys.stderr)
         return 1
     dest = os.path.join(pull, "photos")
