@@ -123,6 +123,14 @@ def main():
     else:
         drafted_list = drafted_doc
         merges = []
+    # Workers sometimes emit the number as a string; the join is on PlanGrid ints.
+    for d in drafted_list:
+        d["number"] = int(d["number"])
+    lacking = [f"#{d['number']} ({', '.join(f for f in ('title', 'description') if not d.get(f))})"
+               for d in drafted_list if not d.get("title") or not d.get("description")]
+    if lacking:
+        sys.exit("ERROR: every drafted item needs a title and a description. Missing on: "
+                 + ", ".join(lacking))
     drafted = {d["number"]: d for d in drafted_list}
     omit = {int(x) for x in args.omit.split(",") if x.strip()}
 

@@ -1,5 +1,5 @@
 ---
-description: TEMPORARY smoke test of the punch plugin's workspace flow, build rules, packaging, and the plangrid MCP route (list_projects, list_sheets, get_tasks, then fetch, adapt and consolidate on the real result). Fixed script, minimal tokens. Remove before wide rollout.
+description: TEMPORARY smoke test of the punch plugin's workspace flow, build rules, packaging, and the plangrid MCP route (list_projects, list_sheets, get_tasks summaries, then pull_mcp, fetch, adapt and consolidate on the packets). Fixed script, minimal tokens, nothing retyped. Remove before wide rollout.
 argument-hint: [project name fragment] [days back, default 30]
 ---
 
@@ -11,7 +11,8 @@ matter as much as the steps.
 
 - Do not load any skill (not `punch-report-generation`, not `punch`, not
   `plangrid-extraction`). The only MCP calls allowed are the four in steps 9
-  to 12, one call each.
+  to 12, one call each. Never write a tool result to a file: step 13 fetches
+  the packets.
 - Do not read, cat, grep, or open any plugin file. Everything you need is here.
 - No clarifying questions: every input is defined below. No task list.
 - One tool call per step, in order. Do not retry a failed step; record it and
@@ -80,7 +81,7 @@ Record PASS if it prints usage, or the error line.
 workspace path (the same form the session uses for its outputs folder):
 
 ```json
-[{"number":"1","description":"Junction box at this location is open — cover missing."},{"number":"2","description":"The image is unclear."},{"number":"3","description":"Conduit terminates without a bushing."}]
+{"items":[{"number":1,"title":"Open junction box","description":"Junction box at this location is open — cover missing."},{"number":2,"title":"Unclear condition","description":"The image is unclear."},{"number":3,"title":"Conduit stub","description":"Conduit terminates without a bushing."}]}
 ```
 
 Expected: no hook context of any kind arrives (the plugin ships no hooks since
@@ -92,10 +93,11 @@ Expected: no hook context of any kind arrives (the plugin ships no hooks since
 cd "$W/ws/_pipeline" && printf '[{"number":1,"photos":[],"sheet_name":"T02-01A","sheet_description":"","room":"","status":"open"},{"number":2,"photos":[],"sheet_name":"T02-01A","sheet_description":"","room":"","status":"open"},{"number":3,"photos":[],"sheet_name":"T02-01A","sheet_description":"","room":"","status":"open"}]' > data/items.json && python3 scripts/build_master.py --items data/items.json --drafted data/drafted_items.json -o build/master_report_items.json 2>&1 | tail -3; echo "exit ${PIPESTATUS[0]}"
 ```
 
-Expected: the build exits nonzero and names at least one item and the rule it
-broke (the file from step 6 carries a dash in item 1 and photo narration in
-item 2, and is missing required fields). Record PASS with what it named, or
-the last line if it exited 0.
+Expected: the build exits nonzero with "item descriptions must be in
+field-report voice" and names `#2` (photo narration; the dash in item 1 is
+sanitised, not refused). Record PASS with what it named, or the last line if
+it exited 0. Any other error ("no drafted entry", a KeyError, "needs a
+title") is a FAIL: the join never reached the voice rules.
 
 **8. Package delivery** (Bash):
 
@@ -117,44 +119,45 @@ verbatim. If it answers, record PRESENT and the response size in one phrase
 
 **10. plangrid MCP: projects** (one tool call). Call `list_projects` on the
 `plangrid` server (`mcp__plangrid__list_projects`; the bundled form would be
-`mcp__plugin_eplus-punch-reports_plangrid__list_projects`) with no arguments.
-If the tool is not in your list, record NO TOOL and record steps 11 to 13 as
-SKIPPED. Pick the project whose name contains the first argument, or, with no
-argument, the one with the latest `updated_at`; keep its `uid` for the next
-two steps. Record the project count and the chosen project's name.
+`mcp__plugin_eplus-punch-reports_plangrid__list_projects`) with
+`query="<first argument>"`, or no arguments when there is none. If the tool
+is not in your list, record NO TOOL and record steps 11 to 13 as SKIPPED.
+Take the first project returned (they come newest first); keep its `uid` for
+the next two steps. Record `count`, `more`, and the chosen project's name.
 
-**11. plangrid MCP: sheets** (one tool call, then one Write). Call
-`list_sheets(project_uid=<uid>)`. Write the result verbatim, as JSON, with the
-Write tool to `<W>\ws\plangrid_mcp\sheets.json` (Windows form of the path, as
-in step 6). Record the sheet count and how many carry a non-empty title
-(`description`), for example "38 sheets, 36 titled", or the first line of the
-error.
+**11. plangrid MCP: sheets** (one tool call, nothing written). Call
+`list_sheets(project_uid=<uid>)`. It returns a summary: `count`, `titled`,
+`untitled`, and a `packet` with `url`, `bytes`, `sha256`. Keep the url and
+sha256 for step 13. Record "N sheets, M titled, packet B bytes", or the
+first line of the error. Do not write the result anywhere.
 
-**12. plangrid MCP: tasks** (one tool call, then one Write). Call
+**12. plangrid MCP: tasks** (one tool call, nothing written). Call
 `get_tasks(project_uid=<uid>, since="<YYYY-MM-DD>")` where the date is today
 minus the days-back argument (30 when none was given), with no other
-arguments. That selects every task created or updated in that window, the
-same call a real run makes with the walk date. Write the result verbatim, as
-JSON, to `<W>\ws\plangrid_mcp\tasks.json`. Record the `coverage` block in one
-phrase (selected, failed), the total photo count across the rows, and whether
-every photo carries a `download_url` on the MCP host, for example
-"12 selected, 0 failed, 31 photos, all download_url". If it selected nothing,
-record "0 selected" and still do step 13. Record the first line of the error
-if it fails.
+arguments. It returns `coverage`, an `index` (one short row per task) and a
+`packet`. Keep the packet url and sha256 for step 13. Record
+`coverage.selected_count`, `coverage.failed`, `coverage.photos` and the
+packet bytes in one phrase, for example "38 selected, 0 failed, 13 photos
+served, packet 33381 bytes". If it selected nothing, record "0 selected" and
+still do step 13. Record the first line of the error if it fails. Do not
+write the result anywhere.
 
-**13. MCP route through the scripts** (Bash, one command). This is the same
-sequence a real run uses on that material:
+**13. MCP route through the scripts** (Bash, one command). Fetch both packets
+by url with their sha256, then run the same sequence a real run uses. Fill
+in the two `<...>` pairs from steps 11 and 12:
 
 ```bash
-cd "$W/ws/_pipeline" && python3 scripts/fetch_photos.py --pull ../plangrid_mcp --timeout 20 2>&1 | tail -6; python3 scripts/adapt_mcp_pull.py --pull ../plangrid_mcp --dest ../plangrid_pull 2>&1 | tail -7; python3 scripts/consolidate.py ../plangrid_pull -o data/items_mcp.json 2>&1 | tail -2
+cd "$W/ws/_pipeline" && bash scripts/pull_mcp.sh '<tasks packet url>#<tasks sha256>' '<sheets packet url>#<sheets sha256>' 2>&1 | tail -4; python3 scripts/fetch_photos.py --pull ../plangrid_mcp --timeout 20 2>&1 | tail -6; python3 scripts/adapt_mcp_pull.py --pull ../plangrid_mcp --dest ../plangrid_pull 2>&1 | tail -7; python3 scripts/consolidate.py ../plangrid_pull -o data/items_mcp.json 2>&1 | tail -2
 ```
 
-Record three things verbatim: the `route` line from fetch_photos (`live` means
-the sandbox reached the MCP photo host; `FALLBACK NEEDED` with the host name
-means it did not), the `sheets` and `sheet titles` lines from the adapter
-(which source filled the titles), and whether consolidate wrote
-`data/items_mcp.json`. If step 12 failed or selected nothing, run the
-command anyway and record the first error line.
+Record four things verbatim: the two `pull_mcp.sh` lines (`sha ok` means the
+file on disk is the server's file; `FETCH FAILED` or `SHA256 MISMATCH` is a
+FAIL), the `route` line from fetch_photos (`live` means the sandbox reached
+the MCP photo host; `FALLBACK NEEDED` with the host name means it did not),
+the `sheets` and `sheet titles` lines from the adapter (which source filled
+the titles), and whether consolidate wrote `data/items_mcp.json`. If step 12
+failed or selected nothing, run the command anyway and record the first
+error line.
 
 **14. Results.** Write `<W>/TEST-RESULTS.md` (Write tool) containing only the
 table below, then print the same table as your entire final message, followed
@@ -175,7 +178,7 @@ by one line: "Export this session now."
 | 10 | plangrid list_projects | |
 | 11 | plangrid list_sheets | |
 | 12 | plangrid get_tasks | |
-| 13 | fetch / adapt / consolidate on the MCP result | |
+| 13 | pull_mcp / fetch / adapt / consolidate on the packets | |
 ```
 
 Nothing else. No summary, no recommendations, no cleanup.

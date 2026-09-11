@@ -75,6 +75,8 @@ run fetches the originals again regardless, per the skill.
 If the pull came from the `plangrid` MCP rather than an exported folder, the raw
 material (task rows, photo URLs, downloaded originals, PDF fallback crops) is in
 `../plangrid_mcp/` and the adapted pull the pipeline reads is `../plangrid_pull/`.
+The MCP's bulk tools return summaries plus a packet url; `scripts/pull_mcp.sh`
+fetches the packets. Never write a tool result to a file with Write or Edit.
 
 Two shapes to check for, every time:
 

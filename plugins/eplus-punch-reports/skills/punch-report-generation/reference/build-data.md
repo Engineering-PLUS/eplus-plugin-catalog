@@ -6,26 +6,38 @@ Task Report PDF sit beside `_pipeline/` in the workspace; `data/items.json` may 
 
 ### Step 0b — Pulling from the MCP (when there is no pre-exported pull folder)
 
-The `plangrid` MCP hands back flat task rows with every value as a string, no
-photo binaries, and usually no sheet names. Three scripts turn that into the
-pull shape Step 1 reads. Raw material goes in `<workspace>/plangrid_mcp/`
-(beside `_pipeline/`), the adapted pull in `<workspace>/plangrid_pull/`, which
-`run_pipeline.sh` finds on its own.
+The `plangrid` MCP's bulk tools return a **summary** (counts, a short index,
+a `packet`) and keep the full JSON on the MCP host as a packet file. The
+model reads the summary and decides; the sandbox fetches the packet. Raw
+material goes in `<workspace>/plangrid_mcp/` (beside `_pipeline/`), the
+adapted pull in `<workspace>/plangrid_pull/`, which `run_pipeline.sh` finds on
+its own.
 
-1. **Three MCP calls, saved as-is.** `list_projects` for the uid; then
-   `get_tasks(project_uid, since="<YYYY-MM-DD>")` (or `numbers=[...]`) saved
-   verbatim as `../plangrid_mcp/tasks.json`, and `list_sheets(project_uid)`
-   saved verbatim as `../plangrid_mcp/sheets.json`. One `get_tasks` call
-   returns every selected task with its full description, its resolved sheet
-   (number and title), and its photos, each photo with a `download_url` on
-   the MCP host; read its `coverage` block (selected, not_found, failed,
-   photo counts) before going on. Do not call `get_task` per item: the client
-   sends tool calls one at a time, so N calls cost N round trips (a burst of
-   thirty-three took 52 seconds on 2026-09-09 for that reason alone). No
-   `mcp_photo_urls.json` is needed; `fetch_photos.py` builds it from the
-   inline photos. `get_task` remains for one item; `pull_tasks` for a change
-   manifest against the previous pull.
-2. **Fetch the originals, every run:**
+**Never copy a tool result into a file with Write or Edit.** Bulk results
+arrive with a packet `{url, bytes, sha256, fetch}`; `pull_mcp.sh` fetches it
+and proves the bytes by sha256. On the first field test the model retyped
+60 KB of inline results (34k output tokens, five minutes, one corrupted uid).
+Do not ask for `detail="full"` in a report run.
+
+1. **Three MCP calls, summaries only.** `list_projects(query="<fragment>")`
+   for the uid (newest first, active projects). Then
+   `get_tasks(project_uid, since="<walk date>")` (or `numbers=[...]`): read
+   `coverage` (selected_count, not_found, failed, photo counts) and the
+   `index` (one line per task: number, sheet, photos, status, title) to settle
+   scope; note `packet.url` and `packet.sha256`. Then `list_sheets(project_uid)`:
+   note `untitled` and its packet. Do not call `get_task` per item: the client
+   sends tool calls one at a time, so N calls cost N round trips (thirty-three
+   took 52 seconds on 2026-09-09). `get_task` remains for one item;
+   `pull_tasks` for a change manifest against the previous pull.
+2. **Fetch the packets** (one command, both files):
+   ```bash
+   bash scripts/pull_mcp.sh '<tasks packet url>#<sha256>' '<sheets packet url>#<sha256>'
+   ```
+   It writes `../plangrid_mcp/tasks.json` and `sheets.json`, checks the sha,
+   validates the JSON and prints one line per file. A 404 means the packet
+   expired (7 days): call the tool again. No `mcp_photo_urls.json` is needed;
+   `fetch_photos.py` builds it from the photos inline in `tasks.json`.
+3. **Fetch the originals, every run:**
    ```bash
    python3 scripts/fetch_photos.py --pull ../plangrid_mcp
    ```
@@ -34,7 +46,7 @@ pull shape Step 1 reads. Raw material goes in `<workspace>/plangrid_mcp/`
    a property of the seat on the day. The originals are full resolution; the
    fallback below yields about 350 x 620 px, which is visibly soft in the
    rendered grid.
-3. **Only if the fetch reported failures**, recover the missing photos and the
+4. **Only if the fetch reported failures**, recover the missing photos and the
    sheet names from the Task Report PDF:
    ```bash
    python3 scripts/extract_pdf_photos.py "../<Task Report>.pdf" --pull ../plangrid_mcp
@@ -42,7 +54,7 @@ pull shape Step 1 reads. Raw material goes in `<workspace>/plangrid_mcp/`
    It skips photos the live fetch already got. If the failure was an egress
    block, file the host with `request_egress_allow` (error-reporting skill) and
    carry on; do not stop the run for it.
-4. **Adapt:**
+5. **Adapt:**
    ```bash
    python3 scripts/adapt_mcp_pull.py        # ../plangrid_mcp -> ../plangrid_pull
    ```

@@ -274,9 +274,9 @@ import json, os, subprocess, sys, tempfile
 d = tempfile.mkdtemp(); mcp = os.path.join(d, "plangrid_mcp"); os.makedirs(os.path.join(mcp, "photos"))
 uid = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 row = lambda n, sheet, photos: {"number": n, "uid": f"t{n}", "title": "V", "status": "open", "room": "", "published": True,
-    "sheet_uid": sheet["uid"], "stamp": "4", "color": "#FF0000", "photos_count": len(photos), "comments_count": 0,
+    "sheet_uid": sheet["uid"], "stamp": "4", "photos_count": len(photos), "comments_count": 0,
     "created_by": "e@x", "created_at": "2026-09-03T19:20:23", "updated_at": "2026-09-10T13:06:58", "deleted": False,
-    "pin_deleted": False, "archived": False, "description": "d", "sheet": sheet, "photos": photos}
+    "pin_deleted": False, "description": "d", "sheet": sheet, "photos": photos}
 json.dump({"coverage": {}, "tasks": [
     row(41, {"uid": "s1", "name": "TO2-01B2", "description": "FLOOR PLAN B2"},
         [{"uid": uid, "title": "20260903_132033_photo", "source_url": "https://s3/x.jpg", "download_url": "http://127.0.0.1:9/photo/x.jpg"}]),
@@ -296,6 +296,39 @@ assert r.returncode == 0, r.stdout + r.stderr
 items = {i["number"]: i for i in json.load(open(os.path.join(d, "items.json")))}
 assert items[41]["sheet_description"] == "FLOOR PLAN B2" and items[42]["sheet_description"] == "DETAILS"
 assert items[41]["photos"][0]["uid"] == uid
+PYCHECK
+
+# pull_mcp.sh: fetches a packet by url, proves it by sha256, refuses a bad sha
+# and reports a 404 as an expired packet. Served from a throwaway local server.
+# (SMOKE_BASH: the bash running this test, in a form the host python can exec;
+#  on a Windows dev box a bare "bash" from python resolves to WSL's.)
+SMOKE_BASH="$(cygpath -w "$BASH" 2>/dev/null || echo "$BASH")" "$PY" - <<'PYCHECK' 2>&1 && ok "pull_mcp.sh: fetch, sha check, mismatch refused, 404 reported" \
+    || bad "pull_mcp.sh behavioural check failed"
+import hashlib, http.server, json, os, socketserver, subprocess, sys, tempfile, threading
+d = tempfile.mkdtemp(); job = os.path.join(d, "files", "0123456789abcdef0123456789abcdef"); os.makedirs(job)
+tasks = json.dumps({"coverage": {}, "tasks": [{"number": 1, "photos": [{"uid": "a", "download_url": "http://x/photo/a.jpg"}]}]}).encode()
+open(os.path.join(job, "tasks.json"), "wb").write(tasks)
+sheets = json.dumps({"sheets": [{"name": "T1", "description": "PLAN"}]}).encode()
+open(os.path.join(job, "sheets.json"), "wb").write(sheets)
+class Q(http.server.SimpleHTTPRequestHandler):
+    def __init__(self, *a, **k): super().__init__(*a, directory=d, **k)
+    def log_message(self, *a): pass
+socketserver.TCPServer.allow_reuse_address = True
+srv = socketserver.TCPServer(("127.0.0.1", 0), Q); port = srv.server_address[1]
+threading.Thread(target=srv.serve_forever, daemon=True).start()
+base = f"http://127.0.0.1:{port}/files/0123456789abcdef0123456789abcdef"
+dest = os.path.join(d, "mcp")
+def run(*specs):
+    r = subprocess.run([os.environ.get("SMOKE_BASH") or "bash", "pull_mcp.sh", "--dest", dest, *specs], capture_output=True, text=True)
+    return r.returncode, r.stdout + r.stderr
+rc, out = run(f"{base}/tasks.json#{hashlib.sha256(tasks).hexdigest()}", f"{base}/sheets.json#{hashlib.sha256(sheets).hexdigest()}")
+assert rc == 0 and "1 tasks, 1 photos (1 with download_url)" in out and "1 sheets, 1 titled" in out and out.count("sha ok") == 2, out
+assert open(os.path.join(dest, "tasks.json"), "rb").read() == tasks
+rc, out = run(f"{base}/tasks.json#" + "0" * 64)
+assert rc != 0 and "SHA256 MISMATCH" in out and not os.path.exists(os.path.join(dest, "tasks.json")), out
+rc, out = run(f"{base}/photos.json")
+assert rc != 0 and "HTTP 404" in out and "expired" in out, out
+srv.shutdown()
 PYCHECK
 
 # The wording-review preview markup ships with the skill, not the workspace, so

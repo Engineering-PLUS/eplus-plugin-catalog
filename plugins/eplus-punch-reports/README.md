@@ -27,11 +27,17 @@ its own pagination) and `package.py --pdf` delivers it beside the zip.
 
 **Temporary:** `/test-punch [project] [days back]` runs a scripted, token-minimal
 smoke test of the workspace flow, the build rules, `package.py`, and the
-`plangrid` MCP route (`list_projects`, `list_sheets`, `get_tasks`, then
-`fetch_photos.py`, `adapt_mcp_pull.py` and `consolidate.py` on the real
-result, which also shows whether the sandbox can reach the MCP photo host),
-for capturing evidence in a session export. Remove `commands/test-punch.md`
-before wide rollout.
+`plangrid` MCP route (`list_projects`, `list_sheets` and `get_tasks`
+summaries, then `pull_mcp.sh` fetching the sha256-checked packets,
+`fetch_photos.py`, `adapt_mcp_pull.py` and `consolidate.py` on them, which
+also shows whether the sandbox can reach the MCP host), for capturing
+evidence in a session export. Remove `commands/test-punch.md` before wide
+rollout.
+
+The MCP's bulk tools return summaries; the full JSON stays on the MCP host as
+a packet that `scripts/pull_mcp.sh` fetches. The model never retypes a tool
+result into a file (0.7.4; the first field test spent 34k output tokens and
+five minutes doing exactly that).
 
 The project folder is read-only until the end; the run finishes with one
 delivery (`scripts/package.py`): a zip of the whole workspace plus the `.docx`
