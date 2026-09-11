@@ -52,6 +52,12 @@ text; they see only their JSON payload. Two payloads carry the model:
 Switches: `EPLUS_NO_MODEL_ROUTING=1` disables recording and injection;
 `EPLUS_ALLOW_EXPENSIVE_SPAWN=1` disables the gate but keeps the spawn log.
 
+Surfaces: through the exports of 2026-09-09 plugin hooks loaded only in
+Cowork sessions, never in the Chat tab. The desktop app release of 2026-09-11
+runs organization-plugin hooks in Chat too, matching Cowork and Code, so
+expect the same per-prompt route-check spawn and the spawn gate in Chat
+sessions from that build on. Not yet confirmed from a Chat export.
+
 ## Worker output shapes
 
 Both workers are written for models that drift: numbered rules first, no
