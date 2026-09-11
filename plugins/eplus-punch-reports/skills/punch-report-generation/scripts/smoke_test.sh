@@ -265,6 +265,39 @@ else
     bad "gen_report.js render check skipped: docx package not installed (bash scripts/install_deps.sh)"
 fi
 
+# MCP route: a get_tasks result saved as-is (photos and sheets inline, native
+# types) must flow through fetch_photos -> adapt_mcp_pull -> consolidate with
+# titles and photos intact, and list_sheets must fill a title a row lacks.
+"$PY" - <<'PYCHECK' 2>&1 && ok "MCP route: get_tasks shape -> fetch -> adapt -> consolidate" \
+    || bad "MCP route behavioural check failed"
+import json, os, subprocess, sys, tempfile
+d = tempfile.mkdtemp(); mcp = os.path.join(d, "plangrid_mcp"); os.makedirs(os.path.join(mcp, "photos"))
+uid = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+row = lambda n, sheet, photos: {"number": n, "uid": f"t{n}", "title": "V", "status": "open", "room": "", "published": True,
+    "sheet_uid": sheet["uid"], "stamp": "4", "color": "#FF0000", "photos_count": len(photos), "comments_count": 0,
+    "created_by": "e@x", "created_at": "2026-09-03T19:20:23", "updated_at": "2026-09-10T13:06:58", "deleted": False,
+    "pin_deleted": False, "archived": False, "description": "d", "sheet": sheet, "photos": photos}
+json.dump({"coverage": {}, "tasks": [
+    row(41, {"uid": "s1", "name": "TO2-01B2", "description": "FLOOR PLAN B2"},
+        [{"uid": uid, "title": "20260903_132033_photo", "source_url": "https://s3/x.jpg", "download_url": "http://127.0.0.1:9/photo/x.jpg"}]),
+    row(42, {"uid": "s2", "name": "TO5-09", "description": ""}, [])]}, open(os.path.join(mcp, "tasks.json"), "w"))
+json.dump({"sheets": [{"uid": "s2", "name": "TO5-09", "description": "DETAILS", "deleted": False}]}, open(os.path.join(mcp, "sheets.json"), "w"))
+open(os.path.join(mcp, "photos", f"{uid}__20260903_132033_photo.jpg"), "wb").write(b"\xff\xd8\xff\xd9")
+r = subprocess.run([sys.executable, "fetch_photos.py", "--pull", mcp, "--timeout", "2"], capture_output=True, text=True)
+assert r.returncode == 0 and "already present" in r.stdout, r.stdout + r.stderr
+assert json.load(open(os.path.join(mcp, "mcp_photo_urls.json")))["41"][0]["url"].startswith("http://127.0.0.1:9/")
+pull = os.path.join(d, "plangrid_pull")
+r = subprocess.run([sys.executable, "adapt_mcp_pull.py", "--pull", mcp, "--dest", pull], capture_output=True, text=True)
+assert r.returncode == 0 and "all 2 sheets titled" in r.stdout, r.stdout + r.stderr
+sheets = {s["name"]: s["description"] for s in json.load(open(os.path.join(pull, "sheets.json")))}
+assert sheets == {"TO2-01B2": "FLOOR PLAN B2", "TO5-09": "DETAILS"}, sheets
+r = subprocess.run([sys.executable, "consolidate.py", pull, "-o", os.path.join(d, "items.json")], capture_output=True, text=True)
+assert r.returncode == 0, r.stdout + r.stderr
+items = {i["number"]: i for i in json.load(open(os.path.join(d, "items.json")))}
+assert items[41]["sheet_description"] == "FLOOR PLAN B2" and items[42]["sheet_description"] == "DETAILS"
+assert items[41]["photos"][0]["uid"] == uid
+PYCHECK
+
 # The wording-review preview markup ships with the skill, not the workspace, so
 # only assert it when running from a skill checkout.
 if [ -d ../templates ]; then

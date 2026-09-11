@@ -157,7 +157,8 @@ in front of it sets the scope.
 
 ```bash
 # Step 0b Only when the pull comes from the plangrid MCP  -> reference/build-data.md
-#         (write ../plangrid_mcp/tasks.json and mcp_photo_urls.json from the tool results first)
+#         (save the get_tasks result as ../plangrid_mcp/tasks.json and the list_sheets
+#          result as ../plangrid_mcp/sheets.json first; photos and sheet titles are inline)
 python3 scripts/fetch_photos.py --pull ../plangrid_mcp              # live originals, every run
 python3 scripts/extract_pdf_photos.py "../<Task Report>.pdf" --pull ../plangrid_mcp   # only for photos fetch_photos could not get
 python3 scripts/adapt_mcp_pull.py                                   # ../plangrid_mcp -> ../plangrid_pull

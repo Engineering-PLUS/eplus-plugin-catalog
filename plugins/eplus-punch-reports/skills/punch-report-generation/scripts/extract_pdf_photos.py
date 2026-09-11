@@ -81,6 +81,16 @@ def main():
     meta_path = os.path.join(pull, "mcp_photo_urls.json")
     photo_meta = json.load(open(meta_path, encoding="utf-8")) if os.path.isfile(meta_path) else {}
     if not photo_meta:
+        # photos inline on get_tasks rows (MCP 0.7+); fetch_photos.py normally
+        # materialises mcp_photo_urls.json from them first, but do not depend on it
+        tp = os.path.join(pull, "tasks.json")
+        if os.path.isfile(tp):
+            data = json.load(open(tp, encoding="utf-8"))
+            rows = data.get("tasks", []) if isinstance(data, dict) else data
+            for t in rows or []:
+                if isinstance(t.get("photos"), list) and t.get("number") is not None:
+                    photo_meta[str(t["number"])] = [p for p in t["photos"] if isinstance(p, dict) and p.get("uid")]
+    if not photo_meta:
         print(f"WARNING: {meta_path} missing or empty; photos will be named by position, "
               f"and consolidate.py will not be able to index them", file=sys.stderr)
     wanted = parse_only(args.items) if args.items else None

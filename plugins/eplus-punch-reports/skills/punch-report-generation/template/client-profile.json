@@ -8,7 +8,7 @@
   "drop_phrases": ["Observation only for record"],
   "buildings_seen": [],
   "sheet_titles": {},
-  "_sheet_titles": "{\"T01-01\": \"TECHNOLOGY SITE PLAN\", ...}. The MCP pull returns no sheet list and the Task Report prints only the sheet number, so without this map the report shows the number alone. Fill it once per project; adapt_mcp_pull.py applies it.",
+  "_sheet_titles": "{\"T01-01\": \"TECHNOLOGY SITE PLAN\", ...}. Override only: since MCP 0.7 titles arrive on get_tasks rows and from list_sheets. Fill this for a drawing PlanGrid itself has no title for, or for pulls made through an older server; adapt_mcp_pull.py applies it last.",
   "cover_mode": "template",
   "_cover_mode": "template (generate -Cover.docx for review) | supplied (reviewer's own cover) | blank | none",
   "client_logo": null,

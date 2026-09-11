@@ -12,16 +12,19 @@ pull shape Step 1 reads. Raw material goes in `<workspace>/plangrid_mcp/`
 (beside `_pipeline/`), the adapted pull in `<workspace>/plangrid_pull/`, which
 `run_pipeline.sh` finds on its own.
 
-1. Write `../plangrid_mcp/tasks.json` (the task rows from `pull_tasks`, or one
-   `get_task` result per item when descriptions are needed for a filter) and
-   `../plangrid_mcp/mcp_photo_urls.json`:
-   `{"<task number>": [{"uid", "title", "created_at", "url"}, ...]}` from each
-   item's `get_task` photos. **Cap `get_task` at four in flight**; the server
-   answers serially and a burst of thirty-three took a 52-second tail (field
-   result 2026-09-09). Two shortcuts: if a `get_photos` call returns URLs for
-   many tasks at once, use it and skip `get_task` for photos; and the Task
-   Report PDF already carries every description, so when a description filter
-   is the only reason for `get_task`, read the PDF text instead.
+1. **Three MCP calls, saved as-is.** `list_projects` for the uid; then
+   `get_tasks(project_uid, since="<YYYY-MM-DD>")` (or `numbers=[...]`) saved
+   verbatim as `../plangrid_mcp/tasks.json`, and `list_sheets(project_uid)`
+   saved verbatim as `../plangrid_mcp/sheets.json`. One `get_tasks` call
+   returns every selected task with its full description, its resolved sheet
+   (number and title), and its photos, each photo with a `download_url` on
+   the MCP host; read its `coverage` block (selected, not_found, failed,
+   photo counts) before going on. Do not call `get_task` per item: the client
+   sends tool calls one at a time, so N calls cost N round trips (a burst of
+   thirty-three took 52 seconds on 2026-09-09 for that reason alone). No
+   `mcp_photo_urls.json` is needed; `fetch_photos.py` builds it from the
+   inline photos. `get_task` remains for one item; `pull_tasks` for a change
+   manifest against the previous pull.
 2. **Fetch the originals, every run:**
    ```bash
    python3 scripts/fetch_photos.py --pull ../plangrid_mcp
@@ -46,16 +49,14 @@ pull shape Step 1 reads. Raw material goes in `<workspace>/plangrid_mcp/`
    It coerces the string fields, nests the annotation and photo counts the way
    `consolidate.py` expects, builds `sheets.json` from the MCP names or the PDF
    names, and copies each photo from `photos/` first and `pdf_photos/` second.
-   **Sheet titles are the known gap on this route.** An exported pull folder
-   carries each sheet's number and title ("T01-01, TECHNOLOGY SITE PLAN"); the
-   MCP pull returns an empty sheet list and the Task Report prints only the
-   number, so an MCP-built report shows "T01-01" alone (field result
-   2026-09-10, noticed by a reviewer comparing two reports). Until the server
-   returns sheets, put `{"<number>": "<title>"}` in the client profile's
-   `sheet_titles` (once per project; a prior exported pull's `sheets.json` or
-   the drawing index is the source) and the adapter applies it. The adapter
-   and the run record both say when titles are missing; the delivery summary
-   must repeat it rather than let the reviewer discover it.
+   **Sheet titles** ("T01-01, TECHNOLOGY SITE PLAN") come from the `sheet`
+   object on each `get_tasks` row and from the saved `list_sheets` result;
+   the adapter takes them in that order, then the Task Report's numbers
+   (no titles), then the client profile's `sheet_titles` map as an override
+   for a drawing PlanGrid itself has no title for. Before MCP 0.7 the server
+   returned no sheet list at all and MCP-built reports showed the number
+   alone (field result 2026-09-10); the adapter and the run record still say
+   when a title is missing, and the delivery summary must repeat it.
    Its last line, `photo route : live | pdf | mixed`, goes into
    `PROCESS-LOG.md` and the workspace `CLAUDE.md` verbatim, with the failed host
    when it is not `live`.

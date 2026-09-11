@@ -37,8 +37,8 @@ asked later unless the data forces it (a worker's Open question).
    settings). If absent, stamp `template/client-profile.json` into the
    workspace root and fill what you can.
 2. The pull: an exported folder with `tasks.json` (note any `delta_*` folders),
-   or the `plangrid` MCP (`list_projects`, then `pull_tasks`; see
-   `reference/build-data.md` Step 0b). The Task Report PDF from the uploads or
+   or the `plangrid` MCP (`list_projects`, then one `get_tasks` and one
+   `list_sheets`, saved as-is; see `reference/build-data.md` Step 0b). The Task Report PDF from the uploads or
    the project folder; it is the only source of pin clips, so if it is missing
    that becomes a question.
 3. Run consolidate with the rules you already know (the profile's

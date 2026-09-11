@@ -16,11 +16,16 @@ consolidate.py reads the older PlanGrid export shape:
     <pull>/photos/<uid>__<title>.jpg
 
 Input folder (default ../plangrid_mcp, i.e. beside _pipeline/):
-    tasks.json                raw MCP rows (pull_tasks, or get_task per item)
-    mcp_photo_urls.json       {"<number>": [{"uid","title","created_at","url"}, ...]}
+    tasks.json                the get_tasks result saved as-is ({"coverage","tasks"}),
+                              or a bare list of rows (pull_tasks / get_task per item).
+                              Rows from MCP 0.7+ carry `description`, `sheet`
+                              {uid,name,description} and `photos` inline.
+    mcp_photo_urls.json       optional when photos are inline; {"<number>": [{"uid",
+                              "title","created_at","url"|"download_url"|"source_url"}]}
     photos/                   originals downloaded by fetch_photos.py (preferred)
     pdf_photos/               fallback crops from extract_pdf_photos.py
-    sheets.json               optional, if the MCP returned sheet names
+    sheets.json               optional: a list_sheets result saved as-is, or an
+                              exported pull's [{"uid","name","description"}]
     sheets.json.by_item.json  optional, {"<number>": "<sheet name>"} from extract_pdf_photos.py
 
 Output folder (default ../plangrid_pull, beside _pipeline/, which is where
@@ -90,16 +95,32 @@ def main():
     if isinstance(tasks, dict) and "tasks" in tasks:
         tasks = tasks["tasks"]
     photo_meta = load(os.path.join(pull, "mcp_photo_urls.json"), {})
+    if not photo_meta:
+        # get_tasks (MCP 0.7+) carries each task's photos inline
+        for t in tasks:
+            if isinstance(t.get("photos"), list) and t.get("number") is not None:
+                photo_meta[str(as_int(t["number"]))] = [p for p in t["photos"] if isinstance(p, dict) and p.get("uid")]
     by_item = load(os.path.join(pull, "sheets.json.by_item.json"), {})
     mcp_sheets = load(os.path.join(pull, "sheets.json"), [])
+    if isinstance(mcp_sheets, dict):
+        mcp_sheets = mcp_sheets.get("sheets", [])   # list_sheets result saved as-is
 
-    # --- sheets: MCP names if present, else names recovered from the PDF ----
+    # --- sheets, best source first --------------------------------------------
+    #   1. the resolved `sheet` object on each task row (get_tasks / pull_tasks, MCP 0.7+)
+    #   2. sheets.json: a list_sheets result or an exported pull's sheet list
+    #   3. sheet numbers recovered from the Task Report PDF (no titles)
     sheet_uid_to_name, sheet_uid_to_desc = {}, {}
+    for t in tasks:
+        s = t.get("sheet")
+        if isinstance(s, dict) and s.get("uid") and s.get("name"):
+            sheet_uid_to_name.setdefault(s["uid"], s["name"])
+            if s.get("description"):
+                sheet_uid_to_desc.setdefault(s["uid"], s["description"])
     for s in mcp_sheets if isinstance(mcp_sheets, list) else []:
         if s.get("uid") and s.get("name"):
-            sheet_uid_to_name[s["uid"]] = s["name"]
+            sheet_uid_to_name.setdefault(s["uid"], s["name"])
             if s.get("description"):
-                sheet_uid_to_desc[s["uid"]] = s["description"]
+                sheet_uid_to_desc.setdefault(s["uid"], s["description"])
     for t in tasks:
         name = by_item.get(str(as_int(t.get("number"))))
         if name and t.get("sheet_uid"):
@@ -173,8 +194,9 @@ def main():
         json.dump(nested, f, indent=1)
 
     print(f"tasks        : {len(nested)} -> {dest}/tasks.json")
-    print(f"sheets       : {len(sheets_out)} named "
-          f"({'MCP' if mcp_sheets else 'PDF'} source)"
+    src = ("task rows" if any(isinstance(t.get("sheet"), dict) and t["sheet"].get("name") for t in tasks)
+           else "sheet list" if mcp_sheets else "PDF")
+    print(f"sheets       : {len(sheets_out)} named ({src} source)"
           + ("" if sheets_out else "  <- no sheet names; items will show no sheet ref"))
     if untitled:
         print(f"sheet titles : MISSING for {untitled}. The MCP pull carries no sheet list and the Task "

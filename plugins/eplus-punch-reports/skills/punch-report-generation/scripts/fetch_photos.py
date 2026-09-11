@@ -20,8 +20,14 @@ the last line says so and names the fallback:
 
     python3 scripts/extract_pdf_photos.py "../<Task Report>.pdf" --pull ../plangrid_mcp
 
-mcp_photo_urls.json shape, as written from get_task results:
-    {"<task number>": [{"uid": ..., "title": ..., "created_at": ..., "url": ...}, ...], ...}
+Photo metadata comes from either place, in this order:
+  1. <pull>/mcp_photo_urls.json, {"<task number>": [{"uid","title","created_at",
+     "url" | "download_url" | "source_url"}, ...]} written from get_task results
+  2. the `photos` list inline on each task row in <pull>/tasks.json (the shape
+     get_tasks returns since MCP 0.7); this script then writes
+     mcp_photo_urls.json from it so the other scripts read one file.
+Per photo, download_url (the MCP host's own copy) is preferred over url over
+source_url (PlanGrid's S3 link).
 """
 import argparse
 import json
@@ -32,6 +38,37 @@ import urllib.request
 
 EGRESS_HINT = ("blocked by the network allowlist (egress). File it with "
                "request_egress_allow per the error-reporting skill, then use the PDF route.")
+
+
+def pick_url(p):
+    """Prefer the MCP host's copy (download_url: fetched server-side at original
+    resolution, reachable on every seat), then the legacy `url`, then PlanGrid's
+    own signed link (source_url: needs the photo bucket on the allowlist)."""
+    for k in ("download_url", "url", "source_url"):
+        if p.get(k):
+            return p[k]
+    return None
+
+
+def photos_from_tasks(tasks_path):
+    """{"<number>": [photo, ...]} from a get_tasks / pull_tasks result saved as
+    tasks.json (either {"coverage", "tasks": [...]} or a bare list) whose rows
+    carry `photos` inline. Empty dict if there is nothing inline."""
+    if not os.path.isfile(tasks_path):
+        return {}
+    with open(tasks_path, encoding="utf-8") as f:
+        data = json.load(f)
+    rows = data.get("tasks", []) if isinstance(data, dict) else data
+    out = {}
+    for t in rows or []:
+        photos = t.get("photos")
+        if isinstance(photos, list) and photos and t.get("number") is not None:
+            out[str(t["number"])] = [
+                {"uid": p.get("uid"), "title": p.get("title"), "created_at": p.get("created_at"),
+                 "url": pick_url(p), "download_url": p.get("download_url"),
+                 "source_url": p.get("source_url") or p.get("url")}
+                for p in photos if isinstance(p, dict) and p.get("uid")]
+    return out
 
 
 def fetch(url, dest, timeout):
@@ -54,10 +91,21 @@ def main():
 
     pull = os.path.abspath(args.pull)
     meta_path = os.path.join(pull, "mcp_photo_urls.json")
-    if not os.path.isfile(meta_path):
-        print(f"ERROR: {meta_path} not found; write it from the get_task results first", file=sys.stderr)
+    meta = json.load(open(meta_path, encoding="utf-8")) if os.path.isfile(meta_path) else {}
+    if not meta:
+        # MCP 0.7+ (get_tasks) returns each task's photos inline; materialise the
+        # per-number map once here so extract_pdf_photos.py and adapt_mcp_pull.py
+        # keep reading one file.
+        meta = photos_from_tasks(os.path.join(pull, "tasks.json"))
+        if meta:
+            with open(meta_path, "w", encoding="utf-8") as f:
+                json.dump(meta, f, indent=1)
+            print(f"photo metadata   : taken from the photos inline in tasks.json -> {os.path.basename(meta_path)}")
+    if not meta:
+        print(f"ERROR: no photo metadata: neither {meta_path} nor inline photos in tasks.json "
+              "(save the get_tasks result as tasks.json, or write mcp_photo_urls.json from get_task results)",
+              file=sys.stderr)
         return 1
-    meta = json.load(open(meta_path, encoding="utf-8"))
     dest = os.path.join(pull, "photos")
     os.makedirs(dest, exist_ok=True)
 
@@ -67,7 +115,7 @@ def main():
     for num, photos in meta.items():
         for p in photos:
             total += 1
-            url = p.get("url")
+            url = pick_url(p)
             uid, title = p.get("uid"), p.get("title") or p.get("uid")
             if not url or not uid:
                 failed.append((num, uid, "no url in metadata"))
