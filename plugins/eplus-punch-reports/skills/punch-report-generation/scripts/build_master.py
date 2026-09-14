@@ -58,10 +58,19 @@ UNDETERMINED_CA = "N/A, see Editor's Note"
 #   2. Third person self-reference ("the field engineer recorded..."). This report is
 #      written BY the field engineer, so that reads as someone else talking about them.
 # Editor's Notes are internal and exempt, they may discuss photos and pins freely.
+#
+# The patterns match NARRATION, not the bare nouns. "No accompanying photograph"
+# is field-report voice stating an absence of evidence and is allowed; "the
+# photograph shows" is not. Field result 2026-09-14: the bare-noun rule blocked a
+# render on a deleted pin whose whole note was one word, and those thin pins are
+# exactly the ones that need to say no photo exists. verify_report.py imports
+# this list so the two never disagree.
 VOICE_BANNED = [
-    r"photograph", r"photo shows", r"in the frame", r"\bimages?\b",
-    r"field engineer", r"no description was recorded", r"this photo",
-    r"not determinable from",
+    r"\b(photo(graph)?s?|images?|pictures?|frames?)\s+(show|depict|capture|indicate|reveal|confirm|suggest)",
+    r"\b(in|from|per|within)\s+(the|this|that|each|these|both)\s+(photo(graph)?s?|images?|pictures?|frames?)\b",
+    r"\b(as|is|are|was|were)\s+(shown|seen|pictured|visible|evident)\s+(in|from)\s+(the|this|that)\s+(photo|image|picture|frame)",
+    r"\bthis photo", r"\bin the frame", r"\bnot determinable from",
+    r"\bfield engineer", r"\bno description was recorded",
 ]
 
 

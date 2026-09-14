@@ -131,7 +131,17 @@ fi
 fi  # RENDER_ONLY
 
 # --- 4. master -------------------------------------------------------------
-# Fails loudly on a missing draft, an em/en dash, or a voice-rule violation.
+# The data steps above are complete without a draft; the render needs one.
+# Stop cleanly here rather than with a traceback (field result 2026-09-14),
+# so a data-only run before drafting exits 0 with the next step named.
+if [ ! -f data/drafted_items.json ]; then
+    echo
+    echo "==> data built; no data/drafted_items.json yet, so build master and render are skipped."
+    echo "    Draft the items (reference/drafting.md), then: RENDER_ONLY=1 bash scripts/run_pipeline.sh"
+    "$PY" scripts/run_record.py --pull "${PULL:-}" --task-report "${TASK_REPORT:-}" || true
+    exit 0
+fi
+# Fails loudly on an em/en dash or a voice-rule violation.
 echo "==> 4/5 build master"
 "$PY" scripts/build_master.py --items data/items.json \
     --drafted data/drafted_items.json -o "$BUILD/master_report_items.json"

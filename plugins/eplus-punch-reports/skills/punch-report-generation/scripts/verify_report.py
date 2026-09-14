@@ -32,7 +32,14 @@ import sys
 import zipfile
 
 DASH_RE = re.compile(r"[–—]")
-VOICE_BANNED = [r"photograph", r"in the frame", r"field engineer", r"this photo"]
+# One list, owned by build_master.py, so a description the build accepted can
+# never fail here. The fallback only matters if the script is run alone.
+try:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from build_master import VOICE_BANNED
+except Exception:  # pragma: no cover
+    VOICE_BANNED = [r"\b(photo(graph)?s?|images?)\s+(show|depict|capture)", r"\bthis photo",
+                    r"\bin the frame", r"\bfield engineer"]
 
 
 USAGE = ("usage: verify_report.py <report.docx> [master_report_items.json]\n"

@@ -217,7 +217,11 @@ def main():
         cur = (f"**Current output:** `{rec['output']['file']}`, {c['items']} items, {c['photos']} photos, "
                f"{c['sheet_clips']} sheet clips (page count is Word's; open the file). "
                f"Draft for internal review, not issued.")
-        text = re.sub(r"^\*\*Current output:\*\*.*$", cur, text, count=1, flags=re.M)
+        # The line and any wrapped continuation up to the next blank line, so a
+        # template that wrapped the sentence never leaves a dangling fragment
+        # (field result 2026-09-14: "clips. Draft for internal review" was left
+        # behind and had to be edited out by hand).
+        text = re.sub(r"^\*\*Current output:\*\*.*(?:\n(?!\n).*)*", cur, text, count=1, flags=re.M)
         room_pct = round(100 * (c['items'] - c['with_room']) / c['items']) if c['items'] else 0
         dq = "\n".join([
             f"- {c['items']} items in scope, {len(c['described'])} with an authored description, {len(c['photo_only'])} photo-only",

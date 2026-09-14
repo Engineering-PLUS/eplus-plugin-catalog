@@ -206,9 +206,13 @@ are banned from descriptions, and `build_master.py` fails the build and names th
 offending item if either appears:
 
 **1. Narrating the evidence.** "The photograph shows", "visible in the frame",
-"not determinable from this photograph". These describe the evidence rather than
-the site and make an otherwise solid write-up look machine-produced. State the
-condition directly:
+"not determinable from this photograph", "as seen in the image". These describe
+the evidence rather than the site and make an otherwise solid write-up look
+machine-produced. The guard matches the narration (a photo, image, picture or
+frame that *shows, depicts, captures, indicates, reveals, confirms* or
+*suggests* something; "in the photo", "from this image", "as shown in the
+picture"), not the bare nouns: a plain statement that no photograph exists for
+a pin is field-report voice and passes. State the condition directly:
 
 > *"Metal stud wall framing at this location carries a junction box with flexible
 > metal conduit whips terminating in open air…"*

@@ -31,6 +31,13 @@ for c in python3 python; do
 done
 [ -n "$PY" ] || { echo "pull_mcp.sh: no working python3/python on PATH" >&2; exit 2; }
 mkdir -p "$dest"
+# curl's stderr goes to a PRIVATE temp file. /tmp is shared between sandbox
+# sessions (mounted nobody:nogroup, sticky), so a fixed /tmp/pull_mcp.err left
+# by another session is unwritable here and bash aborts the whole command on
+# the failed redirect: curl never runs and the script reports "FETCH FAILED
+# (HTTP none; )", which reads like an egress block. Field result 2026-09-14.
+err="$(mktemp "${TMPDIR:-/tmp}/pull_mcp.XXXXXX" 2>/dev/null || echo "$dest/.pull_mcp.$$.err")"
+trap 'rm -f "$err"' EXIT
 rc=0
 for spec in "${args[@]}"; do
     url="${spec%%#*}"
@@ -42,9 +49,9 @@ for spec in "${args[@]}"; do
         *) echo "$name: not a packet url (expected .../files/<job>/<name>.json)"; rc=1; continue ;;
     esac
     out="$dest/$name"
-    code=$(curl -sS -o "$out" -w '%{http_code}' "$url" 2>/tmp/pull_mcp.err || true)
+    code=$(curl -sS -o "$out" -w '%{http_code}' "$url" 2>"$err" || true)
     if [ "$code" != "200" ]; then
-        echo "$name: FETCH FAILED (HTTP ${code:-none}; $(head -c 120 /tmp/pull_mcp.err 2>/dev/null))"
+        echo "$name: FETCH FAILED (HTTP ${code:-none}; $(head -c 120 "$err" 2>/dev/null))"
         [ "$code" = "404" ] && echo "   the packet expired or the url is wrong: call the MCP tool again for a fresh one"
         rm -f "$out"; rc=1; continue
     fi

@@ -3,8 +3,7 @@
 Everything needed to rebuild this report from the raw PlanGrid pull. Read this
 before touching anything in here.
 
-**Current output:** `<filename>.docx`, <N> items, <N> pages, <N> photos, <N> sheet
-clips. Draft for internal review, not issued.
+**Current output:** `<filename>.docx`, <N> items, <N> photos, <N> sheet clips. Draft for internal review, not issued.
 
 ---
 

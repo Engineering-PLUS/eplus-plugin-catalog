@@ -163,6 +163,33 @@ assert m["#1"]["date_recorded"] == "12/31/2025", m["#1"]     # the PIN's date, n
 assert m["#3"]["date_recorded"] == "01/02/2026" and m["#3"]["deleted_in_plangrid"] is True
 assert m["#1"]["deleted_in_plangrid"] is False
 assert "date recorded  : 2 from pin created_at" in r.stdout and "deleted, kept  : ['#3']" in r.stdout, r.stdout
+# the voice guard bans narration, not the noun: an absence-of-evidence sentence passes,
+# "the photograph shows" does not, and verify_report.py uses the same list
+import importlib.util
+spec = importlib.util.spec_from_file_location("bm", "build_master.py"); bm = importlib.util.module_from_spec(spec); spec.loader.exec_module(bm)
+spec = importlib.util.spec_from_file_location("vr", "verify_report.py"); vr = importlib.util.module_from_spec(spec); spec.loader.exec_module(vr)
+assert vr.VOICE_BANNED is bm.VOICE_BANNED or vr.VOICE_BANNED == bm.VOICE_BANNED, "verify_report.py voice list diverged"
+import re as _re
+hit = lambda s: any(_re.search(p, s, _re.I) for p in bm.VOICE_BANNED)
+for ok_text in ("The field note reads only Up, with no accompanying photograph.",
+                "No photographs were taken at this pin; condition requires field verification.",
+                "Cable tray is not bonded to the building grounding system."):
+    assert not hit(ok_text), ok_text
+for bad_text in ("The photograph shows an open junction box.", "Conduit is visible in the frame.",
+                 "As seen in the image, the tray is unsupported.", "In the photo the box is open.",
+                 "The field engineer recorded the condition.", "This photo captures the stub."):
+    assert hit(bad_text), bad_text
+drafted["items"][0]["description"] = "Pin note reads Up, with no accompanying photograph."
+json.dump(drafted, open(os.path.join(d, "drafted.json"), "w", encoding="utf-8"))
+r = subprocess.run([sys.executable, "build_master.py", "--items", os.path.join(d, "items.json"),
+                    "--drafted", os.path.join(d, "drafted.json"), "-o", out], capture_output=True, text=True)
+assert r.returncode == 0, "absence-of-photo sentence must pass the build\n" + r.stdout + r.stderr
+drafted["items"][0]["description"] = "The photograph shows conduit stubbed up."
+json.dump(drafted, open(os.path.join(d, "drafted.json"), "w", encoding="utf-8"))
+r = subprocess.run([sys.executable, "build_master.py", "--items", os.path.join(d, "items.json"),
+                    "--drafted", os.path.join(d, "drafted.json"), "-o", out], capture_output=True, text=True)
+assert r.returncode != 0 and "#1" in r.stdout + r.stderr, "narration must fail the build"
+drafted["items"][0]["description"] = "Conduit stubbed up."
 # a protected entry that sanitize would alter must fail the build
 drafted["items"][1]["description"] = "bad \u2014 dash"
 json.dump(drafted, open(os.path.join(d, "drafted.json"), "w", encoding="utf-8"))
@@ -360,6 +387,14 @@ open(os.path.join(d, "verify_output.txt"), "w", encoding="utf-8").write(r.stdout
 r = subprocess.run([sys.executable, "run_record.py", "--pipeline", d, "--build", ".", "--data", ".", "--no-docs"],
                    capture_output=True, text=True)
 assert r.returncode == 0, r.stdout + r.stderr
+# the CLAUDE.md current-output line is replaced whole, even when a template wrapped it
+open(os.path.join(d, "CLAUDE.md"), "w", encoding="utf-8").write(
+    "# X\n\n**Current output:** `<f>.docx`, <N> items, <N> sheet\nclips. Draft.\n\n## Next\n")
+r = subprocess.run([sys.executable, "run_record.py", "--pipeline", d, "--build", ".", "--data", "."],
+                   capture_output=True, text=True)
+assert r.returncode == 0, r.stdout + r.stderr
+cm = open(os.path.join(d, "CLAUDE.md"), encoding="utf-8").read()
+assert "clips. Draft.\n" not in cm and "fixture.docx" in cm and "## Next" in cm, cm
 rec = json.load(open(os.path.join(d, "run.json"), encoding="utf-8"))
 assert rec["counts"]["items"] == 2 and rec["output"]["verified"] is True, rec
 assert rec["counts"]["deleted_retained"] == [2] and rec["counts"]["pin_dates"] == ["2026-01-01", "2026-01-02"], rec["counts"]
@@ -494,6 +529,10 @@ rc, out = run(f"{base}/tasks.json#" + "0" * 64)
 assert rc != 0 and "SHA256 MISMATCH" in out and not os.path.exists(os.path.join(dest, "tasks.json")), out
 rc, out = run(f"{base}/photos.json")
 assert rc != 0 and "HTTP 404" in out and "expired" in out, out
+assert "Permission denied" not in out, out
+# a stale, unwritable /tmp/pull_mcp.err from another session must not matter
+import re as _re
+assert not _re.search(r"2>\s*/tmp/\w", open("pull_mcp.sh", encoding="utf-8").read()), "fixed /tmp redirect is back"
 srv.shutdown()
 PYCHECK
 
