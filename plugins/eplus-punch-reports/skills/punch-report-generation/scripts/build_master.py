@@ -30,6 +30,12 @@ Rules enforced here so the renderer never has to care:
     are applied in memory: the absorbed pin's photos fold into the target in
     chronological order (deduped by uid, named photos dropped) and the absorbed
     pin is omitted. items.json is never mutated to record a human decision.
+  - date_recorded is the PIN's created_at (MM/DD/YYYY), never a photo timestamp.
+    Field result 2026-09-14: the renderer used to take the date from photo
+    titles, so 27 of 38 photo-less items printed "N/A" and the report had to be
+    re-delivered. photo_date is still carried for the record.
+  - deleted_in_plangrid (from consolidate.py --keep-deleted) is carried through
+    so the renderer can banner the item and mark it in the TOC.
 
 Usage:
     python3 build_master.py --items data/items.json \
@@ -101,6 +107,12 @@ def capitalize_first(s):
     if not s:
         return s
     return s[0].upper() + s[1:]
+
+
+def fmt_date(iso):
+    """'2026-08-27T20:41:19.233746' or '2026-08-27' -> '08/27/2026'; None if unparsable."""
+    m = re.match(r"^(\d{4})-(\d{2})-(\d{2})", str(iso or ""))
+    return f"{m.group(2)}/{m.group(3)}/{m.group(1)}" if m else None
 
 
 def main():
@@ -216,7 +228,14 @@ def main():
             # revisit is planned). Absent means own_photos.
             "photo_mode": d.get("photo_mode"),
             "status": it.get("status"),
+            # The pin's own creation date, which every PlanGrid item has. This is
+            # what the Date Recorded row prints; photo_date is record only.
+            "date_recorded": fmt_date(it.get("created_at")),
+            "created_at": it.get("created_at"),
             "photo_date": (it["photos"][0]["captured"][:8] if it["photos"] else None),
+            # True when consolidate.py ran with --keep-deleted and PlanGrid had the
+            # pin deleted or archived. Rendered as a red banner plus a TOC marker.
+            "deleted_in_plangrid": bool(it.get("deleted_in_plangrid")),
         })
 
     master = walk_sanitize(master)
@@ -253,6 +272,12 @@ def main():
     print(f"  origins        : {origins}")
     print(f"  with precedent : {sum(1 for m in master if m['precedent_note'])}")
     print(f"  editor notes   : {sum(1 for m in master if m['editor_note'])}")
+    undated = [m["plangrid_ref"] for m in master if not m["date_recorded"]]
+    print(f"  date recorded  : {len(master) - len(undated)} from pin created_at"
+          + (f", MISSING on {undated}" if undated else ""))
+    deleted = [m["plangrid_ref"] for m in master if m["deleted_in_plangrid"]]
+    if deleted:
+        print(f"  deleted, kept  : {deleted} (marked in the document)")
     print(f"  em/en dashes   : 0 (asserted)")
 
 

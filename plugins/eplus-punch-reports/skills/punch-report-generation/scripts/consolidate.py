@@ -19,6 +19,14 @@ Usage:
 
 `--only` accepts ranges and comma lists ("11-30", "2,5,9-12") and scopes the
 output to those PlanGrid issue numbers.
+
+Deleted and archived pins are dropped unless `--keep-deleted` is given, in
+which case they are kept and every item carries `deleted_in_plangrid`
+(true/false). That flag is an intake decision (keep the PlanGrid numbering
+intact, show the pin as deleted): the renderer prints a red DELETED IN
+PLANGRID banner on such items and the TOC marks them. Field result
+2026-09-14: without this flag two workers hand-typed the deleted pins back
+into items.json, which is exactly the retyping the pipeline exists to prevent.
 """
 import argparse
 import glob
@@ -113,6 +121,9 @@ def main():
                     help="keep only items whose title equals this (case-insensitive), e.g. the walk marker")
     ap.add_argument("--created-after", default=None,
                     help="keep only items created after this date, YYYY-MM-DD (exclusive)")
+    ap.add_argument("--keep-deleted", action="store_true",
+                    help="keep deleted/archived pins, marked deleted_in_plangrid, so the item "
+                         "numbering matches PlanGrid (an intake decision; default drops them)")
     args = ap.parse_args()
 
     root = os.path.abspath(args.project_root)
@@ -163,13 +174,17 @@ def main():
 
     items, missing_photos = [], []
     dropped_deleted, dropped_title, dropped_date, dropped_phrase, near_miss = [], [], [], [], []
+    kept_deleted = []
     for t in sorted(tasks, key=lambda z: z.get("number", 0)):
         num = t.get("number")
         if keep is not None and num not in keep:
             continue
-        if t.get("deleted") or t.get("archived"):
+        is_deleted = bool(t.get("deleted") or t.get("archived"))
+        if is_deleted and not args.keep_deleted:
             dropped_deleted.append(num)
             continue
+        if is_deleted:
+            kept_deleted.append(num)
 
         title = (t.get("title") or "").strip()
         if title_filter is not None and title.lower() != title_filter:
@@ -226,6 +241,8 @@ def main():
             "created_at": t.get("created_at"),
             "updated_at": t.get("updated_at"),
             "created_by": (t.get("created_by") or {}).get("email"),
+            # True only under --keep-deleted; the renderer banners such items.
+            "deleted_in_plangrid": is_deleted,
         })
 
     # Possible duplicate pins, from data only: two items sharing a photo uid, or
@@ -263,12 +280,13 @@ def main():
     with open(triage_path, "w", encoding="utf-8") as fh:
         json.dump({
             "tasks_source": tasks_src, "filler_title": filler,
-            "dropped_deleted_or_archived": dropped_deleted, "dropped_title": dropped_title,
+            "dropped_deleted_or_archived": dropped_deleted, "kept_deleted_marked": kept_deleted,
+            "dropped_title": dropped_title,
             "dropped_created_on_or_before": dropped_date, "dropped_phrase": dropped_phrase,
             "near_miss": near_miss,
             "possible_duplicates": possible_duplicates,
             "rules": {"only": args.only, "title": args.title, "created_after": created_after,
-                      "drop_phrases": args.drop_phrase},
+                      "drop_phrases": args.drop_phrase, "keep_deleted": args.keep_deleted},
         }, fh, indent=1)
 
     # triage summary, read this before anything else
@@ -281,7 +299,9 @@ def main():
     print(f"tasks source     : {tasks_src}")
     print(f"filler title     : {filler!r}" if filler else "filler title     : none detected")
     if dropped_deleted:
-        print(f"dropped, deleted/archived : {dropped_deleted}")
+        print(f"dropped, deleted/archived : {dropped_deleted}  (KEEP_DELETED=1 keeps them, marked)")
+    if kept_deleted:
+        print(f"kept, deleted/archived (marked deleted_in_plangrid) : {kept_deleted}")
     if title_filter is not None:
         print(f"dropped, title != {args.title!r} : {dropped_title}")
     if created_after:

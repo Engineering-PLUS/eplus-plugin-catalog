@@ -14,19 +14,33 @@ $ARGUMENTS
 
 **The pipeline is a stampable project template, not a set of loose scripts.**
 Build a workspace in the session's own outputs area (your working folder, never
-the user's project folder): copy `template/` into it, copy `scripts/` into
-`_pipeline/scripts/`, and copy the inputs (the PlanGrid pull and the Task Report
-PDF) in beside `_pipeline/` once. Work only there. The template's
-`_pipeline/CLAUDE.md` is the operating manual for that project and is the file
-a future run reads first — fill it in as you go rather than at the end.
+the user's project folder) with **one command, and only this command**:
 
-**Where the template and scripts are.** From bash in the sandbox this skill is
+```bash
+bash <plugin skill>/scripts/init_workspace.sh <workspace>                       # fresh run
+bash <plugin skill>/scripts/init_workspace.sh <workspace> --from-package <zip>  # re-run
+```
+
+It lays the template out at the workspace root (so `<workspace>/_pipeline/CLAUDE.md`,
+`build/assets/`, `build/report.config.json` and `client-profile.json` exist where
+the pipeline reads them), refreshes `_pipeline/scripts/` from the plugin, makes
+the tree writable, and exits non-zero naming anything missing. Never hand-roll
+`cp` commands for this: on 2026-09-14 a worker copied `template/` to
+`_pipeline/template/`, the first render died on a missing logo, a config was
+written into the user's project folder by mistake, and the delivered package
+had no CLAUDE.md, PROCESS-LOG or ISSUES-LIST at all. Then copy the inputs (the
+PlanGrid pull and the Task Report PDF) in beside `_pipeline/` once. Work only
+there. The template's `_pipeline/CLAUDE.md` is the operating manual for that
+project and is the file a future run reads first — fill it in as you go rather
+than at the end.
+
+**Where the plugin is.** From bash in the sandbox this skill is
 at `/sessions/<session>/mnt/.local-plugins/marketplaces/eplus-claude-plugins/plugins/eplus-punch-reports/skills/punch-report-generation/`
 (`ls /sessions` gives `<session>`). The host-side path in this file's "Base
 directory" line is the same folder seen by Read and Grep; it is not visible to
-bash. Stamp from the plugin path every run, including re-runs that unzip a
-prior package: the package supplies data and decisions, the plugin supplies
-scripts.
+bash. Run `init_workspace.sh` from that plugin path every run, including
+re-runs from a prior package: the package supplies data and decisions, the
+plugin supplies scripts (the script skips the package's `scripts/` on purpose).
 
 **Tooling facts come from this skill, not from memory.** Memory entries and a
 prior package's CLAUDE.md, PROCESS-LOG and LESSONS-LEARNED are good sources for
@@ -50,10 +64,22 @@ The `punch-report` command carries the full intake procedure and the exact
 question set; follow it. The shape is fixed: gather first (the client profile
 from the project folder, the pull, the Task Report PDF, a consolidate run with
 the known rules), then **one `AskUserQuestion` call** covering scope edge
-cases, issuance date, the identity block, and the cover mode. Field results
+cases (strays, deleted pins, a pull spanning two walk dates), issuance date,
+the identity block with the cover mode, and the wording mode. Field results
 2026-09-09 and 2026-09-10: three rounds on one report cost 47 minutes of
 waiting, and the cover fields that were never asked are why the reviewer
-rebuilds the cover by hand.
+rebuilds the cover by hand. Field result 2026-09-14: five rounds, 14 minutes
+of waiting, because identity and the EP number were asked at render time and
+the wording mode was asked as its own round after the clips.
+
+**Offer only what the pipeline can do.** Every option in an intake question
+maps to a switch that exists: a deleted pin is dropped (default) or kept and
+marked (`KEEP_DELETED=1`); a two-date pull is one report with the pin date on
+every item (default), one report with visit section headings
+(`visit_sections: "by_date"` or `visit_breaks` in `report.config.json`), or one
+date only (`CREATED_AFTER` / `SCOPE`). On 2026-09-14 "keep both, marked" and
+"two visit sections" were offered and chosen before either existed; two workers
+hand-patched the data and a fifth question round undid the section decision.
 
 | Input | Required? | Notes |
 |---|---|---|
@@ -165,14 +191,15 @@ python3 scripts/extract_pdf_photos.py "../<Task Report>.pdf" --pull ../plangrid_
 python3 scripts/adapt_mcp_pull.py                                   # ../plangrid_mcp -> ../plangrid_pull
 
 # Step 1  Consolidate                         -> reference/build-data.md
-python3 scripts/consolidate.py <pull_dir> -o data/items.json [--only 11-30]
+#         (--keep-deleted, or KEEP_DELETED=1 on run_pipeline.sh, when intake said "keep, marked")
+python3 scripts/consolidate.py <pull_dir> -o data/items.json [--only 11-30] [--keep-deleted]
 
 # Step 2  Normalise photos                    -> reference/build-data.md
 python3 scripts/normalize_photos.py --items data/items.json \
     --dest build/thumbs_uniform --dims-out data/thumb_dims.json
 
 # Step 3  Read every source, diff duplicate notes   -> reference/drafting.md
-# Step 3.5 Ask how the wording is set (AskUserQuestion, preview artifact)
+#         (the wording mode was settled at intake; the per-item review loop, if chosen, is Step 3.5)
 # Step 4  Draft data/drafted_items.json       -> reference/drafting.md
 # Step 5  Precedent: query_hermes_punch, then get_punch_item -> reference/drafting.md
 
@@ -181,22 +208,23 @@ python3 scripts/extract_sheet_clips.py "<Task Report>.pdf" build/sheet_clips_jpg
     --items-from data/items.json --dims-out build/sheet_clip_dims_jpg.json
 
 # Step 7  Assemble and render                 -> reference/render.md
-#         (build master, gen_report.js, fix_bookmark_ids.py, verify_report.py, in one go)
+#         (build master, gen_report.js, fix_bookmark_ids.py, verify_report.py,
+#          review_sheet.py export -> build/<report>-Review.xlsx, in one go)
 RENDER_ONLY=1 bash scripts/run_pipeline.sh
 
-# Step 8  Verify (OOXML, then visual)         -> reference/verify-and-deliver.md
-python3 scripts/render_preview.py build/<output>.docx --pages 1,4
+# Step 8  Verify: the verifier already ran; look at THREE preview pages and stop
+#         (cover, one item with photos, one without)  -> reference/verify-and-deliver.md
+python3 scripts/render_preview.py build/<output>.docx --pages 1,<photo item>,<no-photo item>
 
 # Step 9  Keep it editable: comments and review sheet -> reference/verify-and-deliver.md
 python3 scripts/read_comments.py <reviewed>.docx            # readable
 python3 scripts/read_comments.py <reviewed>.docx --json -o comments.json
-python3 scripts/review_sheet.py export build -o Report-Review.xlsx
-#   reviewer edits the yellow columns
-python3 scripts/review_sheet.py import build Report-Review.xlsx
+#   reviewer edits the yellow columns of build/<report>-Review.xlsx
+python3 scripts/review_sheet.py import build build/<report>-Review.xlsx
 RENDER_ONLY=1 bash scripts/run_pipeline.sh
 
 # Step 10 Deliver, once, through package.py   -> reference/verify-and-deliver.md
-python3 scripts/package.py <workspace> "<project folder>"
+python3 scripts/package.py <workspace> "<project folder>"          # --replace only when the user said so
 ```
 
 A revision of an already-delivered report (the common case) starts from
@@ -209,8 +237,12 @@ Every Agent prompt sent during a run starts with the block in
 and project paths, the stage and its one reference file, the decisions already
 made, and where to stop. Do not write worker instructions from scratch; the
 brief is the instruction set, and it already forbids the things that stalled
-field runs (deleting files, reading memory, studying scripts instead of running
-them, talking to the user).
+field runs (deleting files, reading memory, studying or editing scripts instead
+of running them, talking to the user). Never ask a worker to "check what a
+script keys off" or to make a renderer do something the config has no switch
+for: that is a plugin change, it comes back as an Open question, and the main
+thread files it with `report_issue`. A `_v2` copy of a script inside a
+workspace is not a fix; it is a divergence the next run cannot see.
 
 Workers make no decisions. A worker that reaches a decision the brief does not
 cover finishes what does not depend on it, stops, and returns the question
@@ -246,6 +278,15 @@ Standing decisions. Follow them unless told otherwise for a particular report:
   evidence a shot was missed and are worth seeing.
 - **Suspected misfire pins are surfaced as questions**, never deleted and never
   force-described.
+- **Pins PlanGrid has deleted or archived are dropped**, and listed, unless
+  intake settled "keep, marked": then `KEEP_DELETED=1` keeps them, every item
+  carries `deleted_in_plangrid`, and the renderer prints a red DELETED IN
+  PLANGRID banner and marks the TOC entry. Nobody types a deleted pin back into
+  `items.json`.
+- **Date Recorded is the pin's own creation date**, on every item, from
+  `created_at`. Photo timestamps are never the source. A pull spanning two walk
+  dates therefore reads correctly as a flat list; visit section headings are an
+  intake option on top of that, never a substitute for the dates.
 - **The `.docx` is the working file and the file of record.** The reviewer
   issues the report from Word. PDFs for your own layout checks are fine under
   `build/_scratch/`; a PDF is packaged only when the user asks, via

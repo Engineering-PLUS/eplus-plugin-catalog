@@ -38,6 +38,11 @@ fail=0
 ok()   { printf '  [PASS] %s\n' "$1"; }
 bad()  { printf '  [FAIL] %s\n' "$1"; fail=$((fail+1)); }
 
+# The bash running this test, in a form the host python can exec (on a Windows
+# dev box a bare "bash" from python resolves to WSL's). Used by the checks that
+# run shell scripts from python.
+export SMOKE_BASH="$(cygpath -w "$BASH" 2>/dev/null || echo "$BASH")"
+
 echo "smoke test: $(pwd)"
 echo
 
@@ -70,20 +75,68 @@ fi
     && ok "run_pipeline.sh parses" || bad "run_pipeline.sh missing or unparseable"
 [ -f install_deps.sh ] && bash -n install_deps.sh 2>/dev/null \
     && ok "install_deps.sh parses" || bad "install_deps.sh missing or unparseable"
+[ -f init_workspace.sh ] && bash -n init_workspace.sh 2>/dev/null \
+    && ok "init_workspace.sh parses" || bad "init_workspace.sh missing or unparseable"
 [ -f requirements.txt ] && ok "requirements.txt present" || bad "requirements.txt missing"
+
+# init_workspace.sh lays the workspace out the one way the pipeline reads it.
+# Only testable from a skill checkout (the template sits beside scripts/).
+if [ -d ../template/_pipeline ]; then
+"$PY" - <<'PYCHECK' 2>&1 && ok "init_workspace.sh: stamps template at the root, refreshes scripts, keeps edits, checks layout" \
+    || bad "init_workspace.sh behavioural check failed"
+import os, subprocess, sys, tempfile, zipfile
+bash = os.environ.get("SMOKE_BASH") or "bash"
+d = tempfile.mkdtemp(); ws = os.path.join(d, "ws")
+r = subprocess.run([bash, "init_workspace.sh", ws], capture_output=True, text=True)
+assert r.returncode == 0, r.stdout + r.stderr
+for p in ("_pipeline/CLAUDE.md", "_pipeline/build/report.config.json", "_pipeline/build/assets/logos/ep_logo.jpg",
+          "_pipeline/scripts/run_pipeline.sh", "_pipeline/scripts/init_workspace.sh", "client-profile.json", "README.md",
+          "_pipeline/build/_scratch", "_pipeline/data"):
+    assert os.path.exists(os.path.join(ws, p)), f"missing {p}"
+assert not os.path.exists(os.path.join(ws, "_pipeline", "template")), "template nested under _pipeline"
+assert not os.path.exists(os.path.join(ws, "_pipeline", "scripts", "node_modules")), "node_modules copied"
+assert os.access(os.path.join(ws, "_pipeline", "scripts", "build_master.py"), os.W_OK)
+# a second run keeps the filled-in files and refreshes the scripts
+claude = os.path.join(ws, "_pipeline", "CLAUDE.md")
+open(claude, "a", encoding="utf-8").write("\nFILLED IN\n")
+script = os.path.join(ws, "_pipeline", "scripts", "run_pipeline.sh")
+open(script, "w").write("broken")
+r = subprocess.run([bash, "init_workspace.sh", ws], capture_output=True, text=True)
+assert r.returncode == 0 and "existing workspace" in r.stdout, r.stdout + r.stderr
+assert "FILLED IN" in open(claude, encoding="utf-8").read()
+assert open(script).read() != "broken", "scripts not refreshed from the plugin"
+# re-run from a package: data comes from the zip, scripts from the plugin
+pkg = os.path.join(d, "pkg.zip")
+with zipfile.ZipFile(pkg, "w") as z:
+    z.writestr("_pipeline/CLAUDE.md", "FROM PACKAGE")
+    z.writestr("_pipeline/data/drafted_items.json", "[]")
+    z.writestr("_pipeline/scripts/run_pipeline.sh", "stale")
+    z.writestr("_pipeline/build/report.config.json", "{}")
+ws2 = os.path.join(d, "ws2")
+r = subprocess.run([bash, "init_workspace.sh", ws2, "--from-package", pkg], capture_output=True, text=True)
+assert r.returncode != 0, "a package with no assets must fail the layout check\n" + r.stdout
+assert open(os.path.join(ws2, "_pipeline", "CLAUDE.md"), encoding="utf-8").read() == "FROM PACKAGE"
+assert open(os.path.join(ws2, "_pipeline", "scripts", "run_pipeline.sh")).read() != "stale"
+# from a workspace copy there is nothing to stamp from: refuse, do not guess
+r = subprocess.run([bash, os.path.join(ws, "_pipeline", "scripts", "init_workspace.sh"), os.path.join(d, "ws3")],
+                   capture_output=True, text=True)
+assert r.returncode != 0 and "PLUGIN" in r.stdout + r.stderr, r.stdout + r.stderr
+PYCHECK
+fi
 
 # Behavioural checks on the pure-stdlib helpers, so a regression in the merge or
 # protection logic is caught here and not on a live report.
-"$PY" - <<'PYCHECK' 2>&1 && ok "build_master.py: merges block, origin protection, photo_mode" \
+"$PY" - <<'PYCHECK' 2>&1 && ok "build_master.py: merges block, origin protection, photo_mode, pin date, deleted flag" \
     || bad "build_master.py behavioural check failed"
 import json, os, subprocess, sys, tempfile
 d = tempfile.mkdtemp()
 items = [
   {"number": 1, "photos": [{"uid": "a", "title": "20260101_100000_a", "captured": "20260101T100000", "path": "/p/a__20260101_100000_a.jpg"}],
-   "sheet_name": "TO2-01A", "sheet_description": "Plan", "room": "", "status": "open"},
+   "sheet_name": "TO2-01A", "sheet_description": "Plan", "room": "", "status": "open", "created_at": "2025-12-31T18:05:00.000+00:00"},
   {"number": 2, "photos": [{"uid": "b", "title": "20260101_090000_b", "captured": "20260101T090000", "path": "/p/b__20260101_090000_b.jpg"}],
-   "sheet_name": "T02-01A", "sheet_description": "Plan", "room": "", "status": "open"},
-  {"number": 3, "photos": [], "sheet_name": None, "sheet_description": None, "room": "", "status": "open"},
+   "sheet_name": "T02-01A", "sheet_description": "Plan", "room": "", "status": "open", "created_at": "2025-12-31T18:06:00"},
+  {"number": 3, "photos": [], "sheet_name": None, "sheet_description": None, "room": "", "status": "open",
+   "created_at": "2026-01-02", "deleted_in_plangrid": True},
 ]
 drafted = {"items": [
   {"number": 1, "title": "Alpha", "description": "Conduit stubbed up.", "corrective_action": "fix it",
@@ -106,6 +159,10 @@ assert m["#3"]["corrective_action"] == "leave as is"         # protected: untouc
 assert m["#3"]["photo_mode"] == "none"
 assert m["#1"]["sheet_name"] == "T02-01A"                    # OCR letter-O repaired
 assert "field_note_original" in m["#1"]
+assert m["#1"]["date_recorded"] == "12/31/2025", m["#1"]     # the PIN's date, not the photo's (01/01)
+assert m["#3"]["date_recorded"] == "01/02/2026" and m["#3"]["deleted_in_plangrid"] is True
+assert m["#1"]["deleted_in_plangrid"] is False
+assert "date recorded  : 2 from pin created_at" in r.stdout and "deleted, kept  : ['#3']" in r.stdout, r.stdout
 # a protected entry that sanitize would alter must fail the build
 drafted["items"][1]["description"] = "bad \u2014 dash"
 json.dump(drafted, open(os.path.join(d, "drafted.json"), "w", encoding="utf-8"))
@@ -115,7 +172,7 @@ r = subprocess.run([sys.executable, "build_master.py", "--items", os.path.join(d
 assert r.returncode != 0 and "not sanitize-clean" in (r.stdout + r.stderr)
 PYCHECK
 
-"$PY" - <<'PYCHECK' 2>&1 && ok "consolidate.py: multi-delta layering, oldest first" \
+"$PY" - <<'PYCHECK' 2>&1 && ok "consolidate.py: multi-delta layering, scope rules, --keep-deleted" \
     || bad "consolidate.py behavioural check failed"
 import json, os, subprocess, sys, tempfile
 d = tempfile.mkdtemp()
@@ -145,6 +202,7 @@ rows = [
   dict(t(13, "d", "Missing box"), title="General", created_at="2026-09-03T10:00:00"),
   dict(t(14, "e", "Missing box"), title="Visit 2", created_at="2026-08-20T10:00:00"),
   dict(t(15, "f", "Missing box"), title="Visit 2", created_at="2026-09-03T10:00:00", archived=True),
+  dict(t(16, "g", "Up"), title="Visit 2", created_at="2026-09-03T10:00:00", deleted=True),
 ]
 os.makedirs(os.path.join(d2, "photos")); json.dump(rows, open(os.path.join(d2, "tasks.json"), "w"))
 json.dump([], open(os.path.join(d2, "sheets.json"), "w"))
@@ -162,8 +220,22 @@ got = {i["number"]: i for i in json.load(open(out2, encoding="utf-8"))}
 assert sorted(got) == [11, 12], sorted(got)
 assert "NEAR-MISS" in r.stdout and "#11" in r.stdout, r.stdout
 assert got[11]["possible_duplicate"] == [12] and got[12]["possible_duplicate"] == [11], got
+assert got[11]["deleted_in_plangrid"] is False
 tri = json.load(open(os.path.join(d2, "triage.json"), encoding="utf-8"))
 assert tri["possible_duplicates"] == [[11, 12]], tri
+assert tri["dropped_deleted_or_archived"] == [15, 16] and tri["kept_deleted_marked"] == [], tri
+# --keep-deleted: the intake decision "keep, marked". Deleted and archived pins
+# stay, flagged, and still obey the other scope rules.
+out3 = os.path.join(d2, "items_keep.json")
+r = subprocess.run([sys.executable, "consolidate.py", d2, "-o", out3, "--drop-phrase", "Observation only for record",
+                    "--title", "Visit 2", "--created-after", "2026-08-31", "--keep-deleted"], capture_output=True, text=True)
+assert r.returncode == 0, r.stdout + r.stderr
+got = {i["number"]: i for i in json.load(open(out3, encoding="utf-8"))}
+assert sorted(got) == [11, 12, 15, 16], sorted(got)
+assert got[15]["deleted_in_plangrid"] is True and got[16]["deleted_in_plangrid"] is True and got[12]["deleted_in_plangrid"] is False
+assert "kept, deleted/archived (marked deleted_in_plangrid) : [15, 16]" in r.stdout, r.stdout
+tri = json.load(open(os.path.join(d2, "triage.json"), encoding="utf-8"))
+assert tri["kept_deleted_marked"] == [15, 16] and tri["rules"]["keep_deleted"] is True, tri
 PYCHECK
 
 "$PY" - <<'PYCHECK' 2>&1 && ok "fix_bookmark_ids.py: renumbers duplicate ids, canonical PAGEREF" \
@@ -194,7 +266,7 @@ PYCHECK
 # reviewer once (2026-09-09) with verify_report.py passing 16/16, because the
 # checks lived only in a session workspace. They now live here.
 if node -e 'require("docx")' >/dev/null 2>&1; then
-"$PY" - <<'PYCHECK' 2>&1 && ok "gen_report.js: fixture renders, no <undefined>, unique wp:docPr ids, verify passes" \
+"$PY" - <<'PYCHECK' 2>&1 && ok "gen_report.js: fixture renders, pin dates, deleted banner, visit sections, no <undefined>, unique wp:docPr ids, verify passes" \
     || bad "gen_report.js render check failed"
 import json, os, re, shutil, subprocess, sys, tempfile, zipfile
 here = os.getcwd()
@@ -208,10 +280,15 @@ d = tempfile.mkdtemp()
 shutil.copytree(assets, os.path.join(d, "assets"))
 os.makedirs(os.path.join(d, "thumbs_uniform"))
 os.makedirs(os.path.join(d, "sheet_clips_jpg"))
+# Two visit dates, the second item deleted in PlanGrid and kept (intake "keep, marked").
 items = [{"number": 1, "photos": [], "sheet_name": "T02-01A", "sheet_description": "Plan",
-          "room": "", "status": "open", "created_at": "2026-01-01T10:00:00"}]
+          "room": "", "status": "open", "created_at": "2026-01-01T10:00:00"},
+         {"number": 2, "photos": [], "sheet_name": "T02-01A", "sheet_description": "Plan",
+          "room": "", "status": "open", "created_at": "2026-01-02T09:30:00", "deleted_in_plangrid": True}]
 drafted = {"items": [{"number": 1, "title": "Alpha", "description": "Conduit stubbed up.",
-                      "corrective_action": "Cap it.", "origin": "authored", "photo_mode": "none"}]}
+                      "corrective_action": "Cap it.", "origin": "authored", "photo_mode": "none"},
+                     {"number": 2, "title": "Beta", "description": "Pin carries no usable content.",
+                      "corrective_action": "None.", "origin": "authored", "photo_mode": "none"}]}
 json.dump(items, open(os.path.join(d, "items.json"), "w", encoding="utf-8"))
 json.dump(drafted, open(os.path.join(d, "drafted.json"), "w", encoding="utf-8"))
 master = os.path.join(d, "master_report_items.json")
@@ -223,19 +300,45 @@ json.dump({"master_file": "master_report_items.json", "output_filename": "fixtur
            "cover_mode": "template", "cover_eyebrow": "Technology Site Inspection",
            "cover_subtitle": "Building X", "client_display_name": "Fixture Client Project",
            "site_address": ["1 Fixture St.,", "Town, ST"], "ep_project_no": "99999",
-           "inspection_date": "2026-01-01", "issuance_date": "2026-01-02", "inspector": "Fixture"},
+           "inspection_date": "2026-01-01", "issuance_date": "2026-01-02", "inspector": "Fixture",
+           "visit_sections": "by_date"},
           open(os.path.join(d, "report.config.json"), "w", encoding="utf-8"))
 json.dump({}, open(os.path.join(d, "sheet_clip_dims_jpg.json"), "w", encoding="utf-8"))
 r = subprocess.run(["node", "gen_report.js", d], capture_output=True, text=True)
 assert r.returncode == 0, r.stdout + r.stderr
+assert "visit_sections=2 deleted_marked=1" in r.stdout and "DATE_RECORDED_MISSING" not in r.stdout, r.stdout
 out = os.path.join(d, "fixture.docx")
 x = zipfile.ZipFile(out).read("word/document.xml").decode("utf-8")
 assert "<undefined" not in x, "literal <undefined> element rendered: gen_report.js lost the importXml() unwrap"
 ids = re.findall(r'<wp:docPr[^>]*\bid="(\d+)"', x)
 assert len(ids) == len(set(ids)), f"duplicate wp:docPr ids: {ids}"  # body may hold no images at all
 assert x.count("<w:sectPr") == 2, "body must carry a blank first section in template mode"
-body_text = " ".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", x))
+body_text = re.sub(r"\s+", " ", " ".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", x)))
 assert "99999" not in body_text, "EP project number leaked into the body"
+assert "Date Recorded 01/01/2026" in body_text and "Date Recorded 01/02/2026" in body_text, body_text[-600:]
+assert "Date Recorded N/A" not in body_text, "pin date not used for Date Recorded"
+assert body_text.count("DELETED IN PLANGRID.") == 1, "deleted banner missing or repeated"
+assert "(deleted in PlanGrid)" in body_text, "TOC entry not marked for the deleted pin"
+assert "Site Visit 1, 01/01/2026" in body_text and "Site Visit 2, 01/02/2026" in body_text, "visit headings missing"
+assert len(re.findall(r"PAGEREF\s+\w+", x)) == 4, "TOC must list 2 items + 2 visit sections"
+assert x.count("<w:pageBreakBefore/>") == 2, "one page break per item (carried by the visit heading)"
+# a break naming an item that is not in the master must fail the render, not render flat
+cfg = json.load(open(os.path.join(d, "report.config.json"), encoding="utf-8"))
+cfg["visit_breaks"] = [{"before": 1, "title": "A"}, {"before": 99, "title": "B"}]
+json.dump(cfg, open(os.path.join(d, "report.config.json"), "w", encoding="utf-8"))
+r2 = subprocess.run(["node", "gen_report.js", d, os.path.join(d, "bad.docx")], capture_output=True, text=True)
+assert r2.returncode != 0 and "99" in r2.stderr, "bad visit_breaks must fail loudly"
+del cfg["visit_breaks"]
+json.dump(cfg, open(os.path.join(d, "report.config.json"), "w", encoding="utf-8"))
+# issuance date TBD is the sanctioned draft placeholder; the cover check must accept it
+cfg_tbd = dict(cfg, issuance_date="TBD", output_filename="tbd.docx")
+json.dump(cfg_tbd, open(os.path.join(d, "report.config.json"), "w", encoding="utf-8"))
+r3 = subprocess.run(["node", "gen_report.js", d], capture_output=True, text=True)
+assert r3.returncode == 0, r3.stdout + r3.stderr
+subprocess.run([sys.executable, "fix_bookmark_ids.py", os.path.join(d, "tbd.docx")], capture_output=True, text=True)
+r3 = subprocess.run([sys.executable, "verify_report.py", os.path.join(d, "tbd.docx"), master], capture_output=True, text=True)
+assert r3.returncode == 0 and "issuance date TBD" in r3.stdout, "TBD issuance date must verify\n" + r3.stdout + r3.stderr
+json.dump(cfg, open(os.path.join(d, "report.config.json"), "w", encoding="utf-8"))
 cz = zipfile.ZipFile(os.path.join(d, "fixture-Cover.docx"))
 cx = cz.read("word/document.xml").decode("utf-8")
 ctext = " ".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", cx))
@@ -258,12 +361,75 @@ r = subprocess.run([sys.executable, "run_record.py", "--pipeline", d, "--build",
                    capture_output=True, text=True)
 assert r.returncode == 0, r.stdout + r.stderr
 rec = json.load(open(os.path.join(d, "run.json"), encoding="utf-8"))
-assert rec["counts"]["items"] == 1 and rec["output"]["verified"] is True, rec
+assert rec["counts"]["items"] == 2 and rec["output"]["verified"] is True, rec
+assert rec["counts"]["deleted_retained"] == [2] and rec["counts"]["pin_dates"] == ["2026-01-01", "2026-01-02"], rec["counts"]
+# the review sheet lands in the build folder under the report's stem, by default
+r = subprocess.run([sys.executable, "review_sheet.py", "export", d], capture_output=True, text=True)
+assert r.returncode == 0 and os.path.isfile(os.path.join(d, "fixture-Review.xlsx")), r.stdout + r.stderr
+cfg["output_filename"] = "Proj-Bldg-Punch-Report-DRAFT-v0.3.docx"
+json.dump(cfg, open(os.path.join(d, "report.config.json"), "w", encoding="utf-8"))
+r = subprocess.run([sys.executable, "review_sheet.py", "export", d], capture_output=True, text=True)
+assert r.returncode == 0 and os.path.isfile(os.path.join(d, "Proj-Bldg-Punch-Report-Review.xlsx")), r.stdout + r.stderr
+from openpyxl import load_workbook
+ws = load_workbook(os.path.join(d, "Proj-Bldg-Punch-Report-Review.xlsx")).active
+hdr = [c.value for c in ws[1]]
+row2 = [c.value for c in ws[3]]
+assert row2[hdr.index("Date Recorded")] == "01/02/2026" and row2[hdr.index("Deleted in PlanGrid")] == "Y", row2
 shutil.rmtree(d, ignore_errors=True)
 PYCHECK
 else
     bad "gen_report.js render check skipped: docx package not installed (bash scripts/install_deps.sh)"
 fi
+
+# package.py: the zip carries the workspace and nothing that was superseded
+# during the run; re-delivery suffixes by default and overwrites only with
+# --replace.
+"$PY" - <<'PYCHECK' 2>&1 && ok "package.py: clean manifest (no strays, no earlier renders, no duplicate photos), suffix vs --replace" \
+    || bad "package.py behavioural check failed"
+import os, subprocess, sys, tempfile, time, zipfile
+d = tempfile.mkdtemp(); ws = os.path.join(d, "ws"); dest = os.path.join(d, "project"); os.makedirs(dest)
+def w(rel, data=b"x"):
+    p = os.path.join(ws, rel); os.makedirs(os.path.dirname(p), exist_ok=True)
+    open(p, "wb").write(data); return p
+w("_pipeline/CLAUDE.md"); w("_pipeline/PROCESS-LOG.md"); w("client-profile.json", b"{}")
+w("_pipeline/data/items.json"); w("_pipeline/data/_write_probe.json")
+w("_pipeline/scripts/build_master.py"); w("_pipeline/scripts/_write_probe.py"); w("_pipeline/scripts/node_modules/docx/x.js")
+w("_pipeline/template/_pipeline/CLAUDE.md"); w("_pipeline/templates/item-preview.html")
+w("_pipeline/build/master_report_items.json"); w("_pipeline/build/master_report_items.json.20260914.bak.json")
+w("_pipeline/build/assets/logos/ep_logo.jpg"); w("_pipeline/build/thumbs_uniform/a.jpg"); w("_pipeline/build/sheet_clips_jpg/item_1.jpg")
+w("_pipeline/build/_scratch/preview.pdf"); w("_pipeline/build/v0.2/X-DRAFT-v0.2.docx")
+w("plangrid_mcp/tasks.json"); w("plangrid_mcp/photos/p.jpg"); w("plangrid_pull/tasks.json"); w("plangrid_pull/photos/p.jpg")
+old = w("_pipeline/build/X-DRAFT-v0.1.docx"); w("_pipeline/build/X-DRAFT-v0.1-Cover.docx"); w("_pipeline/build/X-Review-old.xlsx")
+time.sleep(1.1)
+new = w("_pipeline/build/X-DRAFT-v0.2.docx"); w("_pipeline/build/X-DRAFT-v0.2-Cover.docx"); w("_pipeline/build/X-Review.xlsx")
+r = subprocess.run([sys.executable, "package.py", ws, dest], capture_output=True, text=True)
+assert r.returncode == 0, r.stdout + r.stderr
+names = set(zipfile.ZipFile(os.path.join(dest, "X-DRAFT-v0.2.zip")).namelist())
+must = {"_pipeline/CLAUDE.md", "_pipeline/data/items.json", "_pipeline/scripts/build_master.py", "client-profile.json",
+        "_pipeline/build/master_report_items.json", "_pipeline/build/assets/logos/ep_logo.jpg",
+        "_pipeline/build/thumbs_uniform/a.jpg", "_pipeline/build/sheet_clips_jpg/item_1.jpg",
+        "_pipeline/build/X-DRAFT-v0.2.docx", "_pipeline/build/X-DRAFT-v0.2-Cover.docx", "_pipeline/build/X-Review.xlsx",
+        "plangrid_mcp/tasks.json", "plangrid_pull/tasks.json", "plangrid_pull/photos/p.jpg"}
+assert must <= names, must - names
+for bad_name in ("_pipeline/data/_write_probe.json", "_pipeline/scripts/_write_probe.py", "_pipeline/scripts/node_modules/docx/x.js",
+                 "_pipeline/template/_pipeline/CLAUDE.md", "_pipeline/templates/item-preview.html",
+                 "_pipeline/build/master_report_items.json.20260914.bak.json", "_pipeline/build/_scratch/preview.pdf",
+                 "_pipeline/build/v0.2/X-DRAFT-v0.2.docx", "plangrid_mcp/photos/p.jpg",
+                 "_pipeline/build/X-DRAFT-v0.1.docx", "_pipeline/build/X-DRAFT-v0.1-Cover.docx", "_pipeline/build/X-Review-old.xlsx"):
+    assert bad_name not in names, f"{bad_name} should not be packaged"
+assert "not packaged:" in r.stdout, r.stdout
+assert sorted(os.listdir(dest)) == ["X-DRAFT-v0.2-Cover.docx", "X-DRAFT-v0.2.docx", "X-DRAFT-v0.2.zip", "X-Review.xlsx", "client-profile.json"], os.listdir(dest)
+# second delivery: nothing overwritten, everything suffixed together
+r = subprocess.run([sys.executable, "package.py", ws, dest], capture_output=True, text=True)
+assert r.returncode == 0 and "'-2' suffix" in r.stdout, r.stdout + r.stderr
+assert {"X-DRAFT-v0.2-2.zip", "X-DRAFT-v0.2-2.docx", "X-DRAFT-v0.2-2-Cover.docx", "X-Review-2.xlsx"} <= set(os.listdir(dest)), os.listdir(dest)
+# --replace: same names overwritten in place, no third set
+open(new, "wb").write(b"newer body")
+r = subprocess.run([sys.executable, "package.py", ws, dest, "--replace"], capture_output=True, text=True)
+assert r.returncode == 0 and "(replaced)" in r.stdout and "-3" not in r.stdout, r.stdout + r.stderr
+assert open(os.path.join(dest, "X-DRAFT-v0.2.docx"), "rb").read() == b"newer body"
+assert not any(n.startswith("X-DRAFT-v0.2-3") for n in os.listdir(dest)), os.listdir(dest)
+PYCHECK
 
 # MCP route: a get_tasks packet as pull_mcp.sh fetches it (photos and sheets inline, native
 # types) must flow through fetch_photos -> adapt_mcp_pull -> consolidate with

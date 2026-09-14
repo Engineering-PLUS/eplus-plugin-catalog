@@ -9,13 +9,17 @@ the work happens in a fresh workspace unzipped from that package.
 Almost all real work is a revision (r2…r5 in one week on one project), not a
 clean run from a pull, and the revision path has its own rules:
 
-- **Re-run in a fresh workspace, never in the delivered copy.** Unzip the prior
-  delivery package into a new workspace, refresh `_pipeline/scripts/` from this
-  skill's `scripts/` (the package carries the scripts it was built with, which
-  may be behind), run `bash scripts/install_deps.sh && bash scripts/smoke_test.sh`,
-  work there, and deliver again with `package.py` under a **new package name**.
-  The project folder stays read-only until that delivery, exactly as on a first
-  run.
+- **Re-run in a fresh workspace, never in the delivered copy.**
+  `bash <plugin skill>/scripts/init_workspace.sh <new workspace> --from-package
+  "<project folder>/<package>.zip"` unpacks the prior delivery into a new
+  workspace and refreshes `_pipeline/scripts/` from the plugin (the package
+  carries the scripts it was built with, which may be behind, and the stamper
+  skips them on purpose). Then `bash scripts/install_deps.sh && bash
+  scripts/smoke_test.sh`, work there, and deliver again with `package.py`;
+  give the render a new `output_filename` (v0.1 to v0.2) so the delivery gets
+  its own name, or pass `--replace` only when the user has said the earlier
+  copy should be replaced. The project folder stays read-only until that
+  delivery, exactly as on a first run.
 - **The reviewer's Word edits are the senior source.** Rebuilding from scratch
   discards them. To recover approved wording from a reviewed .docx, use
   `scripts/import_reviewed_docx.py` — **a PROTOTYPE that has not yet been run
@@ -39,9 +43,10 @@ clean run from a pull, and the revision path has its own rules:
   consolidate would erase it.
 - **New site visits need their own Task Report export** for sheet clips (see
   Step 6 in `reference/build-data.md`); do not salvage clips from the previous render.
-- Re-run the wording review (Step 3.5, `reference/drafting.md`) **only for new or changed items** — a
-  revision must never re-ask questions the user already answered. Their
-  previous answers are in `drafted_items.json` with `origin: user_reviewed`.
+- Re-run the per-item wording review (`reference/drafting.md`, Step 3.5) **only
+  for new or changed items** — a revision must never re-ask questions the user
+  already answered. Their previous answers are in `drafted_items.json` with
+  `origin: user_reviewed`, and the wording mode itself is in `PROCESS-LOG.md`.
 - **A scope change is a re-run, not an editing job.** Change the scope
   variables, run `bash scripts/run_pipeline.sh`, and the run record, the
   CLAUDE.md figures and the review sheet follow. Hand-edit only

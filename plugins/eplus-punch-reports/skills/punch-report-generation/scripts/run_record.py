@@ -105,7 +105,8 @@ def main():
     confidence = Counter(m.get("confidence") or "unset" for m in master)
     with_precedent = [m.get("plangrid_ref") for m in master if m.get("precedent_note")]
     with_editor_note = [m.get("plangrid_ref") for m in master if m.get("editor_note")]
-    scope = {k: os.environ.get(k) for k in ("SCOPE", "TITLE", "CREATED_AFTER", "DROP_PHRASES") if os.environ.get(k)}
+    scope = {k: os.environ.get(k) for k in ("SCOPE", "TITLE", "CREATED_AFTER", "DROP_PHRASES", "KEEP_DELETED")
+             if os.environ.get(k)}
     if not scope and prev.get("scope_rules"):
         scope = prev["scope_rules"]
     output = os.path.join(build, cfg.get("output_filename", "")) if cfg.get("output_filename") else None
@@ -128,6 +129,8 @@ def main():
             "no_photos": no_content, "valid_sheet": len(valid_sheet), "photos": photos,
             "sheet_clips": len(clips), "clip_missing": [i["number"] for i in items if str(i["number"]) not in {str(k) for k in clips}],
             "with_room": len(with_room), "photographers": dict(photographers), "photo_dates": dates,
+            "pin_dates": sorted({str(i.get("created_at") or "")[:10] for i in items if i.get("created_at")}),
+            "deleted_retained": [i["number"] for i in items if i.get("deleted_in_plangrid")],
         },
         "drafting": {"origins": dict(origins), "confidence": dict(confidence),
                      "with_precedent_note": len(with_precedent), "with_editor_note": len(with_editor_note)},
@@ -169,6 +172,8 @@ def main():
         "| Count | Value |",
         "|---|---|",
         f"| Items in scope | {c['items']} |",
+        f"| Pin dates (Date Recorded) | {', '.join(c['pin_dates']) or 'none in the pull'} |",
+        f"| Deleted in PlanGrid, retained and marked | {c['deleted_retained'] or 'none'} |",
         f"| Authored description | {len(c['described'])} |",
         f"| Photo only | {len(c['photo_only'])} {c['photo_only'] or ''} |",
         f"| No description, no photos | {len(c['no_photos'])} {c['no_photos'] or ''} |",

@@ -10,13 +10,17 @@ wording defensible.
 /punch-report [project folder]
 ```
 
-Builds a complete pipeline in the session workspace, then walks the run: intake,
-consolidate, an interactive wording review (each item previewed as it will
-render, before its text is locked), draft in field-report voice, check
-precedent, extract the annotated sheet clips, render, verify. Output is a
-**.docx**, the file of record — one page per item, a real Word table of contents field, native
-EPLUS letterhead. Revisions unzip the prior package into a fresh workspace and
-deliver again under a new name.
+Stamps a complete pipeline into the session workspace with
+`scripts/init_workspace.sh` (the one supported way to lay a workspace out;
+it refuses to finish with anything missing), then walks the run: one intake
+round (scope edge cases, issuance date, identity and cover, wording mode),
+consolidate, draft in field-report voice, check precedent, extract the
+annotated sheet clips, render, verify. Output is a **.docx**, the file of
+record — one page per item, a real Word table of contents field, native EPLUS
+letterhead, the pin's own date on every item, optional visit section
+headings, and deleted PlanGrid pins kept and bannered when the reviewer wants
+the numbering intact. Revisions run `init_workspace.sh --from-package` on the
+prior delivery and deliver again under a new name.
 
 The Word file is the file of record; the reviewer issues the report by exporting
 it from Word, which recalculates the TOC page-number fields. PDFs for the
@@ -40,8 +44,12 @@ result into a file (0.7.4; the first field test spent 34k output tokens and
 five minutes doing exactly that).
 
 The project folder is read-only until the end; the run finishes with one
-delivery (`scripts/package.py`): a zip of the whole workspace plus the `.docx`
-and review `.xlsx` beside it. Inside the package:
+delivery (`scripts/package.py`): a zip of the workspace plus the `.docx`, the
+`-Cover.docx` and the review `.xlsx` beside it. The zip carries what the next
+run needs and prints what it left out (scratch, caches, earlier renders,
+duplicate raw photos, a template stamped into the wrong place); a re-delivery
+is suffixed by default and overwrites only with `--replace`. Inside the
+package:
 
 ```
 _pipeline/
@@ -141,4 +149,11 @@ published PDF shows as open may since have been closed.
 
 Pipeline dependencies are installed by `scripts/install_deps.sh` (PyMuPDF,
 Pillow, openpyxl from `requirements.txt`; the `docx` Node package from
-`package.json`) and checked by `scripts/smoke_test.sh`.
+`package.json`) and checked by `scripts/smoke_test.sh`, which also exercises
+the workspace stamper, the deleted-pin and pin-date paths, the visit-section
+render, the packager's manifest rules and the review-sheet naming.
+
+Workers never edit the scripts during a run. A needed code change comes back
+to the main thread as an open question, is recorded in the workspace's
+`LESSONS-LEARNED.md`, and is filed with `report_issue` so it lands here, not
+in a `_v2` copy inside one session's workspace.

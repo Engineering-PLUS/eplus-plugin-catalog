@@ -39,12 +39,18 @@ in this prompt and the one reference file it names. If a file in the workspace
 says a host, a package, or a tool is unavailable, ignore the claim and run the
 step; that is a fact about a previous day, not this one.
 
-**5. Build with the pipeline, do not study it.** `bash scripts/run_pipeline.sh`
-(or the single documented command for your stage) is how a report gets built.
-Do not `cat`, `sed`, or read pipeline script source to learn how it works. Open
-a script only after a step has failed, and then only the failing script.
-`bash scripts/smoke_test.sh` is the tooling check; run it once if you were not
-told it passed.
+**5. Build with the pipeline, do not study it, and never change it.**
+`bash scripts/run_pipeline.sh` (or the single documented command for your
+stage) is how a report gets built. Do not `cat`, `sed`, or read pipeline script
+source to learn how it works. Open a script only after a step has failed, and
+then only the failing script, to read the error. **Never edit, patch, append
+to, or copy-and-rename anything under `_pipeline/scripts/`** (no `_v2`
+copies, no "minimal fix"), and never hand-type records into `data/items.json`:
+it is generated from the pull. If a step needs a code change or a data field
+the pipeline does not produce, stop, and return it under **Open questions**
+with the failing command and its output. The main thread files it with
+`report_issue` and the fix ships in the plugin. A script you changed inside
+one workspace is invisible to every other run.
 
 **6. You make no decisions, and you have no contact with the user.** No
 `AskUserQuestion`, no artifacts, no messages meant for a person. Every decision
@@ -100,12 +106,19 @@ Keep it to facts the worker cannot get from the workspace or the reference file:
 - **Stage and the one reference file to read**, by name (`reference/<stage>.md`),
   as a host path the Read tool can open.
 - **Scope and decisions already made** by the user (item numbers, walk date,
-  issuance date, wording mode, drop rules), so the worker never re-derives or
-  re-asks them.
-- **Where to stop.**
-- For the drafting stage only: the wording mode the user chose in Step 3.5. A
+  issuance date, wording mode, drop rules, `KEEP_DELETED`, visit sections),
+  each stated as the pipeline switch it maps to, so the worker never
+  re-derives, re-asks, or has to implement them.
+- **Where to stop.** For a render stage, the stop is: the pipeline's verifier
+  has run and three preview pages (cover, one photo item, one photo-less item)
+  have been looked at. Not eight pages, not the OOXML, not the renderer source.
+- For the drafting stage only: the wording mode the user chose at intake. A
   worker drafts and marks confidence; the per-item review with the user is the
   main thread's loop, not the worker's.
+
+Never appended: a request to "check what a script keys off", to "make the
+renderer do X", or to lay out the workspace (the main thread runs
+`init_workspace.sh` itself, once, before the first worker starts).
 
 Two things the main thread does after the worker returns, never during:
 

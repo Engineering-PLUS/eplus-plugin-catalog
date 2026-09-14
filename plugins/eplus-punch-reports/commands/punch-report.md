@@ -25,9 +25,15 @@ that generates it have disagreed before.
 Field result 2026-09-09: three question rounds on one report cost 47 minutes
 of waiting, and the identity fields were asked last, as plain text, at render
 time. Field result 2026-09-10: the cover fields were never asked, so the cover
-was rebuilt by hand. Intake is therefore **one `AskUserQuestion` call**, sent
-after the data is in hand, covering everything below. Nothing on this list is
-asked later unless the data forces it (a worker's Open question).
+was rebuilt by hand. Field result 2026-09-14: five rounds and 14 minutes of
+waiting; the wording mode was its own round, identity and the EP number came
+at render time, and two offered options ("keep deleted pins, marked", "two
+visit sections") did not exist in the pipeline, so workers patched data by
+hand and a fifth round reversed the section decision. Intake is therefore
+**one `AskUserQuestion` call**, sent after the data is in hand, covering
+everything below, and **every option offered maps to a switch that exists**.
+Nothing on this list is asked later unless the data forces it (a worker's Open
+question).
 
 **Gather first, silently:**
 
@@ -47,62 +53,80 @@ asked later unless the data forces it (a worker's Open question).
    is in front of you: item count, deleted or archived strays, and any
    **NEAR-MISS** descriptions it reports.
 
-**Then ask, in one call (four questions at most):**
+**Then ask, in one call (four questions, the tool's maximum):**
 
-| # | Question | Options |
+| # | Question | Options, each one a switch that exists |
 |---|---|---|
-| 1 | Scope edge cases the rules did not settle: strays, near-miss phrases, a pull spanning two walk dates. Name the items. Skip this question if there are none and use the slot for the Task Report if that is missing. | drop / keep / other |
-| 2 | Issuance date. Never inferred, never defaulted to today; it is the reviewer's contractual decision. | today's date / the walk date / other |
-| 3 | Identity, shown as one block for confirmation: project name as it reads on the cover, building or area (the subtitle), client display name and street address, EP project number, walk date (from the pin dates), who walked it, who reviews it. Prefill from the profile and the PlanGrid project; mark anything blank as "missing". | correct / change (say what) |
-| 4 | Cover: generate one for review (a separate `-Cover.docx`, body page 1 left blank), the reviewer supplies their own (body page 1 left blank; ask for the file), blank page only, or none. Prefill from the profile's `cover_mode`. | template / supplied / blank / none |
+| 1 | Scope edge cases the rules did not settle, naming the items: strays and near-miss phrases (drop / keep); pins PlanGrid flags deleted or archived (drop, the default / keep marked deleted, `KEEP_DELETED=1`); a pull spanning two walk dates (one report, pin date on every item, the default / one report with visit section headings, `visit_sections: "by_date"` / one date only, `CREATED_AFTER`). If there are none, use the slot for the Task Report PDF if that is missing (export it first / draft without clips). | as listed |
+| 2 | Issuance date. Never inferred, never defaulted to today; it is the reviewer's contractual decision. | leave as TBD / the walk date / other (a date) |
+| 3 | Identity and cover, shown as one block for confirmation: project name as it reads on the cover, building or area (the subtitle), client display name and street address, EP project number, walk date(s) (from the pin dates), who walked it, who reviews it, and the cover mode (template: a separate `-Cover.docx` for review with body page 1 blank / supplied: the reviewer's own, ask for the file / blank / none). Prefill from the profile, the PlanGrid project and the sheet title blocks; mark anything blank as "missing". | correct / change (say what) |
+| 4 | Wording: how the pin text becomes item descriptions, and how terse or photo-less items are handled. | draft it all in field-report voice, flag inferred items (recommended) / review only the items I am unsure about, item by item / walk every item with me |
 
 Free text arrives through "Other"; read it and apply it. A PDF is not asked
-about: it is made only if the user asks for one (step 6).
+about: it is made only if the user asks for one (step 6). The wording question
+is the old drafting Step 3.5, folded in here so it is not a round of its own;
+`reference/drafting.md` keeps the per-item review loop for the second and
+third answers.
 
 **Then write the answers down, once:** the per-report facts into
-`_pipeline/build/report.config.json`, the client-level facts into the
-workspace's `client-profile.json` (delivery copies it into the project folder,
-the one file `package.py` updates in place), and the scope rules into the
-`SCOPE`, `TITLE`, `CREATED_AFTER` and `DROP_PHRASES` variables recorded in
-`_pipeline/CLAUDE.md`. From here on nothing about identity or scope is
-re-derived or re-asked.
+`_pipeline/build/report.config.json` (identity, `cover_mode`, and
+`visit_sections` or `visit_breaks` when sections were chosen), the
+client-level facts into the workspace's `client-profile.json` (delivery
+copies it into the project folder, the one file `package.py` updates in
+place), and the scope rules into the `SCOPE`, `TITLE`, `CREATED_AFTER`,
+`DROP_PHRASES` and `KEEP_DELETED` variables recorded in `_pipeline/CLAUDE.md`.
+From here on nothing about identity, scope or wording mode is re-derived or
+re-asked.
 
 ## 2. Build the workspace
 
-Create a workspace folder in the session's own outputs area (your working
-folder, not the project folder), named after the report, for example
-`<project>-punch-<walkdate>/`. Then:
+Create the workspace in the session's own outputs area (your working folder,
+not the project folder), named after the report, for example
+`<project>-punch-<walkdate>/`, with the plugin's stamper and nothing else:
 
-1. Copy the skill's `template/` into the workspace, and its `scripts/` into
-   `_pipeline/scripts/`. **From bash in the sandbox the plugin lives at**
-   `/sessions/<session>/mnt/.local-plugins/marketplaces/eplus-claude-plugins/plugins/eplus-punch-reports/skills/punch-report-generation/`
-   (`<session>` is the first path segment under `/sessions/`; `ls /sessions`
-   shows it). `${CLAUDE_PLUGIN_ROOT}` is the same folder as seen by host tools
-   (Read, Grep) and does not exist inside the sandbox, so do not `find /` for
-   it and do not conclude the plugin is unreachable.
-2. Copy the inputs **once** from the project folder into the workspace root:
+```bash
+S=/sessions/<session>/mnt/.local-plugins/marketplaces/eplus-claude-plugins/plugins/eplus-punch-reports/skills/punch-report-generation
+bash "$S/scripts/init_workspace.sh" <workspace>
+```
+
+`<session>` is the first path segment under `/sessions/` (`ls /sessions`
+shows it). `${CLAUDE_PLUGIN_ROOT}` is the same folder as seen by host tools
+(Read, Grep) and does not exist inside the sandbox, so do not `find /` for it
+and do not conclude the plugin is unreachable. The script copies `template/.`
+to the workspace root, `scripts/` to `_pipeline/scripts/`, makes the tree
+writable, and prints `[MISSING]` and exits non-zero if the layout is wrong.
+**Do not write your own `cp` lines and do not let a worker write them**: the
+2026-09-14 run stamped the template one level too deep and lost the whole
+documentation layer, the cover assets and the config to it.
+
+If the project folder already holds a delivered package from a prior run,
+this is a re-run: `bash "$S/scripts/init_workspace.sh" <workspace>
+--from-package "<project folder>/<package>.zip"`. The package supplies that
+run's data and decisions; the plugin supplies the scripts (the stamper skips
+the package's `scripts/` on purpose, because a fix made inside one session's
+workspace is not a plugin fix). Report what you found and carry on from
+there.
+
+Then:
+
+1. Copy the inputs **once** from the project folder into the workspace root:
    a pre-exported PlanGrid pull directory (base and any delta) and the Task
    Report PDF. `run_pipeline.sh` finds them there automatically, beside
    `_pipeline/`. If the pull comes from the `plangrid` MCP instead of a folder,
    follow "Pulling from the MCP" in `reference/build-data.md`: raw material
    goes to `plangrid_mcp/`, `scripts/adapt_mcp_pull.py` writes `plangrid_pull/`.
-3. Fill in `_pipeline/build/report.config.json` from the identity answers, and
+2. Fill in `_pipeline/build/report.config.json` from the identity answers, and
    replace the `<PLACEHOLDER>` fields in `_pipeline/CLAUDE.md` with this
    project's real values as you learn them. That file is what the next run
    reads first.
 
-If the project folder already holds a delivered package from a prior run,
-unzip that package into the workspace instead of stamping a fresh template,
-**then overwrite `_pipeline/scripts/` from the plugin path above**. The
-package carries that run's data and decisions; the plugin carries the current
-scripts. A package's scripts are never the source for a new run, even when
-they look newer, because a fix made inside one session's workspace is not a
-plugin fix. Report what you found and carry on from there; this is a re-run.
-
-The scripts in the plugin are the only scripts. If one is wrong, fix it in the
-workspace to finish the run, then say so in `LESSONS-LEARNED.md` and file it
-with `report_issue` so the plugin gets the fix; do not rely on memory or on the
-next package to carry it.
+The scripts in the plugin are the only scripts, and **nobody edits them
+during a run**, least of all a worker. If a step needs a code change the run
+cannot avoid, the main thread makes the smallest possible edit in the
+workspace copy itself, records it in `LESSONS-LEARNED.md` with the diff, and
+files it with `report_issue` before delivering, so the plugin gets the fix.
+Never a `_v2` copy beside the original, never a worker doing it, never memory
+or the next package as the carrier.
 
 ## 3. Install dependencies and check the tooling
 
@@ -136,8 +160,18 @@ item in field-report voice, check precedent (two-step: search, then
 `get_punch_item` before quoting), extract sheet clips, build master, render,
 verify.
 
-`bash scripts/run_pipeline.sh` runs steps 1 through 5 plus verification once
-`data/drafted_items.json` exists.
+`bash scripts/run_pipeline.sh` runs steps 1 through 5 plus verification and
+the review-sheet export once `data/drafted_items.json` exists; the scope and
+deleted-pin answers ride in front of it as `SCOPE`, `TITLE`, `CREATED_AFTER`,
+`DROP_PHRASES` and `KEEP_DELETED`.
+
+**Verification after a render is short.** `run_pipeline.sh` already ran the
+verifier and its checks cover the TOC, the fields, the dates, the deleted
+banners, the visit sections, the cover and the letterhead. What remains is a
+look at three preview pages: the cover, one item with photos, one item
+without. That is the whole visual check, for you or for a worker; do not
+commission page-by-page inspections (the 2026-09-14 render brief asked for
+eight pages plus the TOC plus the OOXML and the worker took 12 minutes).
 
 ## 6. Deliver one package
 
@@ -148,12 +182,17 @@ with a single command:
 python3 scripts/package.py <workspace> "<project folder>"
 ```
 
-It zips the entire workspace (pipeline, sources, data, build, handoff; not
-`node_modules` or caches) into `<report>.zip` in the project folder and places
-the rendered `.docx`, the `-Cover.docx` when one was generated, and the review
-`.xlsx` beside it so the reviewer can start reading without unzipping. It
-never overwrites an existing delivery. Run it with `--dry-run` first if you
-want to see the manifest.
+It zips the workspace (pipeline, sources, data, build, handoff) into
+`<report>.zip` in the project folder and places the rendered `.docx`, the
+`-Cover.docx` when one was generated, and the review `.xlsx` beside it so the
+reviewer can start reading without unzipping. It leaves out what the run
+superseded and says so on stdout: caches and scratch, anything named with a
+leading underscore, a template stamped into `_pipeline/`, extra `build/`
+subfolders, raw MCP photos already copied into `plangrid_pull/`, and every
+`.docx` or `.xlsx` other than the three delivered. Run it with `--dry-run`
+first if you want to see the manifest. It never overwrites an existing
+delivery unless you pass `--replace`, and you pass that only when the user has
+said the earlier copy in the project folder should be replaced.
 
 Two Word files go out, not one: the body, whose page 1 is intentionally blank,
 and the cover (generated, or the reviewer's own). Tell the user that, and that

@@ -96,9 +96,17 @@ Three more rules, all from the intake answers and all passed through by
   kept; it goes into the intake question, and the answer, if "drop", is added
   to `drop_phrases` so the next report does not ask again.
 
-Deleted and archived items are always dropped and listed. Run consolidate
-once with the known rules *before* the intake question, so the strays and
-near misses it reports can be asked about in the same round.
+Deleted and archived items are dropped and listed by default. When intake
+settled "keep them, marked" (the numbering must match PlanGrid), pass
+`--keep-deleted` (`KEEP_DELETED=1` in front of `run_pipeline.sh`): they stay
+in `items.json` with `deleted_in_plangrid: true`, the drafter writes them up
+like any other item (a one-line "pin carries no usable content" is a valid
+write-up), and the renderer banners them. Never type a deleted pin back into
+`items.json` by hand; that is the retyping this pipeline exists to prevent.
+Every item also carries the pin's `created_at`, which is what the report's
+Date Recorded row prints. Run consolidate once with the known rules *before*
+the intake question, so the strays, deleted pins and near misses it reports
+can be asked about in the same round.
 
 It emits one record per live item (number, description, sheet ref, pin stamp,
 status, photos resolved to files on disk with capture time and photographer)
@@ -182,12 +190,14 @@ an earlier visit are simply absent from a later export. Ask for the missing
 export rather than salvaging clips from a previously rendered document.
 
 
-**Handing this stage to a worker:** paste `reference/worker-brief.md`, then name
-this file, the workspace and project paths, the scope, and "stop after Step 6;
-report the triage summary, the photo route, and the sheet-clip result". Give
-it the drop rules already agreed (deleted or archived pins, record-only
-phrases, title filters) as settled decisions. Anything those rules do not
-cover, a stray pin or a near-miss phrase, the worker returns under Open
-questions and stops; it does not decide.
+**Handing this stage to a worker:** the main thread runs
+`init_workspace.sh` itself first (one command, see SKILL.md); a worker never
+lays out a workspace. Then paste `reference/worker-brief.md`, name this file,
+the workspace and project paths, the scope, and "stop after Step 6; report the
+triage summary, the photo route, and the sheet-clip result". Give it the drop
+rules already agreed (deleted or archived pins and whether `KEEP_DELETED=1`
+applies, record-only phrases, title filters) as settled decisions. Anything
+those rules do not cover, a stray pin or a near-miss phrase, the worker
+returns under Open questions and stops; it does not decide.
 
 Next: `reference/drafting.md` (read every source and draft `data/drafted_items.json`).

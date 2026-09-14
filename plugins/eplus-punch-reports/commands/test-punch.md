@@ -34,11 +34,12 @@ Nobody has to know task numbers; the server finds the recent ones.
 **1. Build the workspace** (Bash, one command):
 
 ```bash
-W="$(pwd)/punch-test"; R="${CLAUDE_PLUGIN_ROOT}"; [ -d "$R/skills" ] || R=$(ls -d /sessions/*/mnt/*/.local-plugins/*/*/plugins/eplus-punch-reports 2>/dev/null | head -1); rm -rf "$W"; mkdir -p "$W/ws/plangrid_mcp" "$W/project" && cp -r "$R/skills/punch-report-generation/template/." "$W/ws/" && cp -r "$R/skills/punch-report-generation/scripts" "$W/ws/_pipeline/scripts" && printf 'x' > "$W/ws/TEST-DRAFT-v0.1.docx" && echo "workspace ok: $W" && ls "$W/ws/_pipeline"
+W="$(pwd)/punch-test"; R="${CLAUDE_PLUGIN_ROOT}"; [ -d "$R/skills" ] || R=$(ls -d /sessions/*/mnt/*/.local-plugins/*/*/plugins/eplus-punch-reports 2>/dev/null | head -1); rm -rf "$W"; mkdir -p "$W/ws/plangrid_mcp" "$W/project" && bash "$R/skills/punch-report-generation/scripts/init_workspace.sh" "$W/ws" | tail -3 && printf 'x' > "$W/ws/_pipeline/build/TEST-DRAFT-v0.1.docx" && echo "workspace ok: $W" && ls "$W/ws/_pipeline"
 ```
 
 If `pwd` is not the outputs folder, replace `$(pwd)` with the outputs folder
-path. Record PASS if it prints `workspace ok`.
+path. Record PASS if it prints `workspace ok` (the stamper exits non-zero and
+prints `[MISSING]` lines when the layout is wrong; record those verbatim).
 
 **2. Install dependencies, then smoke test** (Bash, one command):
 
@@ -105,8 +106,9 @@ title") is a FAIL: the join never reached the voice rules.
 cd "$W/ws/_pipeline" && python3 scripts/package.py "$W/ws" "$W/project" --dry-run | head -5 && python3 scripts/package.py "$W/ws" "$W/project" | tail -3 && ls "$W/project"
 ```
 
-Expected: `delivered : TEST-DRAFT-v0.1.zip` and the project folder listing shows
-the zip and the docx. Record PASS or the error line.
+Expected: `delivered : TEST-DRAFT-v0.1.zip`, at least one `not packaged:` line
+(the `_pipeline/build/_scratch` folder the stamper creates), and the project
+folder listing shows the zip and the docx. Record PASS or the error line.
 
 **9. MCP connectivity** (one tool call). Call the punch engine's `punch_stats`
 tool with no arguments, or its smallest documented argument set. The tool is

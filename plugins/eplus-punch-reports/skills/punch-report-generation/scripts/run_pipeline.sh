@@ -93,10 +93,13 @@ echo "==> 1/5 consolidate"
 #   CREATED_AFTER=2026-08-31          keep only items created after this date
 #   DROP_PHRASES="a; b"               record-only descriptions to drop (semicolon separated);
 #                                     near misses are reported, never dropped
+#   KEEP_DELETED=1                    keep deleted/archived pins, marked, so the numbering
+#                                     matches PlanGrid (intake decision "keep, marked")
 CONS_ARGS=()
 [ -n "${SCOPE:-}" ] && CONS_ARGS+=(--only "$SCOPE")
 [ -n "${TITLE:-}" ] && CONS_ARGS+=(--title "$TITLE")
 [ -n "${CREATED_AFTER:-}" ] && CONS_ARGS+=(--created-after "$CREATED_AFTER")
+[ -n "${KEEP_DELETED:-}" ] && CONS_ARGS+=(--keep-deleted)
 if [ -n "${DROP_PHRASES:-}" ]; then
     IFS=';' read -r -a _phrases <<< "$DROP_PHRASES"
     for p in "${_phrases[@]}"; do
@@ -156,6 +159,11 @@ set -e
 echo "==> run record"
 "$PY" scripts/run_record.py --pull "${PULL:-}" --task-report "${TASK_REPORT:-}"
 [ "$VERIFY_RC" -eq 0 ] || exit "$VERIFY_RC"
+
+# The review spreadsheet is part of every verified render, written to
+# build/<report>-Review.xlsx, which is where package.py delivers it from.
+echo "==> review sheet"
+"$PY" scripts/review_sheet.py export "$BUILD"
 
 echo
 echo "==> done: $BUILD/$OUT"

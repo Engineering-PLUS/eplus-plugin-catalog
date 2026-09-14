@@ -71,13 +71,54 @@ def main():
 
     # visible text only, so XML attributes cannot create false positives
     text = " ".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", doc))
+    norm = re.sub(r"\s+", " ", text)
+
+    # Visit sections, derived exactly as gen_report.js derives them, so the
+    # expected TOC entry count includes them.
+    visit_titles = []
+    if isinstance(cfg.get("visit_breaks"), list) and cfg["visit_breaks"]:
+        visit_titles = [b.get("title") or f"Site Visit {i + 1}" for i, b in enumerate(cfg["visit_breaks"])]
+    elif cfg.get("visit_sections") == "by_date":
+        last, n = object(), 0
+        for m in master:
+            d = m.get("date_recorded")
+            if d != last:
+                n += 1
+                visit_titles.append(f"Site Visit {n}, {d or 'date not recorded'}")
+                last = d
+        if len(visit_titles) < 2:
+            visit_titles = []
+    n_visits = len(visit_titles)
 
     pagerefs = re.findall(r"PAGEREF\s+(\w+)", doc)
-    bookmarks = set(re.findall(r'w:bookmarkStart[^>]*w:name="(punchitem\d+)"', doc))
+    bookmarks = set(re.findall(r'w:bookmarkStart[^>]*w:name="((?:punchitem|visit)\d+)"', doc))
     media = [n for n in z.namelist() if n.startswith("word/media/")]
     expected_photos = sum(len(m["photo_paths"]) for m in master)
 
     checks = []
+
+    # Date Recorded comes from the pin, so it is never N/A on an item whose pin
+    # carries a date. Field result 2026-09-14: photo-derived dates left 27 of 38
+    # items reading N/A and cost a second delivery.
+    undated = [m["plangrid_ref"] for m in master if not m.get("date_recorded")]
+    n_na = norm.count("Date Recorded N/A")
+    checks.append(("Date Recorded populated from the pin date", n_na <= len(undated),
+                   f"{n_na} item(s) read 'Date Recorded N/A' but only {len(undated)} lack a pin date "
+                   f"{undated}; rebuild the master (build_master.py writes date_recorded)"))
+    if undated:
+        checks.append(("every item carries a pin date (created_at)", False,
+                       f"missing on {undated}; the pull's created_at did not reach items.json"))
+
+    # Deleted pins kept by intake decision are bannered, one banner per pin, and
+    # nothing else is.
+    n_deleted = sum(1 for m in master if m.get("deleted_in_plangrid"))
+    n_banner = norm.count("DELETED IN PLANGRID.")
+    checks.append((f"deleted-in-PlanGrid banner on {n_deleted} retained pin(s), no others",
+                   n_banner == n_deleted, f"{n_banner} banner(s) in the body"))
+
+    # Visit section titles appear in the body when configured.
+    for t in visit_titles:
+        checks.append((f"visit section present: {t}", t in norm, "title not found in the body text"))
 
     # content integrity
     checks.append(("no em or en dashes", not DASH_RE.findall(text),
@@ -108,9 +149,12 @@ def main():
                    not illegal_tags,
                    f"found {len(illegal_tags)} <undefined> tag(s) in word/document.xml"))
 
-    # TOC must be live fields, not baked text
-    checks.append((f"{n_items} PAGEREF fields present", len(pagerefs) == n_items,
-                   f"got {len(pagerefs)}"))
+    # TOC must be live fields, not baked text. One entry per item plus one per
+    # visit section heading (they are Heading 1 too, so Word lists them).
+    n_toc = n_items + n_visits
+    checks.append((f"{n_toc} PAGEREF fields present ({n_items} items"
+                   + (f" + {n_visits} visit sections)" if n_visits else ")"),
+                   len(pagerefs) == n_toc, f"got {len(pagerefs)}"))
     checks.append(("every PAGEREF resolves to a bookmark",
                    not (set(pagerefs) - bookmarks),
                    f"dangling: {sorted(set(pagerefs) - bookmarks)}"))
@@ -164,12 +208,13 @@ def main():
                        begins >= 1 and 'w:fldCharType="separate"' in after
                        and 'w:fldCharType="end"' in after,
                        "field chars incomplete around TOC instruction"))
-    checks.append((f"TOC cached entries match item count ({n_items})",
-                   len(pagerefs) == n_items,
-                   f"{len(pagerefs)} entries against {n_items} items; the TOC has rotted, "
+    checks.append((f"TOC cached entries match item count ({n_toc})",
+                   len(pagerefs) == n_toc,
+                   f"{len(pagerefs)} entries against {n_toc} headings; the TOC has rotted, "
                    "re-render (or Update Table in Word on a hand-edited copy)"))
 
-    # layout
+    # layout. An item that opens a visit section takes its page break from the
+    # section title paragraph, so the count is per item either way.
     checks.append(("one page break per item",
                    doc.count("<w:pageBreakBefore/>") >= n_items,
                    f"got {doc.count('<w:pageBreakBefore/>')}"))
@@ -205,7 +250,6 @@ def main():
     # one was written, is verified below.
     ep_no = str(cfg.get("ep_project_no") or "").strip()
     if ep_no and not ep_no.startswith("<"):
-        norm = re.sub(r"\s+", " ", text)
         checks.append(("EP project number not in the body (cover only)",
                        ep_no not in norm,
                        f"'{ep_no}' appears in the body text"))
@@ -239,8 +283,17 @@ def main():
         sub = str(cfg.get("cover_subtitle") or "").strip()
         if sub and not sub.startswith("<"):
             checks.append(("cover: building / subtitle present", sub in ctext, f"'{sub}' missing"))
-        checks.append(("cover: dates in MM/DD/YYYY", len(re.findall(r"\b\d{2}/\d{2}/\d{4}\b", ctext)) >= 2,
-                       "expected inspection and issuance dates as MM/DD/YYYY"))
+        # The issuance date is asked, never inferred, and "TBD" is the sanctioned
+        # placeholder on a draft; the inspection date must still be a real date.
+        n_dates = len(re.findall(r"\b\d{2}/\d{2}/\d{4}\b", ctext))
+        iss = str(cfg.get("issuance_date") or "").strip().upper()
+        if iss in ("", "TBD"):
+            checks.append(("cover: inspection date in MM/DD/YYYY, issuance date TBD",
+                           n_dates >= 1 and "TBD" in ctext.upper(),
+                           f"{n_dates} date(s) found; expected the inspection date and a visible TBD"))
+        else:
+            checks.append(("cover: dates in MM/DD/YYYY", n_dates >= 2,
+                           "expected inspection and issuance dates as MM/DD/YYYY"))
         checks.append(("cover: no draft warning on the cover", "DRAFT" not in ctext.upper() or "FOR INTERNAL REVIEW" not in ctext.upper(),
                        "the draft block belongs in the first Editor's Note, not on the cover"))
     elif cover_mode == "template":

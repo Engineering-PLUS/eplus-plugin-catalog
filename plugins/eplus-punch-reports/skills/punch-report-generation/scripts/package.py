@@ -4,29 +4,58 @@ package.py -- bundle a finished punch report workspace and deliver it.
 
 The pipeline never works inside the user's selected project folder. It runs in
 the session's own workspace, and the ONLY write to the project folder is the
-single delivery this script performs at the end: one zip holding the whole
-workspace (pipeline, sources, data, build, handoff) plus the rendered .docx and
-the review .xlsx placed beside it so the reviewer does not have to unzip
+single delivery this script performs at the end: one zip holding the workspace
+(pipeline, sources, data, build, handoff) plus the rendered .docx, its cover,
+and the review .xlsx placed beside it so the reviewer does not have to unzip
 anything to start reading.
 
     python3 scripts/package.py <workspace> <destination> [--name <stem>] [--dry-run]
+                               [--replace] [--pdf]
 
 <workspace>    the folder that holds _pipeline/ and the report inputs
 <destination>  the user's selected project folder (or any folder to deliver to)
 --name         zip stem; defaults to the rendered .docx stem, or the workspace
                folder name if no .docx has been rendered
 --dry-run      list what would be packaged and delivered, write nothing
+--replace      overwrite an earlier delivery that has the SAME stem instead of
+               suffixing the new one -2, -3, ... Only when the user has said
+               the earlier copy should be replaced; the default never touches
+               an existing file.
+--pdf          also place the newest .pdf from _pipeline/build/ beside the zip
+               (only when the user asked for a PDF; it is a convenience copy)
 
-Where the deliverables are found: the newest .docx under _pipeline/build/ (the
-renderer writes there) and the newest .xlsx under _pipeline/ or _pipeline/build/
-(review_sheet.py writes there). Files at the workspace root are accepted too.
-Anything under _pipeline/build/_scratch/ is ignored and never packaged.
+Where the deliverables are found: the newest body .docx under _pipeline/build/
+(the renderer writes there), its -Cover.docx when one exists, and the newest
+.xlsx under _pipeline/build/ (review_sheet.py writes there; _pipeline/ and the
+workspace root are accepted for older layouts).
 
-Re-delivery: this script never deletes or overwrites anything in the
-destination. If the zip name is taken, every delivered file gets the next free
-"-2", "-3", ... suffix, so a second delivery needs no permission to remove the
-first one. Excluded from the zip: node_modules/, __pycache__/, _scratch/,
-*.bak.json, .DS_Store, Thumbs.db.
+What the zip holds, and what it does not. The package is the reviewer's copy
+of the workspace and the next run's starting point, so it carries the inputs,
+the data, the build the renderer read, the docs and the scripts, and nothing
+that was superseded during the run. Field result 2026-09-14: a 26.6 MB, 252
+file package carried the same 13 photos twice, a template stamped into the
+wrong place, a whole build/v0.2/ duplicate tree, the previous version's docx,
+and worker probe files. Excluded now, and each exclusion is printed:
+
+  - node_modules/, __pycache__/, _scratch/, .DS_Store, Thumbs.db, ~$ lock files
+  - *.bak.json (review_sheet.py's backups)
+  - any file or folder whose name starts with "_", except _pipeline itself
+    (worker scratch such as _write_probe.py; scratch belongs in _scratch/)
+  - _pipeline/template/ and _pipeline/templates/ (a template stamped into the
+    wrong place; the real template files live at the workspace root)
+  - subfolders of _pipeline/build/ other than assets/, thumbs_uniform/ and
+    sheet_clips_jpg/ (a build/v0.2/ style duplicate tree)
+  - plangrid_mcp/photos/ and plangrid_mcp/pdf_photos/ when plangrid_pull/photos/
+    exists (adapt_mcp_pull.py already copied them; the MCP json stays)
+  - every .docx and .xlsx except the three delivered (earlier renders are
+    reproducible from the data and clutter the reviewer's view)
+
+Re-delivery: by default this script never deletes or overwrites anything in
+the destination. If the stem is taken, every delivered file gets the next free
+"-2", "-3", ... suffix. With --replace, files of the same stem are overwritten
+in place (the zip, the body, the cover, the review sheet) and nothing else is
+touched. A render under a NEW output_filename (v0.1 -> v0.2) has a new stem
+and never collides either way.
 
 Exit status is non-zero if the workspace has no _pipeline/, if the destination
 is missing, if no rendered .docx exists, or if the zip written does not contain
@@ -42,15 +71,8 @@ import zipfile
 EXCLUDE_DIRS = {"node_modules", "__pycache__", "_scratch"}
 EXCLUDE_SUFFIXES = (".bak.json",)
 EXCLUDE_NAMES = {".DS_Store", "Thumbs.db"}
-
-
-def iter_files(root):
-    for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [d for d in dirnames if d not in EXCLUDE_DIRS]
-        for f in filenames:
-            if f in EXCLUDE_NAMES or f.endswith(EXCLUDE_SUFFIXES):
-                continue
-            yield os.path.join(dirpath, f)
+BUILD_KEEP_DIRS = {"assets", "thumbs_uniform", "sheet_clips_jpg"}
+STRAY_PIPELINE_DIRS = {"template", "templates"}
 
 
 def newest(paths):
@@ -59,7 +81,7 @@ def newest(paths):
 
 
 def find_deliverables(ws):
-    """Newest .docx and .xlsx the pipeline produced, wherever it put them."""
+    """Newest body .docx and .xlsx the pipeline produced, wherever it put them."""
     build = os.path.join(ws, "_pipeline", "build")
     pipe = os.path.join(ws, "_pipeline")
     docx, xlsx = [], []
@@ -79,6 +101,58 @@ def find_deliverables(ws):
     return newest(docx), newest(xlsx)
 
 
+def collect(ws, keep_files):
+    """(files to zip, [(reason, relpath), ...] excluded). keep_files are the
+    delivered .docx/.xlsx, kept even though every other office file is not."""
+    files, skipped = [], []
+    build = os.path.join(ws, "_pipeline", "build")
+    pipe = os.path.join(ws, "_pipeline")
+    live_photos = os.path.isdir(os.path.join(ws, "plangrid_pull", "photos"))
+    keep_abs = {os.path.abspath(p) for p in keep_files if p}
+
+    def rel(p):
+        return os.path.relpath(p, ws).replace(os.sep, "/")
+
+    for dirpath, dirnames, filenames in os.walk(ws):
+        pruned = []
+        for d in list(dirnames):
+            full = os.path.join(dirpath, d)
+            reason = None
+            if d in EXCLUDE_DIRS:
+                reason = "cache or scratch"
+            elif d.startswith("_") and full != pipe:
+                reason = "name starts with _ (worker scratch)"
+            elif dirpath == pipe and d in STRAY_PIPELINE_DIRS:
+                reason = "template stamped into the wrong place"
+            elif dirpath == build and d not in BUILD_KEEP_DIRS:
+                reason = "extra build subfolder (duplicate render tree)"
+            elif live_photos and os.path.basename(dirpath) == "plangrid_mcp" \
+                    and os.path.dirname(dirpath) == ws and d in ("photos", "pdf_photos"):
+                reason = "raw photos already copied to plangrid_pull/photos"
+            if reason:
+                pruned.append(d)
+                skipped.append((reason, rel(full) + "/"))
+        dirnames[:] = [d for d in dirnames if d not in pruned]
+
+        for f in filenames:
+            full = os.path.join(dirpath, f)
+            low = f.lower()
+            reason = None
+            if f in EXCLUDE_NAMES or f.startswith("~$"):
+                reason = "editor lock or OS file"
+            elif f.endswith(EXCLUDE_SUFFIXES):
+                reason = "review sheet backup"
+            elif f.startswith("_"):
+                reason = "name starts with _ (worker scratch)"
+            elif low.endswith((".docx", ".xlsx")) and os.path.abspath(full) not in keep_abs:
+                reason = "earlier render, not the delivered file"
+            if reason:
+                skipped.append((reason, rel(full)))
+            else:
+                files.append(full)
+    return files, skipped
+
+
 def free_suffix(dest, stem, names):
     """Smallest suffix such that none of <stem><suffix><ext> already exist in dest."""
     n = 1
@@ -95,6 +169,9 @@ def main():
     ap.add_argument("destination")
     ap.add_argument("--name", default=None)
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--replace", action="store_true",
+                    help="overwrite an earlier delivery with the same stem instead of suffixing "
+                         "(only when the user has asked for the earlier copy to be replaced)")
     ap.add_argument("--pdf", action="store_true",
                     help="also place the newest .pdf from _pipeline/build/ beside the zip "
                          "(only when the user asked for a PDF; it is a convenience copy)")
@@ -116,13 +193,13 @@ def main():
     cover = re.sub(r"\.docx$", "-Cover.docx", docx, flags=re.I)
     cover = cover if os.path.isfile(cover) else None
 
-    files = list(iter_files(ws))
+    files, skipped = collect(ws, [docx, cover, xlsx])
     total = sum(os.path.getsize(f) for f in files)
 
     # One suffix for the whole delivery, so the zip, the .docx and the .xlsx
     # always share a name and never collide with an earlier delivery.
     exts = [".zip", ".docx"] + ([".xlsx"] if xlsx else [])
-    suffix = free_suffix(dest, stem, exts)
+    suffix = "" if args.replace else free_suffix(dest, stem, exts)
     zip_path = os.path.join(dest, f"{stem}{suffix}.zip")
     beside = [(docx, f"{stem}{suffix}.docx")]
     if cover:
@@ -154,8 +231,21 @@ def main():
         print("review sheet: (none found; review_sheet.py export not run)")
     if pdf:
         print(f"pdf         : {os.path.relpath(pdf, ws)} -> {beside[-1][1]}  (convenience copy, LibreOffice pagination)")
+    if skipped:
+        by_reason = {}
+        for reason, p in skipped:
+            by_reason.setdefault(reason, []).append(p)
+        for reason, paths in by_reason.items():
+            shown = ", ".join(paths[:4]) + (f", +{len(paths) - 4} more" if len(paths) > 4 else "")
+            print(f"not packaged: {len(paths)} ({reason}): {shown}")
     if suffix:
         print(f"note        : an earlier delivery exists; this one carries the '{suffix}' suffix. Nothing was removed.")
+    if args.replace:
+        existing = [n for _, n in beside if os.path.exists(os.path.join(dest, n))]
+        if os.path.exists(zip_path):
+            existing.append(os.path.basename(zip_path))
+        if existing:
+            print(f"note        : --replace overwrites {len(existing)} earlier file(s): {', '.join(existing)}")
     if args.dry_run:
         for f in files:
             print("  ", os.path.relpath(f, ws))
@@ -172,11 +262,12 @@ def main():
 
     for src, name in beside:
         target = os.path.join(dest, name)
-        if os.path.exists(target):
+        existed = os.path.exists(target)
+        if existed and not args.replace:
             print(f"WARNING: {name} already exists in the destination; left as is, the copy inside the zip is current")
             continue
         shutil.copy2(src, target)
-        print(f"delivered   : {name}")
+        print(f"delivered   : {name}" + ("  (replaced)" if existed else ""))
     print(f"delivered   : {os.path.basename(zip_path)}")
 
     # The client profile is the one file that is updated in place: it holds the

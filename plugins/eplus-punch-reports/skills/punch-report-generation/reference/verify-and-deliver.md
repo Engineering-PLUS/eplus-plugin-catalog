@@ -9,9 +9,12 @@ exists in `build/`; the issues list and handoff files may still need filling in.
 `verify_report.py` reads the .docx XML directly — no LibreOffice dependency —
 because verification must read the artifact the reader actually opens. It checks
 em/en dashes, the voice rules (**scoped to descriptions only**, since Editor's
-Notes legitimately discuss photographs), PAGEREF/bookmark integrity including
-**unique bookmark ids**, a single **canonical TOC field** that opens and closes
-around a cached entry list matching the item count, absence of baked page
+Notes legitimately discuss photographs), that Date Recorded is populated from
+the pin date on every item that has one, one DELETED IN PLANGRID banner per
+retained deleted pin and none elsewhere, every configured visit section title,
+PAGEREF/bookmark integrity including **unique bookmark ids**, a single
+**canonical TOC field** that opens and closes around a cached entry list
+matching the item count plus the visit sections, absence of baked page
 numbers, `w:updateFields`, page breaks per item, embedded photo count, the
 internal EP project number being absent, and that the letterhead is native: a
 header part holding the two-column table, both letterhead images, the
@@ -29,13 +32,17 @@ by using fields.
 **Visual verification closes the gap OOXML checks can't.** An element existing
 in the XML does not mean the page looks right — the empty photo grid once
 shipped verified only by a `<w:tc>` cell count, which cannot distinguish a
-visible paste target from a collapsed hairline row. For layout changes, run
+visible paste target from a collapsed hairline row. The standard check is
+**three pages and no more**: the cover (page 1 of `-Cover.docx`, or the TOC
+when there is no cover), one item with photos, one item without.
 
 ```bash
-python3 scripts/render_preview.py build/<output>.docx --pages 1,4
+python3 scripts/render_preview.py build/<output>-Cover.docx --pages 1
+python3 scripts/render_preview.py build/<output>.docx --pages <photo item>,<no-photo item>
 ```
 
-It rasterises to PNG via a scratch-dir PDF which it deletes. A full PDF for
+Look at them and write one line each. Widen only when a layout constant in
+the renderer changed. It rasterises to PNG via a scratch-dir PDF which it deletes. A full PDF for
 your own reading is also fine, under `build/_scratch/` so the packager skips
 it. It needs a `soffice` binary on PATH; the Cowork sandbox ships one (field
 result 2026-09-09). If the user wants a PDF delivered, that is
@@ -80,18 +87,21 @@ linked to their parent.
 Work the comments before re-rendering, and treat a comment that says "see comment
 above" as applying to every instance of the same pattern, not just its own item.
 
-**Bulk edits: the review spreadsheet.**
+**Bulk edits: the review spreadsheet.** `run_pipeline.sh` writes it after every
+verified render as `build/<report>-Review.xlsx` (the report stem without its
+`-DRAFT-vN.N`), which is the file `package.py` delivers; nothing has to be
+exported by hand.
 
 ```bash
-python3 scripts/review_sheet.py export build -o Report-Review.xlsx
-#   reviewer edits the yellow columns
-python3 scripts/review_sheet.py import build Report-Review.xlsx
+#   reviewer edits the yellow columns of build/<report>-Review.xlsx
+python3 scripts/review_sheet.py import build build/<report>-Review.xlsx
 RENDER_ONLY=1 bash scripts/run_pipeline.sh
 ```
 
 Yellow cells editable, grey generated and ignored on import, so photo paths and
 sheet clips cannot be corrupted by editing the sheet. `Include? = N` drops an
-item, `Order` (spaced by 10) reorders, a row with no PlanGrid ref inserts one. A
+item, `Order` (spaced by 10) reorders, a row with no PlanGrid ref inserts one.
+Date Recorded and the deleted-in-PlanGrid flag are shown as grey columns. A
 timestamped `.bak.json` is written before anything changes.
 
 ### Step 10 — Deliver the draft, the issues list, and the handoff
@@ -109,11 +119,20 @@ and has said yes.
 python3 scripts/package.py <workspace> "<project folder>"
 ```
 
-That zips the whole workspace (pipeline, sources, data, build, handoff, minus
-`node_modules` and caches) into the project folder and places the `.docx` and
-the review `.xlsx` beside it. It is the only write to the project folder in the
-entire run, it refuses to overwrite a previous delivery, and `--dry-run` shows
-the manifest first. Do not copy files across by hand before or after it.
+That zips the workspace (pipeline, sources, data, build, handoff) into the
+project folder and places the `.docx`, the `-Cover.docx` and the review
+`.xlsx` beside it. It leaves out what the run superseded and prints each
+exclusion: caches and `_scratch/`, anything named with a leading underscore
+(worker probe files), a template stamped into `_pipeline/`, `build/`
+subfolders other than `assets`, `thumbs_uniform` and `sheet_clips_jpg`, raw
+MCP photos already copied into `plangrid_pull/`, `.bak.json` backups, and
+every `.docx` or `.xlsx` that is not one of the three delivered (earlier
+renders are reproducible from the data). Field result 2026-09-14: without
+these rules a package was 26.6 MB and 252 files for a 38-item report. It is
+the only write to the project folder in the entire run, it refuses to
+overwrite a previous delivery unless `--replace` is passed (and that only
+when the user has said the earlier copy should be replaced), and `--dry-run`
+shows the manifest first. Do not copy files across by hand before or after it.
 
 **The issues list** (`_pipeline/ISSUES-LIST.md`) is first-class. It carries source
 conflicts (report both, never silently pick one), items referencing documents you

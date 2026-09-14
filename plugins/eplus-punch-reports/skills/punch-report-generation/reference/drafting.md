@@ -10,23 +10,27 @@ Walk notes frequently arrive as two near-identical files (`…notes.docx` and
 `…notes(update).docx`). **Diff them and use the newer one**; call out only real
 conflicts. The update usually fixes typos and adds items.
 
-### Step 3.5 — Ask the user how they want the wording set
+### Step 3.5 — The wording mode, and the per-item review loop
 
-Once photos are sorted and itemized and BEFORE drafting any item's content,
-ask the user with **AskUserQuestion** (one question, three options):
+The wording mode is **asked at intake**, as question 4 of the single intake
+call in the `punch-report` command, not here: it used to be its own round at
+this point, and on 2026-09-14 that round alone cost four minutes of waiting.
+The three answers are the same:
 
-> Photos are sorted into N items. How do you want to set each item's wording?
-> 1. **Walk every item with me** — preview each item, I confirm or adjust the
->    wording before it's locked.
-> 2. **Review only the ones you're unsure about** — you draft what's clear, I
->    only see the low-confidence items.
-> 3. **You draft it** — produce the document; I'll review the finished draft.
+1. **Draft it all** in field-report voice and flag inferred items (the
+   recommended default); the user reviews the finished draft.
+2. **Review only the items the drafter is unsure about**, item by item.
+3. **Walk every item** with the user before its wording is locked.
+
+If a run reached this step without an intake answer (it started from a
+package, or without the command), ask it now, together with anything else
+outstanding, in one `AskUserQuestion` call; never as a round of its own.
 
 "Unsure" in mode 2 means: every `photo_only` and `no_photos` item from the
 consolidate triage, anything whose description is inferred from photo content
 alone, and anything you would mark `confidence: low`.
 
-**The per-item review loop (modes 1 and 2), order is mandatory:**
+**The per-item review loop (modes 2 and 3), order is mandatory:**
 
 1. **Render the preview FIRST, then ask.** Publish an HTML artifact staging the
    item as close as possible to the Word layout — use this skill's
@@ -300,13 +304,16 @@ invent wording to fill the space.
 **Handing this stage to a worker:** paste `reference/worker-brief.md`, then name
 this file, the paths, the scope, the wording mode the user chose in Step 3.5,
 and "stop after `data/drafted_items.json` validates through `build_master.py`".
-Step 3.5 and the per-item review loop are the main thread's: they need
-`AskUserQuestion` and an artifact, which a worker cannot use. A worker drafts,
-marks `origin` and `confidence`, and runs the precedent pass. Items it cannot
-draft without a decision (a suspected misfire, a photo that contradicts the
-note, a source conflict) come back under Open questions, undrafted, and the
-worker stops; it does not pick a side. In modes 1 and 2 the main thread then
-runs the review loop over the flagged and low-confidence items and, if more
-drafting is needed, starts a new worker with the answers in its brief.
+The wording question and the per-item review loop are the main thread's: they
+need `AskUserQuestion` and an artifact, which a worker cannot use. A worker
+drafts, marks `origin` and `confidence`, and runs the precedent pass. Items it
+cannot draft without a decision (a suspected misfire, a photo that contradicts
+the note, a source conflict) come back under Open questions, undrafted, and
+the worker stops; it does not pick a side. In modes 2 and 3 the main thread
+then runs the review loop over the flagged and low-confidence items and, if
+more drafting is needed, starts a new worker with the answers in its brief.
+Pins kept under `KEEP_DELETED=1` are in `items.json` already, flagged
+`deleted_in_plangrid`; the worker drafts them from that file and never
+reconstructs them from the raw pull.
 
 Next: `reference/render.md` (assemble the master JSON and render the .docx).

@@ -19,16 +19,21 @@ which become `consolidate.py` arguments:
 
 ```bash
 SCOPE=11-30 TITLE="<walk marker>" CREATED_AFTER=<YYYY-MM-DD> \
-DROP_PHRASES="<record-only phrase>; <another>" bash scripts/run_pipeline.sh
+DROP_PHRASES="<record-only phrase>; <another>" KEEP_DELETED=<1 or unset> \
+bash scripts/run_pipeline.sh
 ```
 
 **This report's values:** `SCOPE=<…>` `TITLE=<…>` `CREATED_AFTER=<…>`
-`DROP_PHRASES=<…>` (record them here at intake; they are the run's scope of
-record). Nothing else in the pipeline hardcodes scope. Unset a variable to
-apply no rule of that kind. Deleted and archived items are always dropped.
-Client-level facts (display name, address, EP number, inspector, reviewer,
-drop phrases, cover settings) live in `../client-profile.json`, which delivery
-copies into the project folder for the next report.
+`DROP_PHRASES=<…>` `KEEP_DELETED=<…>` (record them here at intake; they are
+the run's scope of record). Nothing else in the pipeline hardcodes scope.
+Unset a variable to apply no rule of that kind. Deleted and archived items
+are dropped unless `KEEP_DELETED=1`, in which case they stay, flagged
+`deleted_in_plangrid`, and render with a red DELETED IN PLANGRID banner.
+Visit sections, when the report has them, are `visit_sections` or
+`visit_breaks` in `build/report.config.json`. Client-level facts (display
+name, address, EP number, inspector, reviewer, drop phrases, cover settings)
+live in `../client-profile.json`, which delivery copies into the project
+folder for the next report.
 
 ---
 
@@ -49,9 +54,11 @@ from it, and the delivered document disagreed with the file that generates it.
 exactly this reason, but the workspace rule removes the failure mode instead of
 catching it.
 
-**To re-run:** unzip the delivered package into a fresh workspace, refresh
-`_pipeline/scripts/` from the plugin, work there, and deliver again with a new
-package name. Never edit the delivered copy in place.
+**To re-run:** `bash <plugin skill>/scripts/init_workspace.sh <fresh workspace>
+--from-package <this package .zip>` unpacks the package and refreshes
+`_pipeline/scripts/` from the plugin in one step; work there, and deliver
+again under a new `output_filename`. Never edit the delivered copy in place,
+and never lay a workspace out by hand.
 
 **Nothing is deleted, moved, or renamed here while a run is in progress**, by
 the main thread or by a worker. Deletes in a mounted folder need a permission
@@ -145,11 +152,13 @@ python3 scripts/extract_sheet_clips.py "<Task Report>.pdf" \
 python3 scripts/build_master.py --items data/items.json \
     --drafted data/drafted_items.json -o build/master_report_items.json
 
-# 4+5. assemble, render, repair bookmark ids, verify (the only supported render command)
+# 4+5. assemble, render, repair bookmark ids, verify, export the review sheet
+#      (the only supported render command)
 RENDER_ONLY=1 bash scripts/run_pipeline.sh
 
-# optional layout spot check (needs soffice on PATH; deletes its own PDF)
-python3 scripts/render_preview.py build/<filename>.docx --pages 1,4
+# layout spot check, three pages and no more (needs soffice on PATH; deletes its own PDF)
+python3 scripts/render_preview.py build/<filename>-Cover.docx --pages 1
+python3 scripts/render_preview.py build/<filename>.docx --pages <photo item>,<no-photo item>
 ```
 
 `data/items.json` is **facts**, regenerated from the pull.
@@ -224,12 +233,12 @@ python3 scripts/read_comments.py <reviewed>.docx
 Each comment is reported with the text it is anchored to and the item heading it
 sits under. Resolved comments are hidden unless `--include-resolved` is passed.
 
-**Bulk edits: the review spreadsheet.**
+**Bulk edits: the review spreadsheet.** Every verified render writes it as
+`build/<report>-Review.xlsx`; that is the copy delivered beside the .docx.
 
 ```bash
-python3 scripts/review_sheet.py export build -o Report-Review.xlsx
-#   reviewer edits the YELLOW columns only
-python3 scripts/review_sheet.py import build Report-Review.xlsx
+#   reviewer edits the YELLOW columns only, in build/<report>-Review.xlsx
+python3 scripts/review_sheet.py import build build/<report>-Review.xlsx
 RENDER_ONLY=1 bash scripts/run_pipeline.sh
 ```
 
@@ -284,6 +293,19 @@ timestamped `.bak.json` is written before anything changes.
   printed a placeholder, which reads as noise. The Photos count went with it: the
   photos are directly below. If real location data becomes available (photo EXIF
   geotags), add the row back rather than reviving the placeholder.
+- **Date Recorded is the pin's `created_at`**, carried as `date_recorded` by
+  `build_master.py`, so every item has one whether or not it has a photo. The
+  photo timestamp is only a fallback for an old master. `verify_report.py`
+  fails a render that prints N/A on an item whose pin has a date.
+- **Deleted pins kept by intake are bannered, not hidden.** With
+  `KEEP_DELETED=1` they stay in `items.json` flagged `deleted_in_plangrid`,
+  render with a red DELETED IN PLANGRID banner under the heading, and their
+  TOC entry says "(deleted in PlanGrid)". Nobody retypes them into the data.
+- **Visit sections are a config key, not a renderer edit.** `visit_sections:
+  "by_date"` in `report.config.json` (or an explicit `visit_breaks` list)
+  puts a Heading 1 "Site Visit N, MM/DD/YYYY" on the first item of each pin
+  date; the TOC lists it and Word regenerates it with the items. Without the
+  key the report is a flat list and Date Recorded carries the split.
 - **The pin clip is rendered at double width** (about 3.17in). With no location
   data it is the only thing on the page that says where the item is. Display width
   and extraction `--zoom` must move together, or the clip just gets bigger and

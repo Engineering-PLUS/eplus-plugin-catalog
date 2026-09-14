@@ -11,10 +11,18 @@ rest). But rewording, dropping, reordering or adding several items by hand in th
 docx is error prone and gets overwritten on the next render. Instead, round-trip
 through a spreadsheet.
 
-    python3 review_sheet.py export build -o Report-Review.xlsx
+    python3 review_sheet.py export build            # -> build/<report>-Review.xlsx
     #   ... reviewer edits the yellow columns in Excel ...
-    python3 review_sheet.py import build Report-Review.xlsx
-    node scripts/gen_report.js build
+    python3 review_sheet.py import build build/<report>-Review.xlsx
+    RENDER_ONLY=1 bash scripts/run_pipeline.sh
+
+The export lands in the build folder under the report's own stem (the
+output_filename in report.config.json minus its -DRAFT-vN.N suffix, plus
+-Review.xlsx), which is the name package.py delivers it under. run_pipeline.sh
+exports it after every verified render, so nobody has to remember the
+command. -o overrides the path. Field result 2026-09-14: the old default wrote
+Report-Review.xlsx into the current directory and a worker needed five
+attempts to land the file where the packager looks.
 
 One row per item. Yellow cells are reviewer-owned and editable, grey cells are
 generated and are ignored on import, so photo paths and sheet clips cannot be
@@ -36,6 +44,7 @@ import argparse
 import datetime
 import json
 import os
+import re
 import shutil
 import sys
 
@@ -49,11 +58,11 @@ except ImportError:
 MASTER = "master_report_items.json"
 
 EDITABLE = ["Include?", "Order", "Title", "Description", "Corrective Action", "Editor Note"]
-GENERATED = ["PlanGrid ref", "Sheet", "Photos", "Origin", "Confidence", "Precedent basis",
-             "Field engineer's original note"]
+GENERATED = ["PlanGrid ref", "Sheet", "Date Recorded", "Deleted in PlanGrid", "Photos", "Origin",
+             "Confidence", "Precedent basis", "Field engineer's original note"]
 HEADERS = ["Include?", "Order", "PlanGrid ref", "Title", "Description", "Corrective Action",
-           "Editor Note", "Sheet", "Photos", "Origin", "Confidence", "Precedent basis",
-           "Field engineer's original note"]
+           "Editor Note", "Sheet", "Date Recorded", "Deleted in PlanGrid", "Photos", "Origin",
+           "Confidence", "Precedent basis", "Field engineer's original note"]
 
 YELLOW = PatternFill("solid", fgColor="FFF2CC")
 GREY = PatternFill("solid", fgColor="EDEDED")
@@ -84,6 +93,8 @@ def export(build, out):
             m.get("corrective_action", ""),
             m.get("editor_note") or "",
             m.get("sheet_display", ""),
+            m.get("date_recorded") or "",
+            "Y" if m.get("deleted_in_plangrid") else "",
             len(m.get("photo_paths", [])),
             m.get("origin", ""),
             m.get("confidence", ""),
@@ -92,7 +103,7 @@ def export(build, out):
         ])
 
     widths = {"A": 9, "B": 7, "C": 12, "D": 34, "E": 62, "F": 52, "G": 52,
-              "H": 30, "I": 8, "J": 16, "K": 11, "L": 44, "M": 34}
+              "H": 30, "I": 12, "J": 10, "K": 8, "L": 16, "M": 11, "N": 44, "O": 34}
     for col, w in widths.items():
         ws.column_dimensions[col].width = w
 
@@ -149,7 +160,8 @@ def do_import(build, xlsx):
                     "location": "Not recorded in PlanGrid, see sheet reference",
                     "origin": "reviewer_added", "confidence": "n/a",
                     "precedent_note": None, "field_note_original": None, "status": "open",
-                    "photo_date": None}
+                    "photo_date": None, "date_recorded": None, "created_at": None,
+                    "deleted_in_plangrid": False}
             inserted += 1
         else:
             base = dict(base)
@@ -179,7 +191,23 @@ def do_import(build, xlsx):
 
     print(f"backup   : {os.path.basename(path)}.{stamp}.bak.json")
     print(f"imported : {len(out)} items (dropped {dropped}, inserted {inserted})")
-    print("re-render with:  node scripts/gen_report.js <build_dir>")
+    print("re-render with:  RENDER_ONLY=1 bash scripts/run_pipeline.sh")
+
+
+def default_out(build):
+    """build/<report stem>-Review.xlsx, the stem being output_filename without
+    its .docx and any trailing -DRAFT-vN(.N) marker; Report-Review.xlsx if the
+    config is absent. Always inside the build folder, where package.py looks."""
+    stem = "Report"
+    try:
+        cfg = json.load(open(os.path.join(build, "report.config.json"), encoding="utf-8"))
+        name = str(cfg.get("output_filename") or "")
+        if name:
+            stem = re.sub(r"\.docx$", "", name, flags=re.I)
+            stem = re.sub(r"-DRAFT-v\d+(\.\d+)*$", "", stem, flags=re.I) or stem
+    except (OSError, ValueError):
+        pass
+    return os.path.join(build, f"{stem}-Review.xlsx")
 
 
 def main():
@@ -187,10 +215,13 @@ def main():
     ap.add_argument("mode", choices=["export", "import"])
     ap.add_argument("build")
     ap.add_argument("xlsx", nargs="?")
-    ap.add_argument("-o", "--out", default="Report-Review.xlsx")
+    ap.add_argument("-o", "--out", default=None,
+                    help="export path; default build/<report>-Review.xlsx")
     a = ap.parse_args()
     if a.mode == "export":
-        export(a.build, a.out)
+        if a.xlsx and not a.out:
+            a.out = a.xlsx          # `export build path.xlsx` is accepted too
+        export(a.build, a.out or default_out(a.build))
     else:
         if not a.xlsx:
             sys.exit("import requires the .xlsx path")

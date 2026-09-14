@@ -39,9 +39,21 @@
  *
  * Data keys read from master_report_items.json per item: display_number,
  * plangrid_ref, title, description, corrective_action, sheet_display,
- * photo_paths (basenames under thumbs_uniform/), photo_titles, editor_note,
- * precedent_note, photo_mode. plangrid_ref and field_note_original are carried
- * for traceability and are NEVER rendered.
+ * date_recorded (the pin's created_at as MM/DD/YYYY; the photo timestamp is
+ * only a fallback), deleted_in_plangrid (red banner under the heading plus a
+ * TOC marker), photo_paths (basenames under thumbs_uniform/), photo_titles,
+ * editor_note, precedent_note, photo_mode. plangrid_ref and
+ * field_note_original are carried for traceability and are NEVER rendered.
+ *
+ * Visit sections (optional, report.config.json): either
+ *   "visit_breaks": [{"before": <PlanGrid number>, "title": "Site Visit 2, 08/28/2026"}, ...]
+ * or
+ *   "visit_sections": "by_date"
+ * puts a Heading 1 section title on the page of the first item of each visit
+ * (by_date derives the breaks from date_recorded changes and titles them
+ * "Site Visit N, MM/DD/YYYY"). Section titles are Heading 1 without item
+ * numbering, so the TOC lists them and Word regenerates them with the items.
+ * A break whose "before" names no item in the master fails the render.
  *
  * GOTCHAS, all learned the hard way:
  *   - ImageRun.transformation.{width,height} are PIXELS while everything else is twips.
@@ -198,8 +210,13 @@ function sheetClipPathFor(item) {
 function metaRowsData(item) {
   // PlanGrid ref is NOT rendered here. It is internal traceability only.
   // Two rows only. See the CLIP_COL_W comment for why Location and Photos are gone.
+  //
+  // Date Recorded is the PIN's created_at (build_master.py writes it as
+  // date_recorded). The earliest photo timestamp is only a fallback for a
+  // master built without it: on 2026-09-14 the photo-only rule printed N/A on
+  // 27 of 38 items and forced a second delivery.
   const shots = (item.photo_titles || []).map(fmtTimestamp).filter(Boolean).sort();
-  const recorded = shots.length ? shots[0].split(' ')[0] : 'N/A';
+  const recorded = item.date_recorded || (shots.length ? shots[0].split(' ')[0] : 'N/A');
   return [
     ['Drawing Sheet', item.sheet_display || 'N/A'],
     ['Date Recorded', recorded],
@@ -358,9 +375,11 @@ function photoTable(item, start, end) {
 // ------------------------------------------------------------------------ item overhead
 const NOTE_SIZE = 17;
 
-function estimateOverheadDXA(item) {
+function estimateOverheadDXA(item, opts = {}) {
   let h = 400;
+  if (opts.visitHeading) h += 700;                       // section title above the item heading
   h += estimateTextHeightDXA(item.title, 26, USABLE_W - 1200);
+  if (item.deleted_in_plangrid) h += 360;               // the DELETED IN PLANGRID banner
 
   const textRows = metaRowsData(item)
     .reduce((s, [, v]) => s + estimateTextHeightDXA(String(v), 19, META_VALUE_W) + 100, 0);
@@ -438,8 +457,30 @@ function editorNoteBlock(lines) {
   });
 }
 
+// ------------------------------------------------------------------------ deleted banner
+// A pin PlanGrid has deleted or archived, kept in the report by the intake
+// decision "keep, marked" (consolidate.py --keep-deleted) so the item numbering
+// still matches the pull. The banner is red and unmistakable, like every other
+// editor-facing mark, because the reviewer decides whether it ships.
+const DELETED_BANNER = 'DELETED IN PLANGRID';
+function deletedBanner() {
+  return new Paragraph({
+    keepNext: true,
+    spacing: { before: 0, after: 100 },
+    shading: { type: ShadingType.CLEAR, color: 'auto', fill: RED_TINT },
+    border: { left: { style: BorderStyle.SINGLE, size: 18, color: ALERT_RED, space: 4 } },
+    children: [
+      run(`${DELETED_BANNER}. `, { bold: true, size: 18, color: ALERT_RED }),
+      run('This pin is deleted or archived in PlanGrid and is retained here so the item numbering matches the pull. Reviewer decides whether it issues.', { size: 18, color: ALERT_RED }),
+    ],
+  });
+}
+
 // ------------------------------------------------------------------------- item section
-function itemSection(item) {
+// opts.visitHeading: this item opens a visit section, so the section title
+// paragraph (emitted by the caller) carries the page break and the item
+// heading must not add a second one.
+function itemSection(item, opts = {}) {
   const children = [];
   const n = item.photo_paths.length;
 
@@ -448,7 +489,7 @@ function itemSection(item) {
   children.push(new Paragraph({
     heading: HeadingLevel.HEADING_1,
     numbering: { reference: 'punch-items', level: 0 },
-    pageBreakBefore: true,
+    pageBreakBefore: !opts.visitHeading,
     keepNext: true,
     spacing: { before: 0, after: 120 },
     children: [new Bookmark({
@@ -456,6 +497,8 @@ function itemSection(item) {
       children: [run(item.title, { bold: true, size: 26, color: BLUE })],
     })],
   }));
+
+  if (item.deleted_in_plangrid) children.push(deletedBanner());
 
   children.push(metaTable(item));
   children.push(new Paragraph({ text: '', spacing: { after: 80 }, keepNext: true }));
@@ -488,7 +531,7 @@ function itemSection(item) {
   // Rule for large sets (n > 4): fill whatever room is left on the item page (down to
   // one row of photos if that is all that will fit), then spill onto headed continuation
   // pages. This mirrors the v0.6 behavior for the 13, 14, and 21 photo items.
-  const remaining = CONTENT_H - estimateOverheadDXA(item);
+  const remaining = CONTENT_H - estimateOverheadDXA(item, opts);
   const rowsOnFirst = Math.max(0, Math.floor(remaining / PHOTO_ROW_H));
   const rowsPerCont = Math.max(1, Math.floor((CONTENT_H - CONT_HEADER_H) / PHOTO_ROW_H));
   const GRID = PHOTO_COLS * 2;
@@ -826,9 +869,64 @@ function bookmarkFor(item) {
   return `punchitem${item.display_number}`;
 }
 
+// ------------------------------------------------------------------ visit sections
+// Explicit breaks from the config win; "by_date" derives them from the pin
+// dates build_master.py wrote. Either way the result is validated against the
+// master so a typo in the config fails the render instead of silently
+// rendering a flat report.
+function visitBreaks() {
+  const refOf = (m) => String(m.plangrid_ref).replace('#', '');
+  const refs = new Set(master.map(refOf));
+  let breaks = [];
+  if (Array.isArray(CFG.visit_breaks) && CFG.visit_breaks.length) {
+    breaks = CFG.visit_breaks.map((b, i) => ({
+      before: String(b.before).replace('#', ''),
+      title: b.title || `Site Visit ${i + 1}`,
+    }));
+  } else if (CFG.visit_sections === 'by_date') {
+    let last = null, n = 0;
+    for (const m of master) {
+      const d = m.date_recorded || null;
+      if (d !== last) {
+        n += 1;
+        breaks.push({ before: refOf(m), title: `Site Visit ${n}, ${d || 'date not recorded'}` });
+        last = d;
+      }
+    }
+    if (breaks.length < 2) breaks = [];      // one date is not a multi-visit report
+  }
+  const bad = breaks.filter(b => !refs.has(b.before)).map(b => b.before);
+  if (bad.length) {
+    throw new Error(`visit_breaks: "before" names PlanGrid item(s) not in the master: ${bad.join(', ')}`);
+  }
+  return breaks;
+}
+const VISIT_BREAKS = visitBreaks();
+const visitBookmark = (i) => `visit${i + 1}`;
+
+function visitHeading(brk, i) {
+  // Heading 1, NO item numbering, so Word's TOC lists it with the items and
+  // "Update Table" keeps it. Carries the page break for the item that follows.
+  return new Paragraph({
+    heading: HeadingLevel.HEADING_1,
+    pageBreakBefore: true,
+    keepNext: true,
+    spacing: { before: 0, after: 200 },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: BLUE, space: 2 } },
+    children: [new Bookmark({
+      id: visitBookmark(i),
+      children: [run(brk.title, { bold: true, size: 30, color: BLUE })],
+    })],
+  });
+}
+
 function tocEntry(item) {
-  const anchor = bookmarkFor(item);
-  const label = `Item ${item.display_number}.  ${item.title}`;
+  const label = `Item ${item.display_number}.  ${item.title}`
+    + (item.deleted_in_plangrid ? '  (deleted in PlanGrid)' : '');
+  return tocLine(bookmarkFor(item), label, {});
+}
+
+function tocLine(anchor, label, style) {
   // The page number is a REAL Word PAGEREF FIELD, not static text.
   //
   // It used to be static text harvested from a LibreOffice dry render. Word
@@ -844,10 +942,10 @@ function tocEntry(item) {
   //
   // Both halves are wrapped in an InternalHyperlink so the entry is clickable.
   return new Paragraph({
-    spacing: { after: 40 },
+    spacing: { after: 40, ...(style.before ? { before: style.before } : {}) },
     tabStops: [{ type: TabStopType.RIGHT, position: USABLE_W, leader: LeaderType.DOT }],
     children: [
-      new InternalHyperlink({ anchor, children: [run(label, { size: 19, color: DARKGREY })] }),
+      new InternalHyperlink({ anchor, children: [run(label, { size: 19, color: style.color || DARKGREY, bold: !!style.bold })] }),
       new TextRun({ children: [new Tab()], font: FONT, size: 19, color: LIGHTGREY }),
       new InternalHyperlink({
         anchor,
@@ -867,13 +965,25 @@ const fldChar = (type) => importXml(`<w:r ${W_NS}><w:fldChar w:fldCharType="${ty
 // which is what every item heading uses.
 const tocInstr = () => importXml(`<w:r ${W_NS}><w:instrText xml:space="preserve"> TOC \\o "1-1" \\h \\z \\u </w:instrText></w:r>`);
 
+// One pass builds both the TOC's cached entries and the body, so a visit
+// heading always appears in both places or neither.
+const breakBefore = (item) => VISIT_BREAKS.findIndex(b => b.before === String(item.plangrid_ref).replace('#', ''));
+
 cover.push(new Paragraph({ spacing: { after: 0 }, children: [fldChar('begin'), tocInstr(), fldChar('separate')] }));
-for (const item of master) cover.push(tocEntry(item));
+const body = [];
+for (const item of master) {
+  const bi = breakBefore(item);
+  if (bi >= 0) {
+    cover.push(tocLine(visitBookmark(bi), VISIT_BREAKS[bi].title, { bold: true, color: BLUE, before: bi ? 120 : 0 }));
+    body.push(visitHeading(VISIT_BREAKS[bi], bi));
+  }
+  cover.push(tocEntry(item));
+  body.push(...itemSection(item, { visitHeading: bi >= 0 }));
+}
 cover.push(new Paragraph({ spacing: { after: 0 }, children: [fldChar('end')] }));
 
 // ------------------------------------------------------------------------------ assemble
-const children = [...cover];
-for (const item of master) children.push(...itemSection(item));
+const children = [...cover, ...body];
 
 // The letterhead is one page wide image. It sits inside the header space and renders on
 // every page. No first page override, no distinction between the cover/TOC and item pages.
@@ -1051,5 +1161,9 @@ Packer.toBuffer(doc).then(async (buf) => {
     console.log('wrote', COVER_OUT, (cbuf.length / 1048576).toFixed(1), 'MB', '(cover, separate file)');
   }
   const undetermined = master.filter(m => m.corrective_action.startsWith('N/A')).length;
-  console.log(`items=${master.length} precedent=${withPrecedent} editor_notes=${editorNoted} undetermined=${undetermined} photos=${totalPhotos}`);
+  const deleted = master.filter(m => m.deleted_in_plangrid).length;
+  const undated = master.filter(m => !m.date_recorded).length;
+  console.log(`items=${master.length} precedent=${withPrecedent} editor_notes=${editorNoted} undetermined=${undetermined} photos=${totalPhotos}`
+    + ` visit_sections=${VISIT_BREAKS.length} deleted_marked=${deleted}`
+    + (undated ? ` DATE_RECORDED_MISSING=${undated}` : ''));
 });

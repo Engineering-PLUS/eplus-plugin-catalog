@@ -18,5 +18,7 @@
   "inspector": "<Name of the engineer who walked the site>",
 
   "cover_title": "<PlanGrid project name, internal; falls back as the client display name if that is blank>",
-  "_footer": "The footer is derived: Engineering PLUS  •  <client_display_name> <cover_subtitle> Technology System Punch List  •  Page N of M. Set footer_text only to override it."
+  "_footer": "The footer is derived: Engineering PLUS  •  <client_display_name> <cover_subtitle> Technology System Punch List  •  Page N of M. Set footer_text only to override it.",
+
+  "_visit_sections": "Optional, from intake. \"by_date\" puts a 'Site Visit N, MM/DD/YYYY' heading on the first item of each pin date (only when the pull spans more than one date). Or set visit_breaks: [{\"before\": <PlanGrid number>, \"title\": \"...\"}, ...] to name them yourself. Leave both out for a flat list; Date Recorded carries the dates either way."
 }

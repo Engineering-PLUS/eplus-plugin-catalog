@@ -10,11 +10,32 @@ be re-derived. Assumes `data/items.json`, `data/drafted_items.json` and
 RENDER_ONLY=1 bash scripts/run_pipeline.sh
 ```
 
-That runs `build_master.py`, `gen_report.js`, `fix_bookmark_ids.py` and
-`verify_report.py` in order, and is the only supported way to render: a bare
+That runs `build_master.py`, `gen_report.js`, `fix_bookmark_ids.py`,
+`verify_report.py` and the review-sheet export (`build/<report>-Review.xlsx`)
+in order, and is the only supported way to render: a bare
 `node scripts/gen_report.js build` leaves duplicate bookmark ids in the file
 and skips the verifier. `bash scripts/run_pipeline.sh` without the variable
 runs the data steps first.
+
+**Three things the renderer takes from the data or the config, never from a
+worker's patch:**
+
+- **Date Recorded** is the pin's `created_at` (`date_recorded` in the master,
+  written by `build_master.py`), so every item has one. The photo timestamp is
+  only a fallback for a master built before this field existed. Field result
+  2026-09-14: 27 photo-less items printed N/A and cost a second delivery.
+- **Deleted pins** kept by intake (`KEEP_DELETED=1`) carry
+  `deleted_in_plangrid`; the renderer prints a red DELETED IN PLANGRID banner
+  under the heading and appends "(deleted in PlanGrid)" to the TOC entry.
+  `verify_report.py` asserts one banner per such pin and none elsewhere.
+- **Visit sections** come from `report.config.json`: `"visit_sections":
+  "by_date"` puts a Heading 1 titled "Site Visit N, MM/DD/YYYY" at the top of
+  the first item of each pin date, or `"visit_breaks": [{"before": <PlanGrid
+  number>, "title": "..."}, ...]` names them explicitly. The heading is
+  Heading 1 without item numbering, so the TOC lists it and Word's Update
+  Table keeps it; it carries that item's page break. A `before` that names no
+  item fails the render. Without either key the report is a flat list and
+  the dates carry the split.
 
 `build_master.py` merges facts with judgment and enforces what the renderer
 should not have to care about: no em or en dashes anywhere, the voice rules,
@@ -158,9 +179,17 @@ matches the item count.
 
 
 **Handing this stage to a worker:** paste `reference/worker-brief.md`, then name
-this file, the paths, and "run `bash scripts/run_pipeline.sh`, then stop after
-`verify_report.py` and the preview; do not deliver". Any test render or
-negative-control file goes under `build/_scratch/`, never beside the real
-output, and is never removed by the worker.
+this file, the paths, and "run `RENDER_ONLY=1 bash scripts/run_pipeline.sh`,
+then look at three preview pages (the cover, one item with photos, one
+without) with `render_preview.py`, report one line each, and stop; do not
+deliver". That is the whole verification: the verifier inside the pipeline
+already covers the TOC, fields, dates, banners, sections, cover and letterhead.
+Do not ask for eight pages, the OOXML, or "check what the renderer keys off"
+(the 2026-09-14 render brief did, and the worker spent 12 minutes reading
+scripts and patching data). Every decision the render needs is a config key or
+a data field named above; if one is missing, that is an Open question for the
+main thread, not a renderer edit. Any test render or negative-control file
+goes under `build/_scratch/`, never beside the real output, and is never
+removed by the worker.
 
 Next: `reference/verify-and-deliver.md` (verify the OOXML, keep it editable, deliver once).
