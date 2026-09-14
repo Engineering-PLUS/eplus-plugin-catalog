@@ -103,12 +103,13 @@ title") is a FAIL: the join never reached the voice rules.
 **8. Package delivery** (Bash):
 
 ```bash
-cd "$W/ws/_pipeline" && python3 scripts/package.py "$W/ws" "$W/project" --dry-run | head -5 && python3 scripts/package.py "$W/ws" "$W/project" | tail -3 && ls "$W/project"
+cd "$W/ws/_pipeline" && python3 scripts/package.py "$W/ws" "$W/project" --dry-run | grep -v '^   ' && python3 scripts/package.py "$W/ws" "$W/project" | grep -E '^(delivered|not packaged|WARNING|ERROR)' && ls "$W/project"
 ```
 
-Expected: `delivered : TEST-DRAFT-v0.1.zip`, at least one `not packaged:` line
-(the `_pipeline/build/_scratch` folder the stamper creates), and the project
-folder listing shows the zip and the docx. Record PASS or the error line.
+Expected: the dry run's summary lines including at least one `not packaged:`
+line (the `_pipeline/build/_scratch` folder the stamper creates), then
+`delivered : TEST-DRAFT-v0.1.zip`, and the project folder listing shows the
+zip and the docx. Record PASS or the error line.
 
 **9. MCP connectivity** (one tool call). Call the punch engine's `punch_stats`
 tool with no arguments, or its smallest documented argument set. The tool is
