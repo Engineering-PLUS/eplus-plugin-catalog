@@ -69,14 +69,24 @@ is the old drafting Step 3.5, folded in here so it is not a round of its own;
 third answers.
 
 **Then write the answers down, once:** the per-report facts into
-`_pipeline/build/report.config.json` (identity, `cover_mode`, and
-`visit_sections` or `visit_breaks` when sections were chosen), the
+`_pipeline/build/report.config.json` (identity, `cover_mode`,
+`inspection_date` as a **list of every walk date in the pull** when there is
+more than one, and `visit_sections` or `visit_breaks` when sections were
+chosen), the
 client-level facts into the workspace's `client-profile.json` (delivery
 copies it into the project folder, the one file `package.py` updates in
 place), and the scope rules into the `SCOPE`, `TITLE`, `CREATED_AFTER`,
 `DROP_PHRASES` and `KEEP_DELETED` variables recorded in `_pipeline/CLAUDE.md`.
 From here on nothing about identity, scope or wording mode is re-derived or
 re-asked.
+
+**The version comes from the project folder, never from memory.** The
+`output_filename` is `<Project>-Punch-Report-DRAFT-v0.1.docx` when the project
+folder holds no earlier delivery; when it does, the next number after the
+highest `-DRAFT-vN.N` already there. A memory note about a report delivered to
+some other folder is not a version history for this one (field result
+2026-09-14: a fresh folder received a "v0.3" because the model remembered a
+v0.2 elsewhere).
 
 ## 2. Build the workspace
 
@@ -175,8 +185,22 @@ eight pages plus the TOC plus the OOXML and the worker took 12 minutes).
 
 ## 6. Deliver one package
 
-When verification passes and the issues list and handoff are written, deliver
-with a single command:
+When verification passes, the paperwork is written. `run_record.py` has
+already filled the identity fields (project, version, file names, dates,
+counts); the parts only a person can write are:
+
+- `_pipeline/ISSUES-LIST.md`: every open question, the blocking ones first.
+- `_pipeline/PROCESS-LOG.md`: the scope decision paragraph, the inputs the
+  record cannot see, any script changed this run, and the precedent pass
+  (which items carry a verified citation, which a documented gap).
+- `_pipeline/LESSONS-LEARNED.md`: what broke, or "nothing broke this run".
+- `_pipeline/handoff/HANDOFF.md`: the entry point for the next run.
+- `README.md`: the scope paragraph.
+
+`package.py` refuses to deliver while any of these still carries the
+template's placeholder text (field result 2026-09-14: a package shipped with
+the scope decision and the precedent pass unwritten). Then deliver with a
+single command:
 
 ```bash
 python3 scripts/package.py <workspace> "<project folder>"

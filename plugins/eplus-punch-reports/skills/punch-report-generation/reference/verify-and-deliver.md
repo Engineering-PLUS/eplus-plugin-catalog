@@ -164,6 +164,14 @@ down will be broken again.
 previous package documented four behaviours its code did not have, and each cost
 real time later.
 
+**The packager checks the paperwork.** `run_record.py` fills the identity
+placeholders (project name, version, file names, walk dates, counts) in
+README, ISSUES-LIST, PROCESS-LOG, LESSONS-LEARNED and CLAUDE.md on every run.
+The judgment sections are yours, and `package.py` refuses to deliver while the
+PROCESS-LOG scope decision or precedent pass, the ISSUES-LIST item template,
+the README scope paragraph or the CLAUDE.md scope decision still read as the
+template. `--allow-placeholders` exists for tests, not for deliveries.
+
 
 **Handing Steps 8 and 9 to a worker:** paste `reference/worker-brief.md`, then
 name this file, the paths, and "stop before Step 10". Delivery (Step 10) is

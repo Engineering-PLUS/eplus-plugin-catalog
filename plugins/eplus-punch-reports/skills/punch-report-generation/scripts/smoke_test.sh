@@ -303,7 +303,7 @@ for cand in ("../template/_pipeline/build/assets", "../build/assets"):
         assets = os.path.join(here, cand)
         break
 assert assets, "no assets/logos folder found (expected ../template/_pipeline/build/assets or ../build/assets)"
-d = tempfile.mkdtemp()
+d = os.path.join(tempfile.mkdtemp(), "_pipeline"); os.makedirs(d)   # README sits one level up, as in a workspace
 shutil.copytree(assets, os.path.join(d, "assets"))
 os.makedirs(os.path.join(d, "thumbs_uniform"))
 os.makedirs(os.path.join(d, "sheet_clips_jpg"))
@@ -327,7 +327,7 @@ json.dump({"master_file": "master_report_items.json", "output_filename": "fixtur
            "cover_mode": "template", "cover_eyebrow": "Technology Site Inspection",
            "cover_subtitle": "Building X", "client_display_name": "Fixture Client Project",
            "site_address": ["1 Fixture St.,", "Town, ST"], "ep_project_no": "99999",
-           "inspection_date": "2026-01-01", "issuance_date": "2026-01-02", "inspector": "Fixture",
+           "inspection_date": ["2026-01-01", "2026-01-02"], "issuance_date": "2026-01-03", "inspector": "Fixture",
            "visit_sections": "by_date"},
           open(os.path.join(d, "report.config.json"), "w", encoding="utf-8"))
 json.dump({}, open(os.path.join(d, "sheet_clip_dims_jpg.json"), "w", encoding="utf-8"))
@@ -368,11 +368,11 @@ assert r3.returncode == 0 and "issuance date TBD" in r3.stdout, "TBD issuance da
 json.dump(cfg, open(os.path.join(d, "report.config.json"), "w", encoding="utf-8"))
 cz = zipfile.ZipFile(os.path.join(d, "fixture-Cover.docx"))
 cx = cz.read("word/document.xml").decode("utf-8")
-ctext = " ".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", cx))
+ctext = " ".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", cx)).replace("&amp;", "&")
 assert "<undefined" not in cx
 cids = re.findall(r'<wp:docPr[^>]*\bid="(\d+)"', cx)
 assert cids and len(cids) == len(set(cids)), f"duplicate wp:docPr ids in cover: {cids}"
-for needle in ("99999", "Building X", "Fixture Client Project", "01/01/2026", "01/02/2026", "Technology Site Inspection"):
+for needle in ("99999", "Building X", "Fixture Client Project", "01/01/2026 & 01/02/2026", "01/03/2026", "Technology Site Inspection"):
     assert needle in ctext, f"cover missing {needle!r}"
 assert "DRAFT" not in ctext.upper(), "draft warning must not be on the cover"
 assert not any(re.match(r"word/header\d*\.xml$", n) for n in cz.namelist()), "cover must have no letterhead header"
@@ -395,7 +395,23 @@ r = subprocess.run([sys.executable, "run_record.py", "--pipeline", d, "--build",
 assert r.returncode == 0, r.stdout + r.stderr
 cm = open(os.path.join(d, "CLAUDE.md"), encoding="utf-8").read()
 assert "clips. Draft.\n" not in cm and "fixture.docx" in cm and "## Next" in cm, cm
+# identity placeholders are filled from the config and the artifacts; judgment ones are not
+shutil.copy(out, os.path.join(d, "Proj-Bldg-Punch-Report-DRAFT-v0.3.docx"))      # newest render, carries the version
+open(os.path.join(d, "ISSUES-LIST.md"), "w", encoding="utf-8").write(
+    "# Open questions for the reviewer, <PROJECT> v0.1\n\n### Item <N> (PlanGrid #<N>) - <one-line problem>\n")
+open(os.path.join(d, "..", "README.md"), "w", encoding="utf-8").write(
+    "# <Project>, <Building / area>, punch report\n\nDraft for the <date> walk.\n| `<report>-DRAFT-v0.1.docx` | <N> items, <N> pages, <N> photos |\n\n<What this report covers, what was excluded>\n")
+r = subprocess.run([sys.executable, "run_record.py", "--pipeline", d, "--build", ".", "--data", "."],
+                   capture_output=True, text=True)
+assert r.returncode == 0 and "placeholders" in r.stdout, r.stdout + r.stderr
+il = open(os.path.join(d, "ISSUES-LIST.md"), encoding="utf-8").read()
+assert il.startswith("# Open questions for the reviewer, Building X v0.3"), il
+assert "### Item <N> (PlanGrid #<N>)" in il, "judgment placeholder must be left for a person"
+rd = open(os.path.join(d, "..", "README.md"), encoding="utf-8").read()
+assert rd.startswith("# Building X, Building X, punch report") and "2026-01-01 and 2026-01-02 walk" in rd, rd
+assert "Proj-Bldg-Punch-Report-DRAFT-v0.3.docx" in rd and "2 items, 0 photos" in rd and "<What this report covers" in rd, rd
 rec = json.load(open(os.path.join(d, "run.json"), encoding="utf-8"))
+assert rec["counts"]["clip_missing"] == [1, 2], rec["counts"]   # keyed by item_<N>.jpg, none exist here
 assert rec["counts"]["items"] == 2 and rec["output"]["verified"] is True, rec
 assert rec["counts"]["deleted_retained"] == [2] and rec["counts"]["pin_dates"] == ["2026-01-01", "2026-01-02"], rec["counts"]
 # the review sheet lands in the build folder under the report's stem, by default
@@ -437,6 +453,13 @@ w("plangrid_mcp/tasks.json"); w("plangrid_mcp/photos/p.jpg"); w("plangrid_pull/t
 old = w("_pipeline/build/X-DRAFT-v0.1.docx"); w("_pipeline/build/X-DRAFT-v0.1-Cover.docx"); w("_pipeline/build/X-Review-old.xlsx")
 time.sleep(1.1)
 new = w("_pipeline/build/X-DRAFT-v0.2.docx"); w("_pipeline/build/X-DRAFT-v0.2-Cover.docx"); w("_pipeline/build/X-Review.xlsx")
+# unfilled paperwork blocks delivery unless explicitly allowed
+w("_pipeline/PROCESS-LOG.md", b"## Scope decision\n\n<What was included, what was excluded, on whose direction>\n")
+r = subprocess.run([sys.executable, "package.py", ws, dest], capture_output=True, text=True)
+assert r.returncode != 0 and "template text" in r.stdout + r.stderr and not os.listdir(dest), r.stdout + r.stderr
+r = subprocess.run([sys.executable, "package.py", ws, dest, "--dry-run"], capture_output=True, text=True)
+assert r.returncode == 0 and "WARNING" in r.stdout, r.stdout + r.stderr
+w("_pipeline/PROCESS-LOG.md", b"## Scope decision\n\nAll 2 items.\n")
 r = subprocess.run([sys.executable, "package.py", ws, dest], capture_output=True, text=True)
 assert r.returncode == 0, r.stdout + r.stderr
 names = set(zipfile.ZipFile(os.path.join(dest, "X-DRAFT-v0.2.zip")).namelist())

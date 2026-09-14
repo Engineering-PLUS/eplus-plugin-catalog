@@ -63,6 +63,37 @@ def replace_block(text, start, end, block, heading):
     return text.rstrip("\n") + f"\n\n{heading}\n\n{start}\n{block}\n{end}\n"
 
 
+def fill_placeholders(text, facts):
+    """Replace the template's identity placeholders with what the run knows.
+
+    Only unambiguous tokens are touched: the project name, the version in an
+    H1 line, and the README's file names, walk date and counts. Judgment
+    placeholders (scope decision, limitations, lessons) are left for a person.
+    Field result 2026-09-14: a delivered package still read "CTX2 v0.1" on the
+    issues list and "<Project>" in the README after a v0.3 render.
+    """
+    out = text
+    if facts.get("project"):
+        out = out.replace("<PROJECT>", facts["project"]).replace("<Project>", facts["project"])
+    if facts.get("building"):
+        out = out.replace("<Building / area>", facts["building"])
+    if facts.get("version"):
+        out = re.sub(r"^(#.*?\bv)0\.1\b", lambda m: m.group(1) + facts["version"], out, flags=re.M)
+    if facts.get("output"):
+        out = out.replace("<report>-DRAFT-v0.1.docx", facts["output"])
+    if facts.get("review"):
+        out = out.replace("<report>-Review.xlsx", facts["review"])
+    if facts.get("task_report"):
+        out = out.replace("<Task Report>.pdf", facts["task_report"])
+    if facts.get("pull"):
+        out = out.replace("<pull folder>/", facts["pull"].rstrip("/") + "/")
+    if facts.get("dates"):
+        out = out.replace("<date>", facts["dates"])
+    if facts.get("counts"):
+        out = out.replace("<N> items, <N> pages, <N> photos", facts["counts"])
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--pipeline", default=".", help="the _pipeline folder (default: cwd)")
@@ -127,7 +158,10 @@ def main():
         "counts": {
             "items": len(items), "described": described, "photo_only": photo_only,
             "no_photos": no_content, "valid_sheet": len(valid_sheet), "photos": photos,
-            "sheet_clips": len(clips), "clip_missing": [i["number"] for i in items if str(i["number"]) not in {str(k) for k in clips}],
+            # clip dims are keyed by file name (item_<N>.jpg); accept bare numbers too
+            "sheet_clips": len(clips),
+            "clip_missing": [i["number"] for i in items
+                             if str(i["number"]) not in {re.sub(r"^item_(\d+)\.jpe?g$", r"\1", str(k)) for k in clips}],
             "with_room": len(with_room), "photographers": dict(photographers), "photo_dates": dates,
             "pin_dates": sorted({str(i.get("created_at") or "")[:10] for i in items if i.get("created_at")}),
             "deleted_retained": [i["number"] for i in items if i.get("deleted_in_plangrid")],
@@ -202,6 +236,36 @@ def main():
         "Scripts: " + ", ".join(f"{k} {v}" for k, v in rec["scripts"].items()),
     ]
     block = "\n".join(lines)
+
+    # Identity placeholders, filled from the config and the artifacts on every
+    # run so the paperwork never carries the template's name or version.
+    out_name = rec["output"]["file"] or ""
+    ver_m = re.search(r"-DRAFT-v(\d+(?:\.\d+)*)", out_name, flags=re.I)
+    xlsx = [f for f in glob.glob(os.path.join(build, "*.xlsx")) if not os.path.basename(f).startswith("~$")]
+    facts = {
+        "project": (cfg.get("cover_title") or cfg.get("cover_subtitle") or cfg.get("client_display_name") or "").strip() or None,
+        "building": (cfg.get("cover_subtitle") or "").strip() or None,
+        "version": ver_m.group(1) if ver_m else None,
+        "output": out_name or None,
+        "review": os.path.basename(max(xlsx, key=os.path.getmtime)) if xlsx else None,
+        "task_report": os.path.basename(task_report) if task_report else None,
+        "pull": os.path.basename(os.path.normpath(pull)) if pull else None,
+        "dates": " and ".join(c["pin_dates"]) if c["pin_dates"] else None,
+        "counts": f"{c['items']} items, {c['photos']} photos" if c["items"] else None,
+    }
+    for name in ("ISSUES-LIST.md", "LESSONS-LEARNED.md", "PROCESS-LOG.md", "CLAUDE.md",
+                 os.path.join("..", "README.md")):
+        p = os.path.join(pipe, name)
+        if not os.path.isfile(p):
+            continue
+        with open(p, encoding="utf-8") as f:
+            text = f.read()
+        filled = fill_placeholders(text, facts)
+        if filled != text:
+            with open(p, "w", encoding="utf-8") as f:
+                f.write(filled)
+            print(f"placeholders : {os.path.normpath(name)} identity fields filled")
+
     plog = os.path.join(pipe, "PROCESS-LOG.md")
     if os.path.isfile(plog):
         with open(plog, encoding="utf-8") as f:

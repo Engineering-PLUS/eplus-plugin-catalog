@@ -290,6 +290,14 @@ def main():
         sub = str(cfg.get("cover_subtitle") or "").strip()
         if sub and not sub.startswith("<"):
             checks.append(("cover: building / subtitle present", sub in ctext, f"'{sub}' missing"))
+        # Every walk date in the pull is on the cover: a two-day walk shows both
+        # (inspection_date may be a list). Field result 2026-09-14: the cover
+        # said 08/27/2026 for a walk that ran 08/27 and 08/28.
+        pin_dates = sorted({m.get("date_recorded") for m in master if m.get("date_recorded")})
+        missing_dates = [d for d in pin_dates if d not in ctext]
+        checks.append((f"cover: inspection date covers every pin date ({', '.join(pin_dates) or 'none'})",
+                       not missing_dates,
+                       f"{missing_dates} not on the cover; set inspection_date to the list of walk dates"))
         # The issuance date is asked, never inferred, and "TBD" is the sanctioned
         # placeholder on a draft; the inspection date must still be a real date.
         n_dates = len(re.findall(r"\b\d{2}/\d{2}/\d{4}\b", ctext))

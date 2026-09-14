@@ -68,6 +68,19 @@ import shutil
 import sys
 import zipfile
 
+# Paperwork a person has to write before the package leaves. Each entry is a
+# file (relative to the workspace) and the template text that proves it was
+# never touched. Field result 2026-09-14: a package shipped with the scope
+# decision, the precedent pass and the README scope paragraph still reading
+# as the template. --allow-placeholders overrides, for a dry run or a test.
+REQUIRED_PAPERWORK = [
+    ("_pipeline/PROCESS-LOG.md", "<What was included, what was excluded"),
+    ("_pipeline/PROCESS-LOG.md", "- Tools used and roughly how many calls"),
+    ("_pipeline/ISSUES-LIST.md", "### Item <N> (PlanGrid #<N>)"),
+    ("README.md", "<What this report covers, what was excluded"),
+    ("_pipeline/CLAUDE.md", "<State what was excluded and by whose direction"),
+]
+
 EXCLUDE_DIRS = {"node_modules", "__pycache__", "_scratch"}
 EXCLUDE_SUFFIXES = (".bak.json",)
 EXCLUDE_NAMES = {".DS_Store", "Thumbs.db"}
@@ -153,6 +166,22 @@ def collect(ws, keep_files):
     return files, skipped
 
 
+def unfilled_paperwork(ws):
+    """(file, placeholder) pairs whose template text is still present."""
+    hits = []
+    for rel, marker in REQUIRED_PAPERWORK:
+        p = os.path.join(ws, rel)
+        if not os.path.isfile(p):
+            continue
+        try:
+            with open(p, encoding="utf-8") as f:
+                if marker in f.read():
+                    hits.append((rel, marker))
+        except OSError:
+            pass
+    return hits
+
+
 def free_suffix(dest, stem, names):
     """Smallest suffix such that none of <stem><suffix><ext> already exist in dest."""
     n = 1
@@ -175,6 +204,9 @@ def main():
     ap.add_argument("--pdf", action="store_true",
                     help="also place the newest .pdf from _pipeline/build/ beside the zip "
                          "(only when the user asked for a PDF; it is a convenience copy)")
+    ap.add_argument("--allow-placeholders", action="store_true",
+                    help="deliver even though PROCESS-LOG, ISSUES-LIST, README or CLAUDE.md still "
+                         "carry template text (tests and dry runs only)")
     args = ap.parse_args()
 
     ws = os.path.abspath(args.workspace)
@@ -187,6 +219,15 @@ def main():
     docx, xlsx = find_deliverables(ws)
     if not docx:
         sys.exit("ERROR: no rendered .docx under _pipeline/build/; render before delivering")
+    unfilled = unfilled_paperwork(ws)
+    if unfilled and not (args.allow_placeholders or args.dry_run):
+        lines = "\n".join(f"  {rel}: still contains {marker!r}" for rel, marker in unfilled)
+        sys.exit("ERROR: the paperwork still carries template text; write these sections before delivering "
+                 "(scope decision, precedent pass, issues, README scope):\n" + lines +
+                 "\n--allow-placeholders overrides for tests and dry runs.")
+    if unfilled:
+        for rel, marker in unfilled:
+            print(f"WARNING     : {rel} still contains {marker!r}")
     stem = args.name or os.path.splitext(os.path.basename(docx))[0]
     # The cover is a separate file when cover_mode is "template"; deliver it
     # beside the body under the same suffix so the two stay paired.

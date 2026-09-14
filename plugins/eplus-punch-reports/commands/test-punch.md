@@ -103,8 +103,11 @@ title") is a FAIL: the join never reached the voice rules.
 **8. Package delivery** (Bash):
 
 ```bash
-cd "$W/ws/_pipeline" && python3 scripts/package.py "$W/ws" "$W/project" --dry-run | grep -v '^   ' && python3 scripts/package.py "$W/ws" "$W/project" | grep -E '^(delivered|not packaged|WARNING|ERROR)' && ls "$W/project"
+cd "$W/ws/_pipeline" && python3 scripts/package.py "$W/ws" "$W/project" --dry-run | grep -v '^   ' && python3 scripts/package.py "$W/ws" "$W/project" --allow-placeholders | grep -E '^(delivered|not packaged|WARNING|ERROR)' && ls "$W/project"
 ```
+
+(`--allow-placeholders` because this test never writes the paperwork; a real
+run must not pass it.)
 
 Expected: the dry run's summary lines including at least one `not packaged:`
 line (the `_pipeline/build/_scratch` folder the stamper creates), then

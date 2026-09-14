@@ -13,7 +13,7 @@
     "<city, state>"
   ],
   "ep_project_no": "<EP project number; rendered on the cover only>",
-  "inspection_date": "<YYYY-MM-DD, the walk date>",
+  "inspection_date": "<YYYY-MM-DD; a LIST of YYYY-MM-DD strings when the walk spanned several days, every pin date in the pull must be here>",
   "issuance_date": "<YYYY-MM-DD; ASK the reviewer at intake, never infer>",
   "inspector": "<Name of the engineer who walked the site>",
 

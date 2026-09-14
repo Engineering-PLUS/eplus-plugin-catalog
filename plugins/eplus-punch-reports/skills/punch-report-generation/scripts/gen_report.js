@@ -692,6 +692,9 @@ const inDxa = (n) => Math.round(n * 1440);
 function fmtDate(v) {
   // MM/DD/YYYY on the cover. Accepts ISO (YYYY-MM-DD), the legacy "Site walk:
   // Month D, YYYY" strings, or anything Date can parse; passes through otherwise.
+  // A LIST renders every date joined by " & " (a walk that spanned two days;
+  // field result 2026-09-14: the single-date field dropped the second day).
+  if (Array.isArray(v)) return v.map(fmtDate).filter(Boolean).join(' & ');
   if (!v) return '';
   const s = String(v).replace(/^Site walk:\s*/i, '').trim();
   let m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
