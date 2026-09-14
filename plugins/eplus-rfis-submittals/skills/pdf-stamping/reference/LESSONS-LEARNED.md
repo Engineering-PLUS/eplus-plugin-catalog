@@ -3,7 +3,7 @@
 Written while building and testing `stamp_pdf.py`. These are the things that
 cost time, so the next session doesn't rediscover them. Sections 1–5 come from
 the original 2026-09-01 scaffold session; 6–11 from the live-annotation
-rebuild.
+rebuild; 12 from a 36-submittal field review exported 2026-09-14.
 
 ## 1. The stamps are annotation stamps, and that breaks the obvious approach
 
@@ -239,6 +239,38 @@ So `--watermark-opacity` defaults to **1.0**: honour the stamp as authored.
 Use the flag only to knock back a stamp that is too heavy as drawn, and change
 the stamp file rather than the flag if the correction should be permanent.
 Review stamps stay fully opaque.
+
+## 12. Comment colour and batch runs (field session 2026-09-13)
+
+A 36-submittal review asked for the comments in "light violet" and then in
+`#8000FF`. With red hard-coded, the model wrote two one-off recolour scripts
+and re-stamped the set three times through separate workers; a bulk re-stamp
+of 18 packages then hit the shell tool's timeout four times.
+
+`--comment-color` now drives every place the colour lives. All five have to
+agree, or the box renders one way in a viewer and another once someone edits
+it in Revu:
+
+1. `text_color` / the `style` string passed to `add_freetext_annot()` — the
+   text in the appearance stream PyMuPDF generates.
+2. The border stroke operator patched into that stream (section 7, trap 2) —
+   now `<r g b> RG` instead of a fixed `1 0 0 RG`.
+3. `/DA` — `<r g b> rg /Helv 6 Tf`.
+4. `/DS` — `color:#RRGGBB`.
+5. `/RC` — the body style of the rich-content XHTML.
+
+The review stamp keeps its own artwork colours; `/C [1 0 0]` on the stamp annot
+is the stamp's, not the comment's. Verified on synthetic sheets: with the
+default `FF0000`, rects, `/DA`, `/DS`, `/RC` and both appearance streams are
+identical to the pre-change script (creation dates masked).
+
+`--batch` exists for the timeout, not for speed alone. Each job still opens,
+annotates, and saves its own PDF (the save of a 100+ page package is the slow
+part), but the baked stamp and its ink box — about a million pixels walked in
+pure Python per `ink_bbox()` call, twice per single-file run — are computed
+once per stamp for the whole batch. Result lines are flushed per job and
+`--skip-existing` resumes, so a cut-off run is recoverable without redoing
+finished files.
 
 ## Open questions
 

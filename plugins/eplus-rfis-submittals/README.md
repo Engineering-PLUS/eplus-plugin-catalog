@@ -17,6 +17,7 @@ connector** — this plugin ships no server definition and no credential.
 | Manifest  | [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) | Plugin identity and metadata |
 | Skill     | [`skills/rfi/SKILL.md`](skills/rfi/SKILL.md) | Doctrine: memory decision → deconstruct → delegate research → draft → HITL write-back gate, plus the return path for logging final RFI responses issued outside the chat |
 | Reference | [`skills/rfi/reference/tools.md`](skills/rfi/reference/tools.md) | Exact signatures and parameter rules for the five connector tools |
+| Skill     | [`skills/contract-document-review/SKILL.md`](skills/contract-document-review/SKILL.md) | Folder-based review of RFIs and submittals against the project's own drawings, bulletins and specs: one round of questions, governing-sheet register, delegation by building, citation cross-check, packaging (Cowork only) |
 | Skill     | [`skills/pdf-stamping/SKILL.md`](skills/pdf-stamping/SKILL.md) | Apply the firm's Bluebeam review stamps and the ENGINEERING PLUS COMMENTS box to a submittal, as live annotations (Cowork only) |
 | Agent     | [`agents/rfi-researcher.md`](agents/rfi-researcher.md) | Sonnet research subagent: runs every spec-database lookup in its own isolated context under a hard budget and returns a compact evidence brief |
 | Hooks     | [`hooks/hooks.json`](hooks/hooks.json) | Sign-off gate on `commit_approved_rfi` and an export-log echo of the researcher's brief; single PowerShell commands, each with an `EPLUS_NO_*` escape hatch |
@@ -63,6 +64,29 @@ per-message banner: the fleet is Windows-only, each hook is one
 `powershell -File` call costing up to a second, so only the two that matter
 are wired.
 
+## Reviews against a Contract Document set
+
+When the evidence is a folder rather than the knowledge base (IFC drawing sets
+per building, drawing bulletins, a shared specification set, dozens of
+submittal packages), the `rfi` skill hands off to `contract-document-review`.
+It carries the review rules a user otherwise has to type into the prompt
+(what counts as a Contract Document, bulletin precedence, conflicts go to the
+Engineer of Record, product data vs shop drawing criteria, the stamp decision
+basis) and adds two controls from a 2026-09-13 field session, where a review
+cited tag numbers from an equipment list a bulletin had replaced:
+
+- **Governing-sheet register first.** Before any analysis, bulletins are found
+  by title block and revision list (not file name) and every sheet is mapped
+  to the document that governs it. Worker prompts cite the register.
+- **Citation cross-check before packaging.** Every sheet, tag and model cited
+  in a comment is checked against the governing list; nothing is stamped while
+  a mismatch is open.
+
+Findings come back from one worker per building, the main thread reconciles
+them into a single `FINAL_CONTENT.md`, and every stamp and Word document is
+built from that file, so revisions rebuild rather than patch. No knowledge-base
+commit happens during a batch review.
+
 ## Memory
 
 The RFI skill opens every session by asking whether anything should be saved to
@@ -79,7 +103,11 @@ governing value is read from the project's own sheet every time.
 carrying **live** annotations — a `/Stamp` annot with the firm's artwork and a
 `/FreeText` comment block — so the reviewer can adjust them in Bluebeam before
 issuing. Geometry matches an issued response: the review stamp at 286 pt wide,
-the red comment box the same width 5 pt beneath it, red Helvetica 6pt text.
+the comment box the same width 5 pt beneath it, Helvetica 6pt text. Comments
+are house red by default; `--comment-color <hex>` sets the text and border
+colour without touching the stamp. `--batch manifest.json` stamps many
+submittals in one process (plan the whole batch with `--plan`, resume a
+cut-off run with `--skip-existing`), writing one JSON result line per job.
 
 Eight stamps ship with the skill in [`skills/pdf-stamping/stamps`](skills/pdf-stamping/stamps),
 in two classes the script refuses to interchange:
@@ -148,7 +176,7 @@ From the `eplus-claude-plugins` marketplace:
 claude plugin install eplus-rfis-submittals@eplus-claude-plugins
 ```
 
-Verify: the skills list shows `rfi` and `pdf-stamping`, the agent list shows
+Verify: the skills list shows `rfi`, `contract-document-review` and `pdf-stamping`, the agent list shows
 `eplus-rfis-submittals:rfi-researcher`, and with the `rfi-knowledge-hub`
 connector active, asking Claude to "review this RFI and draft a response"
 settles the memory question, then delegates the lookup to the researcher

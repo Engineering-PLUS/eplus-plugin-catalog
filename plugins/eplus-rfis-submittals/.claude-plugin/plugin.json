@@ -1,7 +1,7 @@
 {
   "name": "eplus-rfis-submittals",
-  "version": "0.3.3",
-  "description": "Draft spec-backed RFI responses, stamp submittals with the firm's Bluebeam review stamps, and log approved responses to the EPLUS knowledge base — nothing is saved without your sign-off.",
+  "version": "0.4.0",
+  "description": "Draft spec-backed RFI responses, review submittals against a project's drawings, bulletins and specs, stamp them with the firm's Bluebeam review stamps, and log approved responses to the EPLUS knowledge base — nothing is saved without your sign-off.",
   "keywords": [
     "mcp",
     "submittals",

@@ -36,6 +36,9 @@ Usage:
       --comments-file comments.txt \
       --reviewer "<reviewer name>" --date 09/01/2026
 
+  # many submittals in one process, one JSON result line per job
+  python3 stamp_pdf.py --batch manifest.json [--plan] [--skip-existing]
+
 Stamps are read from ../stamps relative to this script unless --stamps-dir
 is given.
 """
@@ -112,7 +115,10 @@ HOUSE_STAMP_W = 286.3      # pt -- review stamp width as issued
 HOUSE_MARGIN = 42.0        # pt -- from the page edges
 HOUSE_GAP = 5.1            # pt -- between stamp bottom and comment box top
 COMMENT_FONTSIZE = 6.0
-COMMENT_RED = (1.0, 0.0, 0.0)
+# House red. --comment-color overrides it (text AND border) for reviewers who
+# issue comments in another colour; see LESSONS-LEARNED section 12 for every
+# place the colour has to be written.
+DEFAULT_COMMENT_COLOR = "FF0000"
 # The issued file declares 6.9pt leading / 3pt margin in its /DS. PyMuPDF's rich
 # text layout actually renders at 1.2x fontsize leading with a 2pt inset, so the
 # box-sizing math below uses the values PyMuPDF will really use -- otherwise the
@@ -363,6 +369,27 @@ def _esc(s: str) -> str:
     return (s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
 
 
+_HEX_RE = re.compile(r"^#?([0-9A-Fa-f]{6})$")
+
+
+def parse_color(value: str) -> str:
+    """Normalise a user colour ('8000FF', '#8000ff') to six upper-case hex digits."""
+    m = _HEX_RE.match((value or "").strip())
+    if not m:
+        raise SystemExit("--comment-color must be a six-digit hex colour such as "
+                         "FF0000 or #8000FF, got %r" % value)
+    return m.group(1).upper()
+
+
+def _rgb(hex6: str) -> tuple:
+    """'8000FF' -> (0.502, 0.0, 1.0), the 0-1 floats PDF operators take."""
+    return tuple(round(int(hex6[i:i + 2], 16) / 255.0, 4) for i in (0, 2, 4))
+
+
+def _pdf_rgb(hex6: str) -> str:
+    return "%g %g %g" % _rgb(hex6)
+
+
 def _rich_html(text: str) -> str:
     """Body HTML handed to PyMuPDF's rich-text layout.
 
@@ -401,11 +428,11 @@ def verify_comment_fit(annot: pymupdf.Annot) -> bool:
     return last_baseline + descent <= annot.rect.height - COMMENT_MARGIN
 
 
-def _rich_content(text: str) -> str:
+def _rich_content(text: str, color: str = DEFAULT_COMMENT_COLOR) -> str:
     """Bluebeam-style /RC so the box stays styled when edited in Revu."""
     style = ("font:Helvetica %gpt; text-align:left; margin:%gpt; "
-             "line-height:%gpt; color:#FF0000"
-             % (COMMENT_FONTSIZE, HOUSE_MARGIN_DS, HOUSE_LEADING))
+             "line-height:%gpt; color:#%s"
+             % (COMMENT_FONTSIZE, HOUSE_MARGIN_DS, HOUSE_LEADING, color))
     paras = "".join(
         '<p style="line-height:%gpt; font-size:%gpt">%s</p>'
         % (HOUSE_LEADING, COMMENT_FONTSIZE, _esc(line) or "&#160;")
@@ -418,8 +445,9 @@ def _rich_content(text: str) -> str:
 
 
 def add_comment_box(page: pymupdf.Page, rect: pymupdf.Rect, text: str,
-                    author: str, fill: bool = True) -> pymupdf.Annot:
-    """Place the live red-bordered EPLUS comment box.
+                    author: str, fill: bool = True,
+                    color: str = DEFAULT_COMMENT_COLOR) -> pymupdf.Annot:
+    """Place the live EPLUS comment box, text and border in `color` (hex6).
 
     PyMuPDF only honours `border_color` in rich-text mode, and even then it
     writes a black stroke into the appearance stream. We draw through it and
@@ -429,11 +457,11 @@ def add_comment_box(page: pymupdf.Page, rect: pymupdf.Rect, text: str,
     annot = page.add_freetext_annot(
         rect, _rich_html(text),
         fontsize=COMMENT_FONTSIZE, fontname="Helv",
-        text_color=COMMENT_RED,
+        text_color=_rgb(color),
         fill_color=(1.0, 1.0, 1.0) if fill else None,
         border_width=1.0, align=pymupdf.TEXT_ALIGN_LEFT, richtext=True,
-        style="font-family:Helvetica; font-size:%gpx; color:#FF0000; text-align:left"
-              % COMMENT_FONTSIZE,
+        style="font-family:Helvetica; font-size:%gpx; color:#%s; text-align:left"
+              % (COMMENT_FONTSIZE, color),
     )
 
     ap = doc.xref_get_key(annot.xref, "AP/N")
@@ -441,7 +469,8 @@ def add_comment_box(page: pymupdf.Page, rect: pymupdf.Rect, text: str,
         ap_xref = int(ap[1].split()[0])
         stream = doc.xref_stream(ap_xref)
         if b"0 0 0 RG" in stream:
-            doc.update_stream(ap_xref, stream.replace(b"0 0 0 RG", b"1 0 0 RG", 1))
+            doc.update_stream(ap_xref, stream.replace(
+                b"0 0 0 RG", (_pdf_rgb(color) + " RG").encode("ascii"), 1))
         else:
             sys.stderr.write("warning: comment box border stroke not found in the "
                              "appearance stream -- the border may render black\n")
@@ -452,12 +481,12 @@ def add_comment_box(page: pymupdf.Page, rect: pymupdf.Rect, text: str,
     doc.xref_set_key(annot.xref, "T", pymupdf.get_pdf_str(author))
     doc.xref_set_key(annot.xref, "C", "[ 1 1 1 ]" if fill else "[ ]")
     doc.xref_set_key(annot.xref, "F", "4")
-    doc.xref_set_key(annot.xref, "DA",
-                     pymupdf.get_pdf_str("1 0 0 rg /Helv %g Tf" % COMMENT_FONTSIZE))
+    doc.xref_set_key(annot.xref, "DA", pymupdf.get_pdf_str(
+        "%s rg /Helv %g Tf" % (_pdf_rgb(color), COMMENT_FONTSIZE)))
     doc.xref_set_key(annot.xref, "DS", pymupdf.get_pdf_str(
-        "font: Helvetica %gpt; text-align:left; margin:%gpt; line-height:%gpt; color:#FF0000"
-        % (COMMENT_FONTSIZE, HOUSE_MARGIN_DS, HOUSE_LEADING)))
-    doc.xref_set_key(annot.xref, "RC", pymupdf.get_pdf_str(_rich_content(text)))
+        "font: Helvetica %gpt; text-align:left; margin:%gpt; line-height:%gpt; color:#%s"
+        % (COMMENT_FONTSIZE, HOUSE_MARGIN_DS, HOUSE_LEADING, color)))
+    doc.xref_set_key(annot.xref, "RC", pymupdf.get_pdf_str(_rich_content(text, color)))
     now = _pdf_date(_dt.datetime.now())
     doc.xref_set_key(annot.xref, "CreationDate", pymupdf.get_pdf_str(now))
     doc.xref_set_key(annot.xref, "M", pymupdf.get_pdf_str(now))
@@ -562,11 +591,50 @@ def plan_placement(page: pymupdf.Page, block_w: float, block_h: float,
 # --------------------------------------------------------------------------
 # CLI
 # --------------------------------------------------------------------------
-def _read_comments(args) -> str | None:
-    if args.comments_file:
-        with open(args.comments_file, encoding="utf-8") as fh:
+class JobError(Exception):
+    """A refusal or bad input for one stamping job.
+
+    Single-file runs turn it into SystemExit with the same message; batch runs
+    record it against the job and carry on with the next one.
+    """
+
+    def __init__(self, message: str, candidates=None):
+        super().__init__(message)
+        self.candidates = candidates
+
+
+# Every per-job setting, with the CLI default. A batch manifest may set any of
+# these in its "defaults" block or per job (hyphens or underscores).
+JOB_DEFAULTS = {
+    "input": None,
+    "stamps_dir": DEFAULT_STAMPS_DIR,
+    "watermark": None,
+    "watermark_scale": 0.55,
+    "watermark_opacity": 1.0,
+    "stamp": None,
+    "stamp_page": 1,
+    "stamp_fit": "auto",
+    "stamp_scale": 1.0,
+    "blank_bias": "top",
+    "stamp_width": HOUSE_STAMP_W,
+    "comments": None,
+    "comments_file": None,
+    "comment_fill": "white",
+    "comment_color": DEFAULT_COMMENT_COLOR,
+    "allow_overlap": False,
+    "reviewer": None,
+    "date": None,
+    "prefix": "EPLUS RESPONSE - ",
+    "out_dir": None,
+    "out": None,
+}
+
+
+def _read_comments(job: dict) -> str | None:
+    if job["comments_file"]:
+        with open(job["comments_file"], encoding="utf-8") as fh:
             return fh.read().rstrip("\n")
-    return args.comments
+    return job["comments"]
 
 
 def _stamp_path(stamps_dir: str, name: str) -> str:
@@ -574,15 +642,290 @@ def _stamp_path(stamps_dir: str, name: str) -> str:
     if not os.path.exists(path):
         available = sorted(f[:-4] for f in os.listdir(stamps_dir)
                            if f.lower().endswith(".pdf"))
-        raise SystemExit("stamp %r not found in %s\navailable: %s"
-                         % (name, stamps_dir, ", ".join(available)))
+        raise JobError("stamp %r not found in %s\navailable: %s"
+                       % (name, stamps_dir, ", ".join(available)))
     return path
+
+
+class StampCache:
+    """Baked stamp documents and their ink boxes, shared across batch jobs.
+
+    load_stamp() bakes the Bluebeam file and ink_bbox() walks ~1M pixels in pure
+    Python; both depend only on the stamp and its token values, so a batch of
+    thirty submittals pays for them once per stamp instead of twice per file.
+    """
+
+    def __init__(self):
+        self._docs = {}
+
+    def get(self, stamps_dir: str, name: str, tokens: dict | None = None):
+        key = (stamps_dir, name, tuple(sorted((tokens or {}).items())))
+        if key not in self._docs:
+            doc = load_stamp(_stamp_path(stamps_dir, name), tokens)
+            self._docs[key] = (doc, ink_bbox(doc))
+        return self._docs[key]
+
+    def close(self):
+        for doc, _ in self._docs.values():
+            doc.close()
+        self._docs.clear()
+
+
+def _output_path(job: dict) -> str:
+    if job["out"]:
+        return job["out"]
+    base = os.path.basename(job["input"])
+    out_dir = job["out_dir"] or os.path.dirname(os.path.abspath(job["input"]))
+    return os.path.join(out_dir, job["prefix"] + base)
+
+
+def run_job(job: dict, cache: StampCache, plan: bool = False) -> dict:
+    """Stamp one submittal (or plan it). Returns a result dict; raises JobError."""
+    if job["stamp"] and job["stamp"] in WATERMARKS:
+        raise JobError("%r is a watermark, not a review stamp -- pass it as "
+                       "--watermark. Review stamps: %s"
+                       % (job["stamp"], ", ".join(sorted(REVIEW_STAMPS))))
+    if job["watermark"] and job["watermark"] in REVIEW_STAMPS:
+        raise JobError("%r is a review stamp, not a watermark -- pass it as "
+                       "--stamp. Watermarks: %s"
+                       % (job["watermark"], ", ".join(sorted(WATERMARKS))))
+    if not job["input"]:
+        raise JobError("no input PDF given")
+    if not job["stamp"] and not job["watermark"]:
+        raise JobError("nothing to do: pass --stamp and/or --watermark")
+    if job["comments"] and job["comments_file"]:
+        raise JobError("pass --comments or --comments-file, not both")
+    if (job["comments"] or job["comments_file"]) and not job["stamp"]:
+        raise JobError("--comments needs --stamp (the box hangs off the stamp)")
+
+    color = parse_color(job["comment_color"])
+    reviewer = job["reviewer"]
+    date = job["date"] or _dt.date.today().strftime("%m/%d/%Y")
+    comments = _read_comments(job)
+    result = {"input": job["input"], "warnings": []}
+
+    doc = pymupdf.open(job["input"])
+    try:
+        # ---- geometry of the stamp + comment block -----------------------
+        stamp_rect_size = None
+        block_w = block_h = 0.0
+        if job["stamp"]:
+            _, pbox = cache.get(job["stamps_dir"], job["stamp"],
+                                {"User": reviewer or "", "Date": date})
+            sw = job["stamp_width"] * job["stamp_scale"]
+            sh = sw * pbox.height / pbox.width
+            stamp_rect_size = (sw, sh)
+            block_w, block_h = sw, sh
+            if comments:
+                block_h += HOUSE_GAP + comment_box_height(comments, sw)
+
+        # ---- planning mode -----------------------------------------------
+        if plan:
+            if not job["stamp"]:
+                raise JobError("--plan needs --stamp")
+            if not (1 <= job["stamp_page"] <= doc.page_count):
+                raise JobError("--stamp-page %d out of range (1-%d)"
+                               % (job["stamp_page"], doc.page_count))
+            report = plan_placement(doc[job["stamp_page"] - 1], block_w, block_h)
+            report["stamp"] = job["stamp"]
+            report["stamp_page"] = job["stamp_page"]
+            report["comment_lines"] = (len(comments.split("\n")) if comments else 0)
+            result["plan"] = report
+            return result
+
+        if job["stamp"] and not reviewer:
+            raise JobError("--reviewer is required: the stamp's &[User] cell would "
+                           "otherwise ship with the raw Bluebeam token visible")
+
+        out = _output_path(job)
+        if os.path.abspath(out) == os.path.abspath(job["input"]):
+            raise JobError("refusing to overwrite the original submittal")
+
+        author = reviewer or "Engineering PLUS"
+
+        # ---- watermark, every page, FIRST so the review stamp can't land on it
+        if job["watermark"]:
+            wm, wbox = cache.get(job["stamps_dir"], job["watermark"])
+            wm_xref = _form_xobject_from_stamp(doc, wm, wbox)
+            for page in doc:
+                w = page.rect.width * job["watermark_scale"]
+                h = w * wbox.height / wbox.width
+                if h > page.rect.height * 0.9:
+                    h = page.rect.height * 0.9
+                    w = h * wbox.width / wbox.height
+                rect = pymupdf.Rect(0, 0, w, h)
+                rect += (page.rect.width / 2 - w / 2, page.rect.height / 2 - h / 2) * 2
+                add_stamp_annot(page, wm_xref, rect, author,
+                                opacity=job["watermark_opacity"], subject="Watermark")
+
+        # ---- review stamp + comment block --------------------------------
+        if job["stamp"]:
+            if not (1 <= job["stamp_page"] <= doc.page_count):
+                raise JobError("--stamp-page %d out of range (1-%d)"
+                               % (job["stamp_page"], doc.page_count))
+            stamp, sbox = cache.get(job["stamps_dir"], job["stamp"],
+                                    {"User": reviewer, "Date": date})
+            residual = stamp_residual_tokens(stamp)
+            if residual:
+                raise JobError("stamp still contains unfilled Bluebeam tokens: %s"
+                               % ", ".join("&[%s]" % t for t in residual))
+            sw, sh = stamp_rect_size
+
+            # Build the XObject BEFORE taking a Page handle: insert_pdf/delete_page
+            # inside the helper reshuffles the page tree and orphans live Page
+            # objects (page.parent goes None).
+            st_xref = _form_xobject_from_stamp(doc, stamp, sbox)
+
+            page = doc[job["stamp_page"] - 1]
+            inkmap = InkMap(page)
+            if job["stamp_fit"] == "auto":
+                block = find_blank(inkmap, page.rect, block_w, block_h,
+                                   bias=job["blank_bias"])
+                if block is None:
+                    report = plan_placement(page, block_w, block_h)
+                    raise JobError(
+                        "no blank %.0fx%.0fpt area on page %d for the stamp%s. "
+                        "Refusing to guess. Pick a placement with --stamp-fit, "
+                        "shrink with --stamp-scale, or re-run with --allow-overlap "
+                        "once the user has chosen a spot."
+                        % (block_w, block_h, job["stamp_page"],
+                           " + comment block" if comments else ""),
+                        candidates=report["candidates"][:4])
+            else:
+                if job["stamp_fit"] not in ANCHORS:
+                    raise JobError("stamp_fit must be auto or one of %s, got %r"
+                                   % (", ".join(ANCHORS), job["stamp_fit"]))
+                block = anchor_rect(page.rect, block_w, block_h, job["stamp_fit"])
+                covered = inkmap.count(block)
+                if covered and not job["allow_overlap"]:
+                    raise JobError(
+                        "--stamp-fit %s covers page content on page %d. Re-run with "
+                        "--allow-overlap only after the user has approved covering it "
+                        "(--comment-fill white hides what is underneath)."
+                        % (job["stamp_fit"], job["stamp_page"]))
+
+            srect = pymupdf.Rect(block.x0, block.y0, block.x0 + sw, block.y0 + sh)
+            add_stamp_annot(page, st_xref, srect, author)
+
+            if comments:
+                ch = comment_box_height(comments, sw)
+                crect = pymupdf.Rect(block.x0, srect.y1 + HOUSE_GAP,
+                                     block.x0 + sw, srect.y1 + HOUSE_GAP + ch)
+                cannot = add_comment_box(page, crect, comments, author,
+                                         fill=(job["comment_fill"] == "white"),
+                                         color=color)
+                if not verify_comment_fit(cannot):
+                    result["warnings"].append(
+                        "comment text reaches the bottom border of the box -- "
+                        "it may be clipped. Shorten the comments or widen the block, "
+                        "and check the rendered page before issuing.")
+            result.update(stamp=job["stamp"], stamp_page=job["stamp_page"],
+                          rect=[round(v, 1) for v in block])
+
+        # ---- write -------------------------------------------------------
+        doc.save(out, garbage=3, deflate=True)
+        result["out"] = out
+        return result
+    finally:
+        doc.close()
+
+
+def _normalise_keys(entry: dict, where: str) -> dict:
+    job = {}
+    for key, value in entry.items():
+        k = key.replace("-", "_")
+        if k not in JOB_DEFAULTS:
+            raise JobError("%s: unknown setting %r (known: %s)"
+                           % (where, key, ", ".join(sorted(JOB_DEFAULTS))))
+        job[k] = value
+    return job
+
+
+def _load_manifest(path: str, base: dict) -> list:
+    """Expand a batch manifest into complete job dicts.
+
+    Shape: {"defaults": {...}, "jobs": [{...}, ...]} or a bare list of jobs.
+    Precedence per setting: job > manifest defaults > command line. Relative
+    paths (input, comments_file, out, out_dir, stamps_dir) resolve against
+    the manifest's own folder.
+    """
+    with open(path, encoding="utf-8") as fh:
+        data = json.load(fh)
+    if isinstance(data, list):
+        data = {"jobs": data}
+    root = os.path.dirname(os.path.abspath(path))
+    defaults = _normalise_keys(data.get("defaults") or {}, "defaults")
+    jobs = []
+    for i, entry in enumerate(data.get("jobs") or [], 1):
+        job = dict(base)
+        job.update(defaults)
+        try:
+            job.update(_normalise_keys(entry, "job %d" % i))
+        except JobError as exc:
+            job["_error"] = str(exc)
+        for k in ("input", "comments_file", "out", "out_dir", "stamps_dir"):
+            if job.get(k) and not os.path.isabs(job[k]):
+                job[k] = os.path.join(root, job[k])
+        jobs.append(job)
+    if not jobs:
+        raise SystemExit("manifest %s has no jobs" % path)
+    return jobs
+
+
+def _emit(record: dict) -> None:
+    print(json.dumps(record), flush=True)
+
+
+def run_batch(jobs: list, plan: bool, skip_existing: bool) -> int:
+    """One JSON line per job as it finishes, then a summary line.
+
+    Lines are flushed as they are written, so a run cut off by a tool timeout
+    still leaves a record of what finished; re-run with --skip-existing to
+    pick up where it stopped.
+    """
+    cache = StampCache()
+    counts = {"ok": 0, "planned": 0, "skipped": 0, "failed": 0}
+    try:
+        for i, job in enumerate(jobs, 1):
+            record = {"job": i, "input": job.get("input")}
+            if job.get("_error"):
+                record.update(status="failed", error=job["_error"])
+            elif not plan and skip_existing and job.get("input") \
+                    and os.path.exists(_output_path(job)):
+                record.update(status="skipped", out=_output_path(job))
+            else:
+                try:
+                    result = run_job(job, cache, plan=plan)
+                    record.update(result)
+                    record["status"] = "planned" if plan else "ok"
+                except JobError as exc:
+                    record.update(status="failed", error=str(exc))
+                    if exc.candidates:
+                        record["candidates"] = exc.candidates
+                except SystemExit as exc:  # parse_color and friends
+                    record.update(status="failed", error=str(exc))
+                except Exception as exc:  # one bad PDF must not sink the batch
+                    record.update(status="failed",
+                                  error="%s: %s" % (type(exc).__name__, exc))
+            counts[record["status"]] += 1
+            _emit(record)
+    finally:
+        cache.close()
+    _emit({"summary": counts, "jobs": len(jobs)})
+    return 1 if counts["failed"] else 0
 
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("input")
+    ap.add_argument("input", nargs="?", default=None,
+                    help="submittal PDF (omit when using --batch)")
+    ap.add_argument("--batch", default=None, metavar="MANIFEST.json",
+                    help="stamp many submittals in one process; see the manifest "
+                         "format in SKILL.md. Writes one JSON line per job")
+    ap.add_argument("--skip-existing", action="store_true",
+                    help="batch only: skip jobs whose output file already exists "
+                         "(resume a run that was cut off)")
     ap.add_argument("--stamps-dir", default=DEFAULT_STAMPS_DIR,
                     help="folder holding the stamp PDFs (default: the skill's "
                          "stamps/ folder next to this script)")
@@ -611,6 +954,9 @@ def main(argv=None) -> int:
     ap.add_argument("--comment-fill", default="white", choices=("white", "none"),
                     help="'white' hides page content beneath the box -- last resort "
                          "when the block cannot sit on blank paper")
+    ap.add_argument("--comment-color", default=DEFAULT_COMMENT_COLOR,
+                    help="hex colour for the comment text and border (default "
+                         "FF0000, the house red); the review stamp is unaffected")
     ap.add_argument("--allow-overlap", action="store_true",
                     help="permit a placement that covers page content; without this "
                          "the script refuses and tells you to re-plan")
@@ -624,152 +970,35 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
     check_environment()
 
-    if args.stamp and args.stamp in WATERMARKS:
-        raise SystemExit("%r is a watermark, not a review stamp -- pass it as "
-                         "--watermark. Review stamps: %s"
-                         % (args.stamp, ", ".join(sorted(REVIEW_STAMPS))))
-    if args.watermark and args.watermark in REVIEW_STAMPS:
-        raise SystemExit("%r is a review stamp, not a watermark -- pass it as "
-                         "--stamp. Watermarks: %s"
-                         % (args.watermark, ", ".join(sorted(WATERMARKS))))
-    if not args.stamp and not args.watermark:
-        raise SystemExit("nothing to do: pass --stamp and/or --watermark")
-    if args.comments and args.comments_file:
-        raise SystemExit("pass --comments or --comments-file, not both")
-    if (args.comments or args.comments_file) and not args.stamp:
-        raise SystemExit("--comments needs --stamp (the box hangs off the stamp)")
+    base = {k: getattr(args, k) for k in JOB_DEFAULTS}
+    parse_color(base["comment_color"])  # fail on a bad colour before any work
 
-    reviewer = args.reviewer
-    date = args.date or _dt.date.today().strftime("%m/%d/%Y")
-    comments = _read_comments(args)
+    if args.batch:
+        if args.input:
+            raise SystemExit("pass an input PDF or --batch, not both")
+        if args.out:
+            raise SystemExit("--out names one file; give each batch job its own out")
+        return run_batch(_load_manifest(args.batch, base), args.plan,
+                         args.skip_existing)
+    if not args.input:
+        raise SystemExit("no input PDF given (or pass --batch MANIFEST.json)")
 
-    doc = pymupdf.open(args.input)
-
-    # ---- geometry of the stamp + comment block ---------------------------
-    stamp_rect_size = None
-    block_w = block_h = 0.0
-    if args.stamp:
-        probe = load_stamp(_stamp_path(args.stamps_dir, args.stamp),
-                           {"User": reviewer or "", "Date": date})
-        pbox = ink_bbox(probe)
-        sw = args.stamp_width * args.stamp_scale
-        sh = sw * pbox.height / pbox.width
-        stamp_rect_size = (sw, sh)
-        block_w, block_h = sw, sh
-        if comments:
-            block_h += HOUSE_GAP + comment_box_height(comments, sw)
-        probe.close()
-
-    # ---- planning mode ---------------------------------------------------
+    cache = StampCache()
+    try:
+        result = run_job(base, cache, plan=args.plan)
+    except JobError as exc:
+        if exc.candidates:
+            sys.stderr.write("Candidate placements:\n%s\n"
+                             % json.dumps(exc.candidates, indent=2))
+        raise SystemExit(str(exc))
+    finally:
+        cache.close()
+    for w in result["warnings"]:
+        sys.stderr.write("warning: %s\n" % w)
     if args.plan:
-        if not args.stamp:
-            raise SystemExit("--plan needs --stamp")
-        page = doc[args.stamp_page - 1]
-        report = plan_placement(page, block_w, block_h)
-        report["stamp"] = args.stamp
-        report["stamp_page"] = args.stamp_page
-        report["comment_lines"] = (len(comments.split("\n")) if comments else 0)
-        print(json.dumps(report, indent=2))
-        return 0
-
-    if args.stamp and not reviewer:
-        raise SystemExit("--reviewer is required: the stamp's &[User] cell would "
-                         "otherwise ship with the raw Bluebeam token visible")
-
-    author = reviewer or "Engineering PLUS"
-
-    # ---- watermark, every page, FIRST so the review stamp can't land on it
-    if args.watermark:
-        wm = load_stamp(_stamp_path(args.stamps_dir, args.watermark))
-        wbox = ink_bbox(wm)
-        wm_xref = _form_xobject_from_stamp(doc, wm, wbox)
-        for page in doc:
-            w = page.rect.width * args.watermark_scale
-            h = w * wbox.height / wbox.width
-            if h > page.rect.height * 0.9:
-                h = page.rect.height * 0.9
-                w = h * wbox.width / wbox.height
-            rect = pymupdf.Rect(0, 0, w, h)
-            rect += (page.rect.width / 2 - w / 2, page.rect.height / 2 - h / 2) * 2
-            add_stamp_annot(page, wm_xref, rect, author,
-                            opacity=args.watermark_opacity, subject="Watermark")
-        wm.close()
-
-    # ---- review stamp + comment block ------------------------------------
-    if args.stamp:
-        if not (1 <= args.stamp_page <= doc.page_count):
-            raise SystemExit("--stamp-page %d out of range (1-%d)"
-                             % (args.stamp_page, doc.page_count))
-        stamp = load_stamp(_stamp_path(args.stamps_dir, args.stamp),
-                           {"User": reviewer, "Date": date})
-        residual = stamp_residual_tokens(stamp)
-        if residual:
-            raise SystemExit("stamp still contains unfilled Bluebeam tokens: %s"
-                             % ", ".join("&[%s]" % t for t in residual))
-        sbox = ink_bbox(stamp)
-        sw, sh = stamp_rect_size
-
-        # Build the XObject BEFORE taking a Page handle: insert_pdf/delete_page
-        # inside the helper reshuffles the page tree and orphans live Page
-        # objects (page.parent goes None).
-        st_xref = _form_xobject_from_stamp(doc, stamp, sbox)
-        stamp.close()
-
-        page = doc[args.stamp_page - 1]
-        inkmap = InkMap(page)
-        if args.stamp_fit == "auto":
-            block = find_blank(inkmap, page.rect, block_w, block_h,
-                               bias=args.blank_bias)
-            if block is None:
-                report = plan_placement(page, block_w, block_h)
-                sys.stderr.write(
-                    "no blank %.0fx%.0fpt area on page %d for the stamp"
-                    "%s.\nCandidate placements:\n%s\n"
-                    % (block_w, block_h, args.stamp_page,
-                       " + comment block" if comments else "",
-                       json.dumps(report["candidates"][:4], indent=2)))
-                raise SystemExit(
-                    "refusing to guess. Pick a placement with --stamp-fit, shrink "
-                    "with --stamp-scale, or re-run with --allow-overlap once the "
-                    "user has chosen a spot.")
-        else:
-            block = anchor_rect(page.rect, block_w, block_h, args.stamp_fit)
-            covered = inkmap.count(block)
-            if covered and not args.allow_overlap:
-                raise SystemExit(
-                    "--stamp-fit %s covers page content on page %d. Re-run with "
-                    "--allow-overlap only after the user has approved covering it "
-                    "(--comment-fill white hides what is underneath)."
-                    % (args.stamp_fit, args.stamp_page))
-
-        srect = pymupdf.Rect(block.x0, block.y0, block.x0 + sw, block.y0 + sh)
-        add_stamp_annot(page, st_xref, srect, author)
-
-        if comments:
-            ch = comment_box_height(comments, sw)
-            crect = pymupdf.Rect(block.x0, srect.y1 + HOUSE_GAP,
-                                 block.x0 + sw, srect.y1 + HOUSE_GAP + ch)
-            cannot = add_comment_box(page, crect, comments, author,
-                                     fill=(args.comment_fill == "white"))
-            if not verify_comment_fit(cannot):
-                sys.stderr.write(
-                    "warning: comment text reaches the bottom border of the box -- "
-                    "it may be clipped. Shorten the comments or widen the block, "
-                    "and check the rendered page before issuing.\n")
-
-    # ---- write -----------------------------------------------------------
-    if args.out:
-        out = args.out
+        print(json.dumps(result["plan"], indent=2))
     else:
-        base = os.path.basename(args.input)
-        out_dir = args.out_dir or os.path.dirname(os.path.abspath(args.input))
-        out = os.path.join(out_dir, args.prefix + base)
-    if os.path.abspath(out) == os.path.abspath(args.input):
-        raise SystemExit("refusing to overwrite the original submittal")
-
-    doc.save(out, garbage=3, deflate=True)
-    doc.close()
-    print(out)
+        print(result["out"])
     return 0
 
 

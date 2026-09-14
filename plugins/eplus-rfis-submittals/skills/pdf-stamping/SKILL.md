@@ -1,13 +1,13 @@
 ---
 name: pdf-stamping
-description: Apply EPLUS Bluebeam review stamps and the EPLUS comment block to submittal PDFs, producing an "EPLUS RESPONSE - " copy with live, Bluebeam-editable annotations. Use whenever the user asks to stamp a submittal, add a DRAFT or FOR REFERENCE ONLY watermark, apply "Exceptions As Noted" / "No Exception" / "Rejected (Resubmit)" / "Review Required" / "For Record" / "For Information Only", add the ENGINEERING PLUS COMMENTS box to a drawing, or mark a submittal reviewed. Cowork-only — it needs PyMuPDF and a real filesystem. Handles Bluebeam annotation stamps, which a plain PDF merge silently fails to render.
+description: Apply EPLUS Bluebeam review stamps and the EPLUS comment block to submittal PDFs, producing an "EPLUS RESPONSE - " copy with live, Bluebeam-editable annotations. Use whenever the user asks to stamp a submittal, add a DRAFT or FOR REFERENCE ONLY watermark, apply "Exceptions As Noted" / "No Exception" / "Rejected (Resubmit)" / "Review Required" / "For Record" / "For Information Only", add the ENGINEERING PLUS COMMENTS box to a drawing, change the comment colour or add a general note on already-stamped copies, stamp a batch of submittals, or mark a submittal reviewed. Cowork-only — it needs PyMuPDF and a real filesystem. Handles Bluebeam annotation stamps, which a plain PDF merge silently fails to render.
 ---
 
 # EPLUS submittal stamping
 
 Produces a stamped **reference copy** of a submittal: the firm's review stamp,
-the red ENGINEERING PLUS COMMENTS box beneath it, and optionally a DRAFT
-watermark on every page.
+the ENGINEERING PLUS COMMENTS box beneath it (house red unless the user names
+another colour), and optionally a DRAFT watermark on every page.
 
 ## Scope and status
 
@@ -48,13 +48,20 @@ Two classes, and they are not interchangeable. The script refuses to swap them.
 
 Ask which review stamp if the user hasn't said. Do not infer a disposition from
 the review comments — that is the engineer's call, and it is the one thing on
-the page a contractor acts on.
+the page a contractor acts on. The one exception: in a document-set review
+(`document-review` skill) where the user has stated a decision basis — which
+findings earn No Exception, Exceptions As Noted, or Rejected (Resubmit) — apply
+that basis and write it into the comment block, so the engineer can see why.
 
 ## Inputs to establish first
 
 - **Source PDF** — the submittal.
 - **Review stamp** — ask if not stated.
 - **Comments** — the ENGINEERING PLUS COMMENTS list, if there is one.
+- **Comment colour** — house red (`FF0000`) unless the user names another.
+  Pass it as `--comment-color <hex>`; it colours the comment text and border
+  only, never the review stamp. A name like "light violet" is not a colour
+  value: pick the hex, say which one you picked, and use it for every file.
 - **Watermark** — usually `Draft`, when the copy is for internal reference.
   Do **not** reach for `--watermark-opacity` to lighten it: the stamp file
   already carries its own transparency (Draft is 40% grey) and the flag
@@ -80,6 +87,16 @@ ENGINEERING PLUS COMMENTS:
 
 Use `--comments-file`. It keeps quoting and line breaks intact, which inline
 `--comments` does not.
+
+A standing note that applies to the whole submittal (a basis-of-review or
+GENERAL NOTE the user supplies) goes on its own unnumbered line directly under
+the header, before comment 1. It is part of the block, not a numbered comment:
+
+```
+ENGINEERING PLUS COMMENTS:
+GENERAL NOTE: This submittal is reviewed solely for ...
+1. EC shall confirm ...
+```
 
 ### 2. Plan the placement before writing anything
 
@@ -124,7 +141,53 @@ python3 scripts/stamp_pdf.py "<submittal>.pdf" \
     --reviewer "<reviewer>" --date MM/DD/YYYY
 ```
 
-Output is `EPLUS RESPONSE - <submittal>.pdf` next to the original.
+Output is `EPLUS RESPONSE - <submittal>.pdf` next to the original. When the
+user asks for a different naming convention, pass `--out` with the full path.
+
+### 3a. Several submittals: batch mode
+
+More than two or three files go through one `--batch` run, not a loop of
+single calls. One process loads each stamp once, and the run writes a JSON
+line per job as it finishes, so a shell timeout part-way through still leaves
+a record of what completed.
+
+```json
+{
+  "defaults": {"reviewer": "<reviewer>", "date": "MM/DD/YYYY",
+               "comment-color": "FF0000"},
+  "jobs": [
+    {"input": "A/sub-001.pdf", "stamp": "Rejected (Resubmit)",
+     "comments-file": "comments/001.txt", "out": "A/sub-001 - EPLUS.pdf"},
+    {"input": "B/sub-014.pdf", "stamp": "Exceptions As Noted", "stamp-page": 2,
+     "comments-file": "comments/014.txt", "out": "B/sub-014 - EPLUS.pdf"}
+  ]
+}
+```
+
+- Any single-file option works as a job or `defaults` key, with hyphens or
+  underscores. Precedence: job, then `defaults`, then the command line. An
+  unknown key fails that job by name, so a typo cannot silently fall back to a
+  default.
+- Relative paths resolve against the manifest's folder.
+- `--batch manifest.json --plan` plans every job and writes nothing. Run it
+  first; any job whose plan has no clean candidate goes back to the user
+  exactly as in step 2, and gets its chosen `stamp-fit` / `stamp-scale` /
+  `allow-overlap` in the manifest before the real run.
+- A job that cannot be placed fails with its candidates in the result line;
+  the other jobs still run. The exit code is 1 if any job failed.
+- Large packages take a while to save. If the shell tool has a short timeout,
+  run the batch in the background with its output redirected to a log file,
+  then read the log. If a run is cut off, re-run with `--skip-existing` to
+  pick up where it stopped.
+
+### 3b. Changing issued comments (colour, a new note, revised text)
+
+Re-stamp from the **original** submittal with the updated comments file and
+options. Never patch colours or text inside an already-stamped copy with an
+ad-hoc script: the colour lives in five places in the annotation (see
+LESSONS-LEARNED section 12), and a partial patch leaves a box that renders one
+way here and another way when someone edits it in Bluebeam. Replacing an
+existing stamped copy means deleting it first — ask before deleting.
 
 ### 4. Verify visually — every time, no exceptions
 
@@ -166,8 +229,8 @@ and date, and where the block landed. If anything was covered, say what.
 ## Not covered
 
 - Yellow `EPLUS:` point callouts on interior pages — add those in Bluebeam.
-- Different review stamps on different pages in one pass.
-- Batch mode over a folder of submittals.
+- Different review stamps on different pages of one submittal in one pass
+  (batch mode stamps many submittals, one review stamp each).
 
 ## Reference
 

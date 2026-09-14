@@ -1,6 +1,6 @@
 ---
 name: rfi
-description: Use this skill whenever a task involves RFIs (Requests for Information), submittals, submittal review, RFI response drafting, spec clause lookups, CSI division/section questions, logging or committing a finalized/issued RFI response to the knowledge base, or the rfi-knowledge-hub MCP tools (query_hermes_rfi, commit_approved_rfi, list_sources, read_source, grep_corpus). Encodes the EPLUS RFI workflow — settle the memory question up front, deconstruct the request, delegate the lookup to the rfi-researcher agent, draft the response to the house format, then gate the knowledge-base write-back behind an explicit AskUserQuestion approval — plus the return path for logging a final RFI that was edited and issued outside the chat. Always load it before calling any rfi-knowledge-hub tool.
+description: Use this skill whenever a task involves RFIs (Requests for Information), submittals, submittal review, RFI response drafting, spec clause lookups, CSI division/section questions, logging or committing a finalized/issued RFI response to the knowledge base, or the rfi-knowledge-hub MCP tools (query_hermes_rfi, commit_approved_rfi, list_sources, read_source, grep_corpus). Encodes the EPLUS RFI workflow — settle the memory question up front, deconstruct the request, delegate the lookup to the rfi-researcher agent, draft the response to the house format, then gate the knowledge-base write-back behind an explicit AskUserQuestion approval — plus the return path for logging a final RFI that was edited and issued outside the chat. Always load it before calling any rfi-knowledge-hub tool. When the RFIs or submittals are to be reviewed against the project's own drawings, bulletins, and specifications in a connected folder, load contract-document-review as well; it carries that workflow.
 argument-hint: <RFI text, attached document reference, or instructions — e.g. "review this request and draft a response">
 ---
 
@@ -20,6 +20,18 @@ $ARGUMENTS
 
 When triggered automatically (no slash command), apply the same
 workflow to the RFI/submittal request in the conversation.
+
+## Which workflow
+
+- **Questions answered from the EPLUS knowledge base** (one RFI, a few RFIs,
+  a spec lookup, logging an issued response): this skill, Steps 0–4.
+- **A review against the project's own Contract Documents in a folder** (IFC
+  drawing sets, drawing bulletins, a specification set; often many RFIs and
+  submittals across several buildings, with stamped PDFs and a summary as
+  deliverables): load the `contract-document-review` skill and follow it. Step 0
+  (memory), the house response format, and the user-facing language rules
+  below still apply there; Steps 2 and 4 do not, because the evidence is the
+  folder, not the knowledge base, and a batch of drafts is not approved content.
 
 ## User-facing language
 
@@ -356,7 +368,8 @@ the user asks to stamp the submittal, mark it reviewed, or produce an
 "EPLUS RESPONSE" copy — load the `pdf-stamping` skill in this plugin and
 follow it. The approved response text becomes the ENGINEERING PLUS COMMENTS
 block; the disposition stamp is the user's call, never inferred from the
-comments. Stamping is Cowork-only.
+comments (in a `contract-document-review` run, the decision basis the user
+stated is that call). Stamping is Cowork-only.
 
 ## Logging a finalized RFI response (return path)
 
