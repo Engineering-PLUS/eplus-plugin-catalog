@@ -64,6 +64,40 @@ per-message banner: the fleet is Windows-only, each hook is one
 `powershell -File` call costing up to a second, so only the two that matter
 are wired.
 
+### Hook wiring notes
+
+The prose that used to sit in a top-level `description` field of
+`hooks/hooks.json` lives here: the plugins reference documents no such field,
+so it is kept out of the file the app parses.
+
+- **Two single-PowerShell hooks** (the EPLUS fleet is Windows-only and the app
+  runs hooks on the Windows host, in Cowork and, since the desktop release of
+  2026-09-11, in Chat-tab sessions too; no sh half, no SessionStart).
+  (1) `PreToolUse` on `commit_approved_rfi` under both tool-name forms
+  (managed connector `mcp__rfi-knowledge-hub__*` and bundled
+  `mcp__plugin_eplus-rfis-submittals_rfi-knowledge-hub__*`):
+  `scripts/gate-commit.ps1` returns `permissionDecision: "ask"` so the harness
+  itself prompts before any write to the EPLUS knowledge base; the marketplace
+  promise that nothing is saved without sign-off is enforced by the runtime,
+  not only by the skill's `AskUserQuestion` gate. Disable with
+  `EPLUS_NO_RFI_COMMIT_GATE=1`. (2) `SubagentStop` scoped to
+  `^eplus-rfis-submittals:rfi-researcher$` (plugin agents report the
+  plugin-scoped `agent_type`, so the matcher is anchored):
+  `scripts/show-researcher-final.ps1` appends the researcher's full evidence
+  brief, with a 220-character excerpt header, to
+  `<session project dir>/<session_id>/subagent-final-messages.log`, the
+  directory the session exporter zips. No `displayContent` banner: that needs
+  a `MessageDisplay` drain firing on every message, which this plugin does not
+  wire. Disable with `EPLUS_NO_RFI_SUBAGENT_ECHO=1`.
+- **Form.** Both scripts read stdin with `[Console]::In.ReadToEnd()`, never
+  emit `additionalContext` or `decision` on `SubagentStop`, and always exit 0
+  with the decision in the JSON body. Every entry uses `"shell": "powershell"`
+  with a direct `& "${CLAUDE_PLUGIN_ROOT}\scripts\<name>.ps1"` call, adopted
+  2026-09-03 after a field A/B in the same export: the app's own PowerShell
+  runs the script in one process (540 ms measured) instead of launching a
+  second `powershell.exe` (907 ms). The single-launch form is the standard for
+  this catalog.
+
 ## Reviews against a Contract Document set
 
 When the evidence is a folder rather than the knowledge base (IFC drawing sets

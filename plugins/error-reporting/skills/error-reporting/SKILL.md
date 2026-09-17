@@ -38,21 +38,32 @@ Returns `{"status": "logged", "log_id": "<12-hex>", "message": "..."}`.
 
 Every report and every egress request carries `requested_by`. On this
 deployment the model's own environment does **not** know the user (the
-account line is a placeholder), so the identity comes from a hook: at
-session start, and again at the end of every failure nudge, a line reads
+account line is a placeholder), so the identity comes from the plugin's
+hooks on the Windows host. Three of them carry it:
 
-```
-[error-reporting] Reporter identity for this seat: DOMAIN\user@MACHINE. ...
-```
+- At session start (and after every resume and compaction) a note reads
+  `[error-reporting] Reporter identity for this seat: DOMAIN\user@MACHINE. ...`
+- Every failure or egress nudge ends with the same line.
+- At filing time, a hook on `report_issue` and `request_egress_allow`
+  itself fills `requested_by` with the seat identity when the call sent it
+  empty or `unknown`, and appends one bracketed trace tag (`[seat session
+  <id>; env session <id or none>; agent <type>/<id> or main]`) to `details`
+  or `error_text`. This runs inside subagents too, so a worker that files a
+  report is covered even though it never saw the session-start note. Its
+  identity line arrives next to the tool result. If the hook cannot read a
+  user name on the machine it leaves `requested_by` as you sent it and
+  tells you so; keep the value you had.
 
-Copy that value **exactly** into `requested_by`. Rules:
+Copy the value **exactly** into `requested_by`. Rules:
 
 - Never guess, infer, or normalise a name. Do not turn `CORP\jdoe@WS01` into
   an email address or a display name.
-- **No identity line anywhere in context.** (Older app builds ran no plugin
-  hooks in Chat-tab sessions; builds from 2026-09-11 on do, so the line
-  normally arrives there as well.) In that case
-  read the login from your working directory: it is always
+- The stamp is a safety net, not the plan: still send the identity you
+  have. Do not remove or rewrite the bracketed trace tag; it is how the
+  EPLUS team ties a worker's report back to its session.
+- **No identity line anywhere in context** (a session with the hooks
+  switched off, or an older app build). Read the login from your working
+  directory: it is always
   `C:\Users\<login>\AppData\Local\Claude-3p\local-agent-mode-sessions\...\outputs`,
   and the `<login>` segment is the Windows account at the seat. Send
   `requested_by: "<login>@chat"`. That is a deterministic read, not a
@@ -60,9 +71,11 @@ Copy that value **exactly** into `requested_by`. Rules:
   conversation.
 - If even the working directory does not have that shape, send
   `requested_by: "unknown"` and mention in one line that the seat identity
-  was unavailable. Do not ask the user for it.
+  was unavailable. Do not ask the user for it. (When the stamp hook is
+  running it replaces that `unknown` with the seat identity on the way
+  out; the one-line mention still stands.)
 - The identity is a seat, not a person's consent: it says which machine
-  and login filed the report, nothing more..
+  and login filed the report, nothing more.
 
 ## When to file
 
@@ -238,12 +251,16 @@ waiting, `list_egress_requests(status="pending")` answers it.
 
 ### No nudge arrived
 
-On app builds before 2026-09-11 plugin hooks did not run in Chat-tab
-sessions, so no nudge told you a fetch was an egress block; a nudge is also
-absent when the seat has the hooks switched off. Recognise the block from
-the message text alone (the three shapes above), then follow exactly the
-same procedure. If no identity line is in context either, use the
-no-identity-line rule from "Who is filing" for `requested_by`.
+A nudge is absent when the seat has the hooks switched off, on app builds
+before 2026-09-11 in Chat-tab sessions (no plugin hooks ran there), and on
+any build where a refused fetch comes back as an ordinary *successful*
+result instead of an error (seen on desktop build 1.52386.3, 2026-09-15:
+the failure hook never fired, so from 0.4.0 a second hook watches
+successful `web_fetch` results for the block text as well). Whatever the
+reason, recognise the block from the message text alone (the three shapes
+above), then follow exactly the same procedure. If no identity line is in
+context either, use the no-identity-line rule from "Who is filing" for
+`requested_by`.
 
 ### When a reporting tool is refused by the permission classifier
 
