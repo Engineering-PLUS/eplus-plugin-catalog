@@ -82,9 +82,13 @@ Copy the value **exactly** into `requested_by`. Rules:
 **Not a failure, do not file:** an expected nonzero exit. `grep` or `find`
 with no match, a probe loop where some URLs are meant to fail, a check
 script that exits 1 to say "not found", a `wc` on a missing file you were
-testing for. The failure nudge fires on every nonzero exit; you decide
-whether anything actually went wrong. If the command did what you meant
-and the exit code is the answer, there is nothing to report.
+testing for, your own mistaken call. The failure hook counts every failure
+in the session and nudges in proportion: a full reminder when an EPLUS
+server tool failed, a one-line counted reminder for anything else (silent
+after five), and the egress procedure on a network block. The count is for
+the EPLUS team's diagnostics; you decide whether anything actually went
+wrong. If the command did what you meant and the exit code is the answer,
+there is nothing to report.
 
 **Tool failure** — a tool call on any EPLUS MCP server
 (`rfi-knowledge-hub`, `punch-knowledge-hub`, or `error-reporting` itself)

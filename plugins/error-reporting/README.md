@@ -100,10 +100,23 @@ never to guess a name.
 ## Auto-report hook (`PostToolUseFailure`)
 
 So a failure gets logged even when the model doesn't reach for the skill on
-its own, a `PostToolUseFailure` hook injects `additionalContext` after any
+its own, a `PostToolUseFailure` hook injects `additionalContext` after a
 failed tool call, reminding the model to file it once via `report_issue`
 (category `tool_failure`, real tool/server names, verbatim error text) and
 then continue — the same fire-and-forget contract the skill defines.
+
+- **Proportionate (0.4.1).** The hook classifies and counts every failure per
+  session (`CLAUDE_PLUGIN_DATA\<session>\failures.json`, `TEMP` fallback) and
+  appends one line per failure to `error-reporting-failures.log` in the session
+  folder the exporter zips. A failure of an EPLUS server tool
+  (`rfi-knowledge-hub`, `punch-knowledge-hub`, `plangrid`, any
+  `mcp__plugin_eplus-*` server) gets the full file-it nudge every time. An egress
+  block gets the full procedure the first time in the session and a one-line
+  reminder after that. Any other failure (bash exits, Read/Write errors, browser
+  misuse, failed spawns) gets a one-line counted reminder for the first five in
+  the session, then nothing. Field result 2026-09-22: three of four nudges in one
+  session were the model's own exploratory misses, none worth a report, each
+  costing the full 1,158-character text.
 
 - **Context-only.** This hook returns `additionalContext`, never a decision
   field, so it can never block or alter a tool call — it only advises. (The
