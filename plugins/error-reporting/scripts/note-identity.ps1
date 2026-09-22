@@ -17,10 +17,9 @@
 $ErrorActionPreference = 'SilentlyContinue'
 
 try {
-    $null = [Console]::In.ReadToEnd()
-    if ($env:EPLUS_NO_ERROR_NUDGE -or $env:EPLUS_NO_IDENTITY_NOTE) { exit 0 }
-
     . (Join-Path $PSScriptRoot 'egress-common.ps1')
+    $null = Read-HookInput
+    if ($env:EPLUS_NO_ERROR_NUDGE -or $env:EPLUS_NO_IDENTITY_NOTE) { exit 0 }
 
     $ctx = '[error-reporting] Reporter identity for this seat: ' + (Get-EplusIdentity) +
            '. Put exactly that in the requested_by field of every report_issue and ' +
@@ -31,7 +30,7 @@ try {
         hookEventName     = 'SessionStart'
         additionalContext = $ctx
     } }
-    [Console]::Out.Write((ConvertTo-Json -InputObject $out -Compress -Depth 8))
+    Write-HookOutput (ConvertTo-Json -InputObject $out -Compress -Depth 8)
 } catch {
     # Never let the note itself become a hook failure.
 }

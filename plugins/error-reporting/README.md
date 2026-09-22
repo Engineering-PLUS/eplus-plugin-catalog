@@ -17,8 +17,8 @@ The plugin ships no server definition and no credential.
 |-----------|------|---------|
 | Manifest  | [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) | Plugin identity and metadata |
 | Skill     | [`skills/error-reporting/SKILL.md`](skills/error-reporting/SKILL.md) | When to file (tool_failure vs change_request), fire-and-forget contract, one-report-per-issue, no secrets, never block the task; the egress allow-request procedure |
-| Hooks     | [`hooks/hooks.json`](hooks/hooks.json) | `SessionStart` identity note and the `PostToolUseFailure` nudge, which covers both tool failures and egress blocks (see below) |
-| Scripts   | [`scripts/`](scripts/) | `note-identity.ps1`, `report-tool-failure.ps1`, and the shared `egress-common.ps1` (signature, context text, identity) |
+| Hooks     | [`hooks/hooks.json`](hooks/hooks.json) | Four wirings: `SessionStart` identity note, `PreToolUse` identity stamp on the reporting tools, `PostToolUse` egress watch on `web_fetch`, and the `PostToolUseFailure` nudge for tool failures and egress blocks (see below and "Hook wiring notes") |
+| Scripts   | [`scripts/`](scripts/) | `note-identity.ps1`, `stamp-identity.ps1`, `egress-after-fetch.ps1`, `report-tool-failure.ps1`, and the shared `egress-common.ps1` (signature, context text, identity) |
 
 ## Who is filing (`requested_by`)
 
@@ -33,6 +33,16 @@ absent from the hook environment. Every failure nudge repeats the same line so
 the value survives compaction. The skill tells the model to copy it exactly and
 never to guess a name.
 
+- **Stamped at filing time (0.4.0).** The note above reaches the main thread
+  only. A subagent that files a report never held it, and reports arrived at
+  the backend with `requested_by: "unknown"` (Hermes, 2026-09-15). So a
+  `PreToolUse` hook on `report_issue` and `request_egress_allow`
+  (`stamp-identity.ps1`) now fills `requested_by` with the seat identity when
+  the call sent it empty or `unknown`, and appends one trace tag to `details`
+  or `error_text`: `[seat session <id>; env session <CLAUDE_CODE_SESSION_ID or
+  none>; agent <agent_type or main>]`. Plugin hooks run inside subagents (hooks
+  reference), so the worker case is covered. See "Identity stamp hook" below.
+
 - **Chat tab.** Since the desktop app release of 2026-09-11, organization-plugin
   hooks run in Chat too (matching Cowork and Code), so the same identity line
   arrives there and a Chat report carries `DOMAIN\user@MACHINE` like any other.
@@ -44,24 +54,78 @@ never to guess a name.
   (verified on four seats; the selected folder is a separate mount and never the
   cwd), and send `<login>@chat`. Only if the cwd does not have that shape does
   it send `unknown`.
-- **Disable per-machine:** `EPLUS_NO_IDENTITY_NOTE=1` (`EPLUS_NO_ERROR_NUDGE=1`
-  silences it too).
+- **Disable per-machine:** `EPLUS_NO_IDENTITY_NOTE=1` for the session-start
+  note, `EPLUS_NO_IDENTITY_STAMP=1` for the filing-time stamp
+  (`EPLUS_NO_ERROR_NUDGE=1` silences both).
 - The server cannot derive this itself: every seat authenticates with the same
   shared connector credential, so identity has to travel as a field.
+
+## Identity stamp hook (`PreToolUse`)
+
+`stamp-identity.ps1` runs before every `report_issue` and
+`request_egress_allow` call, under both tool-name forms
+(`mcp__error-reporting__*` and `mcp__plugin_error-reporting_error-reporting__*`).
+`check_egress_host` and `list_egress_requests` are not matched: neither takes
+`requested_by`.
+
+- **What it rewrites.** When `tool_input.requested_by` is empty or `unknown` it
+  is set to `DOMAIN\user@MACHINE`; a name the model already supplied is kept. When
+  `details` (`report_issue`) or `error_text` (`request_egress_allow`) lacks a
+  complete `[seat session <id>; env session <id or none>; agent <type>/<id> or main]`
+  tag, one is appended after the existing text, which is not trimmed or changed.
+  If the host identity itself cannot be read, `requested_by` is never overwritten
+  and the context line says so.
+- **UTF-8.** Hook processes start with an IBM437 console, so every script reads stdin
+  and writes stdout through the UTF-8 helpers in `egress-common.ps1`; a report with
+  accents or dashes round-trips intact through `updatedInput`.
+- **How.** The hook returns `permissionDecision: "allow"` with `updatedInput`,
+  which per the hooks reference "Replaces the entire input object", so the
+  script echoes every field back with the two changes. When nothing needed
+  changing it returns only `additionalContext` (the identity line) and leaves
+  the permission decision to the harness. Deny and ask rules, and any MCP tool
+  marked `requiresUserInteraction`, still win over the hook's allow.
+- **Side effect to know about.** On a stamped call the allow resolves the
+  permission before the auto-mode classifier runs, so the classifier refusals
+  the skill describes should stop for stamped calls. Unstamped calls behave as
+  before.
+- **Field status.** Unverified on a seat. First export to check: the
+  `PreToolUse:mcp__error-reporting__report_issue` hook attachment, the
+  `tool_use` input carrying the identity and the trace tag, and whether the
+  `env session` part is a real id or `none` (that settles whether
+  `CLAUDE_CODE_SESSION_ID` reaches hook processes on Cowork). If Desktop
+  ignores `updatedInput`, the identity line still lands next to the tool
+  result and the fallback is context-only, same as 0.3.x.
+- **Disable per-machine:** `EPLUS_NO_IDENTITY_STAMP=1`.
 
 ## Auto-report hook (`PostToolUseFailure`)
 
 So a failure gets logged even when the model doesn't reach for the skill on
-its own, a `PostToolUseFailure` hook injects `additionalContext` after any
+its own, a `PostToolUseFailure` hook injects `additionalContext` after a
 failed tool call, reminding the model to file it once via `report_issue`
 (category `tool_failure`, real tool/server names, verbatim error text) and
 then continue — the same fire-and-forget contract the skill defines.
 
-- **Context-only.** The hook returns `additionalContext`, never a decision
-  field, so it can never block or alter a tool call — it only advises.
+- **Proportionate (0.4.1).** The hook classifies and counts every failure per
+  session (`CLAUDE_PLUGIN_DATA\<session>\failures.json`, `TEMP` fallback) and
+  appends one line per failure to `error-reporting-failures.log` in the session
+  folder the exporter zips. A failure of an EPLUS server tool
+  (`rfi-knowledge-hub`, `punch-knowledge-hub`, `plangrid`, any
+  `mcp__plugin_eplus-*` server) gets the full file-it nudge every time. An egress
+  block gets the full procedure the first time in the session and a one-line
+  reminder after that. Any other failure (bash exits, Read/Write errors, browser
+  misuse, failed spawns) gets a one-line counted reminder for the first five in
+  the session, then nothing. Field result 2026-09-22: three of four nudges in one
+  session were the model's own exploratory misses, none worth a report, each
+  costing the full 1,158-character text.
+
+- **Context-only.** This hook returns `additionalContext`, never a decision
+  field, so it can never block or alter a tool call — it only advises. (The
+  identity stamp hook above is the one wiring that rewrites a call.)
 - **Self-skipping.** It stays silent when the failed tool *is* `report_issue`
   or the error-reporting server itself (including the egress tools), so a
-  failing reporter can't drive a report → fail → report loop.
+  failing reporter can't drive a report → fail → report loop. Decided on the
+  payload's `tool_name` (0.4.0); a bash command that merely mentions
+  `report_issue` is still nudged.
 - **Windows host only.** Cowork executes hooks on the Windows host under
   PowerShell, never inside the Linux sandbox, so the hook is a single
   `report-tool-failure.ps1` invocation. The fleet is Windows-only.
@@ -82,13 +146,18 @@ section is the authority; the hooks only nudge.
   `Received HTTP code 403 from proxy after CONNECT` anywhere in the failure
   payload. A bare `HTTP 403: Forbidden` is deliberately not a signature: it is
   also what Cloudflare bot challenges and SAS permission errors return.
-- **One wiring.** `report-tool-failure.ps1` (PostToolUseFailure, every tool)
+- **Two wirings.** `report-tool-failure.ps1` (PostToolUseFailure, every tool)
   swaps its generic text for the egress context when the signature is present.
   Field-verified on 2026-09-09 across three exports: PostToolUseFailure fires
   for `mcp__workspace__web_fetch` refusals returned as `is_error` results, one
-  nudge per refused fetch, so the provisional 0.3.0 PostToolUse wiring on the
-  fetch tools was redundant and was removed in 0.3.1 with its marker-file
-  dedupe.
+  nudge per refused fetch, so the provisional 0.3.0 PostToolUse wiring was
+  removed in 0.3.1 with its marker-file dedupe. On desktop build 1.52386.3
+  (export of 2026-09-15) the same refusal came back as a *successful* result
+  (57 fetches, zero failure hooks), so 0.4.0 adds `egress-after-fetch.ps1`
+  (PostToolUse on `mcp__workspace__web_fetch`): it reads `tool_response` and
+  emits the egress context only when the signature is present, silent
+  otherwise. Success and failure events are exclusive per call, so no dedupe.
+  Cost: one spawn per fetch.
 - **Chat tab.** The nudge fires in Chat too since the desktop app release of
   2026-09-11 (organization-plugin hooks now run in Chat, matching Cowork and
   Code; not yet confirmed from a Chat export). On older builds no plugin hook
@@ -112,8 +181,9 @@ section is the authority; the hooks only nudge.
 - **Fallback.** If the error-reporting server is unavailable, the request is
   appended to `EGRESS-ALLOWLIST-REQUEST.md` in the session outputs folder in
   the same field layout.
-- **Disable per-machine:** `EPLUS_NO_EGRESS_NUDGE=1` (the generic failure
-  nudge keeps working); `EPLUS_NO_ERROR_NUDGE=1` silences both.
+- **Disable per-machine:** `EPLUS_NO_EGRESS_NUDGE=1` silences both egress
+  wirings (the generic failure nudge keeps working); `EPLUS_NO_ERROR_NUDGE=1`
+  silences everything in this plugin.
 
 ## MCP tool (server name: `error-reporting`)
 
@@ -170,6 +240,45 @@ With the managed connector the tool appears as
 `mcp__error-reporting__report_issue`. The skill and the hook also tolerate the
 plugin-bundled form `mcp__plugin_error-reporting_error-reporting__report_issue`
 in case the server is ever bundled again.
+
+## Hook wiring notes
+
+The prose that used to sit in a top-level `description` field of
+`hooks/hooks.json` lives here: the plugins reference documents no such field,
+so it is kept out of the file the app parses.
+
+- **Windows host, single PowerShell call.** The fleet is Windows-only and
+  Cowork executes hooks on the Windows host under PowerShell, never inside the
+  Linux sandbox. Every entry uses `"shell": "powershell"` with a direct
+  `& "${CLAUDE_PLUGIN_ROOT}\scripts\<name>.ps1"` call (adopted 2026-09-03 after
+  a field A/B in one export: the app's own PowerShell runs the script in one
+  process instead of launching a second `powershell.exe`). This single-launch
+  form is the standard for the catalog. Scripts are PowerShell 5.1-compatible,
+  ASCII, no BOM, read stdin with `[Console]::In.ReadToEnd()`, always exit 0,
+  and carry any decision in the JSON body.
+- **Four wirings.** `SessionStart` on `*` (startup, resume, compact):
+  `note-identity.ps1`, one spawn (~750 ms) per session open, resume, or
+  compaction. `PreToolUse` on the two filing tools under both name forms:
+  `stamp-identity.ps1`, one spawn per reporting call. `PostToolUse` on
+  `mcp__workspace__web_fetch`: `egress-after-fetch.ps1`, one spawn per fetch.
+  `PostToolUseFailure` on `*`: `report-tool-failure.ps1`, one spawn per failed
+  tool call; self-skips when the failed tool is the error-reporting server.
+- **Field results.** 2026-09-09 (three exports): PostToolUseFailure fires for
+  `web_fetch` egress refusals, bash nonzero exits, Read/Write errors and failed
+  Agent spawns. 2026-09-14 (CTX2 exports): PostToolUseFailure fires inside
+  subagent transcripts. 2026-09-15 (desktop 1.52386.3): a refused fetch
+  returned as a success, and a subagent's report carried `requested_by:
+  "unknown"`; both drove 0.4.0.
+- **Chat tab.** Through the 2026-09-09 exports plugin hooks did not load in
+  Chat-tab sessions (no `load_plugin_hooks` in cli-diagnostics). The desktop
+  release of 2026-09-11 runs organization-plugin hooks in Chat too, matching
+  Cowork and Code, so all four wirings are expected there from that build on
+  (not yet confirmed from a Chat export). The skill keeps the cwd-based
+  identity rule as the fallback for any session with no identity line.
+- **Switches.** `EPLUS_NO_ERROR_NUDGE=1` disables everything;
+  `EPLUS_NO_EGRESS_NUDGE=1` only the two egress wirings;
+  `EPLUS_NO_IDENTITY_NOTE=1` only the session-start note;
+  `EPLUS_NO_IDENTITY_STAMP=1` only the filing-time stamp.
 
 ## Versioning
 

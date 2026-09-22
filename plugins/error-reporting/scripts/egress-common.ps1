@@ -1,11 +1,15 @@
-# Shared pieces for the error-reporting hooks. Dot-sourced by report-tool-failure.ps1
-# (PostToolUseFailure) and note-identity.ps1 (SessionStart). PowerShell 5.1-compatible,
-# ASCII only, no BOM. Nothing here touches the network or the filesystem.
+# Shared pieces for the error-reporting hooks. Dot-sourced by note-identity.ps1
+# (SessionStart), stamp-identity.ps1 (PreToolUse on the reporting tools),
+# egress-after-fetch.ps1 (PostToolUse on web_fetch) and report-tool-failure.ps1
+# (PostToolUseFailure). PowerShell 5.1-compatible, ASCII only, no BOM. Nothing here
+# touches the network or the filesystem.
 #
-# 0.3.1: the PostToolUse web_fetch wiring and its marker-file dedupe are gone.
-# PostToolUseFailure is field-proven on mcp__workspace__web_fetch egress blocks
-# (exports of 2026-09-09: three sessions, one nudge per refused fetch), so a second
-# wiring only added a spawn.
+# 0.3.1 removed a PostToolUse web_fetch wiring and its marker-file dedupe because
+# PostToolUseFailure was field-proven on egress blocks (exports of 2026-09-09).
+# 0.4.0 brings a PostToolUse web_fetch wiring back, without dedupe: on Desktop
+# build 1.52386.3 (export of 2026-09-15) a refused fetch returned as a successful
+# result, so the failure event never fired. Success and failure events are
+# exclusive per call, so the two wirings cannot double up.
 
 # The block shapes seen in exports (2026-08-14, 2026-09-09):
 #   host-side web_fetch : Host "x" is not on the network allowlist (cowork-egress-blocked)
@@ -13,6 +17,30 @@
 # A bare "HTTP 403: Forbidden" is deliberately NOT a signature: it is also what
 # Cloudflare bot challenges and SAS permission errors return.
 $script:EgressSignature = 'cowork-egress-blocked|not on the network allowlist|Received HTTP code 403 from proxy after CONNECT'
+
+# Hook stdin/stdout as UTF-8 regardless of the console code page. A hook process
+# starts with an IBM437 console (measured 2026-09-17), so [Console]::In.ReadToEnd()
+# garbles any non-ASCII text in the payload and PS 5.1's ConvertTo-Json leaves
+# non-ASCII unescaped on the way out. Every script reads and writes through these.
+$script:HookUtf8 = New-Object System.Text.UTF8Encoding($false)
+
+function Read-HookInput {
+    try {
+        $sr = New-Object System.IO.StreamReader([Console]::OpenStandardInput(), $script:HookUtf8)
+        $raw = $sr.ReadToEnd()
+        if ($raw.Length -gt 0 -and $raw[0] -eq [char]0xFEFF) { $raw = $raw.Substring(1) }
+        return $raw
+    } catch { return '' }
+}
+
+function Write-HookOutput([string] $text) {
+    try {
+        $bytes = $script:HookUtf8.GetBytes($text)
+        $o = [Console]::OpenStandardOutput()
+        $o.Write($bytes, 0, $bytes.Length)
+        $o.Flush()
+    } catch { }
+}
 
 function Get-EplusIdentity {
     # Who is sitting at this seat. Hooks run on the Windows host under the signed-in
