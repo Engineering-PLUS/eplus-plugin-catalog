@@ -21,7 +21,8 @@
 #      reads it correctly.
 #
 # First injection per session is the full digest; later prompts get a one-line
-# reminder. The payload's key names are appended to payload-keys.txt as a
+# reminder. Subagent hand-backs and task notifications (queued prompts that
+# start with <agent-message or <task-notification) get nothing. The payload's key names are appended to payload-keys.txt as a
 # diagnostic. Context-only; never a decision field; always exits 0.
 # Disable with EPLUS_NO_MODEL_ROUTING=1.
 
@@ -34,6 +35,17 @@ try {
 
     $data = $null
     try { $data = $raw | ConvertFrom-Json -ErrorAction Stop } catch { }
+
+    # Subagent hand-backs are not user prompts. Field result 2026-09-23 (export
+    # 1790148676704): each SubagentHandback reaches UserPromptSubmit as a queued
+    # prompt starting with <agent-message from="...">, so three parallel workers
+    # produced three "Still on ..." reminders in two seconds, mid-turn. Background
+    # task notifications are the same kind of machine-generated prompt. Stay silent
+    # for both; the reminder is for the next thing the user types.
+    if ($null -ne $data -and $data.PSObject.Properties['prompt']) {
+        $p = [string]$data.prompt
+        if ($p -match '^\s*<(agent-message|task-notification)\b') { exit 0 }
+    }
 
     $session = 'unknown-session'
     $transcript = $null
