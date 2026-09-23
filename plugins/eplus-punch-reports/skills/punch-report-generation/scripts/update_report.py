@@ -157,6 +157,8 @@ def main():
     ap.add_argument("--version")
     ap.add_argument("--deliver", nargs="?", const="", default=None, metavar="FOLDER")
     ap.add_argument("--replace", action="store_true", help="overwrite a delivery of the same name (only when asked)")
+    ap.add_argument("--keep-previous", action="store_true",
+                    help="leave earlier versions in the folder instead of moving them into the new package")
     ap.add_argument("--no-render", action="store_true")
     ap.add_argument("--pipeline", default=".")
     ap.add_argument("--mnt-glob", default="/sessions/*/mnt", help=argparse.SUPPRESS)
@@ -324,6 +326,24 @@ def main():
                      f"{', '.join(conn) or 'none'}. Ask the user to connect it in Cowork, then --deliver <name>.")
         if os.path.basename(os.path.normpath(dest)) != "outputs":
             cfg["delivery_folder"] = os.path.basename(os.path.normpath(dest))
+            # A Task Report PDF waiting in the project folder is used in the same
+            # call, so the delivery carries the pin clips. Field result 2026-09-23:
+            # the folder connected after the build held one; the run delivered v0.1
+            # without clips, then v0.2 with them, one minute apart.
+            if not args.task_report:
+                have = ((load(os.path.join(pipe, "build", "run.json"), {}).get("inputs") or {}).get("task_report")) or ""
+                has_clips = bool(have) and (os.path.isfile(have) or os.path.isfile(os.path.join(ws, os.path.basename(have))))
+                if not has_clips:
+                    cands = sorted((os.path.join(dest, f) for f in os.listdir(dest)
+                                    if f.lower().endswith(".pdf") and "task report" in f.lower().replace("_", " ")),
+                                   key=os.path.getmtime, reverse=True)
+                    if cands:
+                        src = cands[0]
+                        dst = os.path.join(ws, os.path.basename(src))
+                        shutil.copy2(src, dst)
+                        env["TASK_REPORT"] = dst
+                        args.task_report = src
+                        changes.append(f"task report {os.path.basename(src)} (found in {cfg['delivery_folder']})")
     out = str(cfg.get("output_filename") or "")
     if args.version:
         cfg["output_filename"] = set_version(out, args.version.strip().lstrip("vV"))
@@ -393,7 +413,8 @@ def main():
 
     # --- deliver --------------------------------------------------------------------------------------------
     if dest:
-        cmd = [sys.executable, "scripts/package.py", ws, dest] + (["--replace"] if args.replace else [])
+        cmd = [sys.executable, "scripts/package.py", ws, dest] + (["--replace"] if args.replace else []) \
+            + (["--keep-previous"] if args.keep_previous else [])
         r = subprocess.run(cmd, cwd=pipe, env=env, capture_output=True, text=True)
         print((r.stdout + r.stderr).strip())
         if r.returncode != 0:

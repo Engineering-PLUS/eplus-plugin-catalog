@@ -151,8 +151,19 @@ deliver while any still carries template text.
 python3 scripts/package.py <workspace> "<deliver to, from locate_inputs.py>"
 ```
 
-The one write to the project folder in the run. It never overwrites; a
-second delivery of the same name is suffixed.
+The one write to the project folder in the run. It never overwrites. **The
+folder keeps only the current version and the inputs**: earlier versions of
+the report already there (body, cover, review sheet, package) are written into
+the new package under `previous-versions/` and then removed from the folder,
+each only after the new zip is verified to hold an identical copy. If Cowork
+has not allowed deletes in that folder yet, the packager prints `CLEANUP
+PENDING` with the files: tell the user in one sentence that the earlier
+version is now inside the new package and the folder is being tidied, call
+`allow_cowork_file_delete` once with the path of the first listed file (one
+approval covers the folder), then run the command it printed,
+`python3 scripts/package.py --prune "<folder>"`. That is the only delete in a
+run, and it removes nothing the new package does not hold. The Task Report
+PDF and `client-profile.json` always stay.
 
 ## 7. The final message: what is done, what is missing, then the questions
 
@@ -187,6 +198,13 @@ python3 scripts/update_report.py --item 12 --description "..." --deliver
 python3 scripts/update_report.py --deliver "<newly connected folder>"
 ```
 
+**Several answers go in ONE call**, so the folder gets one new version, not
+one per answer (field result 2026-09-23: a date, then a folder, then a Task
+Report gave three renders and two deliveries a minute apart). A delivery to a
+folder that holds a Task Report PDF uses it automatically when the report has
+no pin clips yet, in the same call. Every `--deliver` tidies the folder as in
+section 6, including `CLEANUP PENDING`.
+
 Do not start a worker, re-read references, re-run the data steps or re-draft
 items for any of these. A scope change (`--scope`, `--created-after`) re-runs
 the data steps inside the same command; new items it brings in are named in
@@ -194,11 +212,18 @@ its error and are the only ones to draft. In a new session the workspace is
 gone: rebuild it from the delivered package (`reference/revising.md`, three
 commands), then the same calls.
 
-## 9. Cleanup, last, only if there is something to clean
+## 9. What the project folder holds when the run is done
 
-Files in the session outputs folder stay; the session discards them. Only the
-project folder is ever cleaned, only when a re-delivery left an earlier copy
-the user wants gone, and only with one request naming every file. The `.docx`
-is the file of record; a PDF is made only when asked
-(`scripts/export_pdf.py`, then `package.py --pdf`, described as a convenience
-copy).
+| File | What it is |
+|---|---|
+| `<Project>-Punch-Report-DRAFT-vN.N.docx` | the report body, the file of record; page 1 is blank for the cover |
+| `<Project>-Punch-Report-DRAFT-vN.N-Cover.docx` | the cover, a separate Word file (cover mode `template`) |
+| `<Project>-Punch-Report[-DRAFT-vN.N]-Review.xlsx` | the review spreadsheet: bulk edits in the yellow columns, imported back |
+| `<Project>-Punch-Report-DRAFT-vN.N.zip` | the package: the whole workspace (data, drafts, photos, clips, paperwork, scripts) to revise from, plus every earlier version under `previous-versions/` |
+| `client-profile.json` | client-level facts for the next report for this client |
+| `PlanGrid Task Report ... .pdf` | the user's own input, the source of the pin clips; never moved |
+
+Nothing else. Files in the session outputs folder stay there; the session
+discards them. The `.docx` is the file of record; a PDF is made only when
+asked (`scripts/export_pdf.py`, then `package.py --pdf`, described as a
+convenience copy).

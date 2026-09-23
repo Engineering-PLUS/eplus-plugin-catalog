@@ -135,8 +135,8 @@ Two things the main thread does after the worker returns, never during:
   the item ships `undetermined` with an Editor's Note and the question joins
   the finish list; the user answers it after delivery, and the answer is an
   `update_report.py` call, not another worker.
-- Handles **Files to remove** once, at the very end of the run (after delivery
-  and after the summary to the user): one delete request listing every file and
-  the reason. Files in the session outputs folder are left alone, the session
-  discards them; only the project folder is ever cleaned, and only when a
-  re-delivery left an earlier copy behind.
+- Handles **Files to remove** once, at the very end of the run. Files in the
+  session outputs folder are left alone, the session discards them. In the
+  project folder the only removal is the delivery tidy-up `package.py` does
+  itself (earlier versions moved into the new package, verified first); a
+  worker's list never adds to it.

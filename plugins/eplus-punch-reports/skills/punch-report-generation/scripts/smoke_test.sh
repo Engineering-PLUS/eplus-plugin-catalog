@@ -607,10 +607,14 @@ assert "Delivery" not in {e["what"] for e in fin["blocking"]}, fin["blocking"]
 r = py("scripts/update_report.py", "--set", "issuance_date=2026-10-01", "--deliver", "--mnt-glob", os.path.join(d, "*"))
 assert r.returncode == 0, r.stdout + r.stderr
 got = sorted(os.listdir(os.path.join(mnt, "Proj")))
-assert "CTX2-Punch-Report-DRAFT-v0.1.docx" in got and "CTX2-Punch-Report-DRAFT-v0.2.docx" in got \
-    and "CTX2-Punch-Report-DRAFT-v0.2-Cover.docx" in got and "CTX2-Punch-Report-DRAFT-v0.2.zip" in got, got
-# the review sheet of v0.2 is delivered under the versioned name, not left stale behind v0.1's
-assert "CTX2-Punch-Report-Review.xlsx" in got and "CTX2-Punch-Report-DRAFT-v0.2-Review.xlsx" in got, got
+# the folder holds the current version only; v0.1 (body, cover, review sheet, package) is inside
+# the v0.2 package under previous-versions/
+assert got == ["CTX2-Punch-Report-DRAFT-v0.2-Cover.docx", "CTX2-Punch-Report-DRAFT-v0.2-Review.xlsx",
+               "CTX2-Punch-Report-DRAFT-v0.2.docx", "CTX2-Punch-Report-DRAFT-v0.2.zip", "client-profile.json"], got
+inner = set(zipfile.ZipFile(os.path.join(mnt, "Proj", "CTX2-Punch-Report-DRAFT-v0.2.zip")).namelist())
+assert {"previous-versions/CTX2-Punch-Report-DRAFT-v0.1.zip", "previous-versions/CTX2-Punch-Report-DRAFT-v0.1.docx",
+        "previous-versions/CTX2-Punch-Report-DRAFT-v0.1-Cover.docx", "previous-versions/CTX2-Punch-Report-Review.xlsx"} <= inner, inner
+assert "moved       : CTX2-Punch-Report-DRAFT-v0.1.docx" in r.stdout, r.stdout
 assert "version CTX2-Punch-Report-DRAFT-v0.1.docx -> CTX2-Punch-Report-DRAFT-v0.2.docx" in r.stdout, r.stdout
 # an unconnected folder is refused with the list of what is connected, never a picker
 r = py("scripts/update_report.py", "--deliver", "Nowhere", "--no-render", "--mnt-glob", os.path.join(d, "*"))
@@ -666,16 +670,49 @@ for bad_name in ("_pipeline/data/_write_probe.json", "_pipeline/scripts/_write_p
     assert bad_name not in names, f"{bad_name} should not be packaged"
 assert "not packaged:" in r.stdout, r.stdout
 assert sorted(os.listdir(dest)) == ["X-DRAFT-v0.2-Cover.docx", "X-DRAFT-v0.2.docx", "X-DRAFT-v0.2.zip", "X-Review.xlsx", "client-profile.json"], os.listdir(dest)
-# second delivery: nothing overwritten, everything suffixed together
+# second delivery: suffixed together, and the earlier delivery moves INSIDE the new
+# package (previous-versions/) instead of staying beside it
 r = subprocess.run([sys.executable, "package.py", ws, dest], capture_output=True, text=True)
 assert r.returncode == 0 and "'-2' suffix" in r.stdout, r.stdout + r.stderr
-assert {"X-DRAFT-v0.2-2.zip", "X-DRAFT-v0.2-2.docx", "X-DRAFT-v0.2-2-Cover.docx", "X-Review-2.xlsx"} <= set(os.listdir(dest)), os.listdir(dest)
-# --replace: same names overwritten in place, no third set
+assert sorted(os.listdir(dest)) == ["X-DRAFT-v0.2-2-Cover.docx", "X-DRAFT-v0.2-2.docx", "X-DRAFT-v0.2-2.zip",
+                                    "X-Review-2.xlsx", "client-profile.json"], os.listdir(dest)
+prev = set(zipfile.ZipFile(os.path.join(dest, "X-DRAFT-v0.2-2.zip")).namelist())
+assert {"previous-versions/X-DRAFT-v0.2.zip", "previous-versions/X-DRAFT-v0.2.docx",
+        "previous-versions/X-DRAFT-v0.2-Cover.docx", "previous-versions/X-Review.xlsx"} <= prev, sorted(prev)
+# --replace (with --keep-previous): same names overwritten in place, nothing else touched, no third set
 open(new, "wb").write(b"newer body")
-r = subprocess.run([sys.executable, "package.py", ws, dest, "--replace"], capture_output=True, text=True)
-assert r.returncode == 0 and "(replaced)" in r.stdout and "-3" not in r.stdout, r.stdout + r.stderr
+for _ in range(2):
+    r = subprocess.run([sys.executable, "package.py", ws, dest, "--replace", "--keep-previous"], capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr
+assert "(replaced)" in r.stdout and "-3" not in r.stdout, r.stdout
 assert open(os.path.join(dest, "X-DRAFT-v0.2.docx"), "rb").read() == b"newer body"
-assert not any(n.startswith("X-DRAFT-v0.2-3") for n in os.listdir(dest)), os.listdir(dest)
+assert "X-DRAFT-v0.2-2.zip" in os.listdir(dest), "--keep-previous must leave earlier deliveries alone"
+# a folder that does not allow deletes yet: nothing is lost, CLEANUP PENDING names the files and the
+# follow-up; --prune then removes exactly the files the newest package holds an identical copy of
+# (Cowork lets a folder take new files but not lose old ones until the user allows deletes.
+# A read-only file reproduces that on Windows; on Linux it does not block a delete, so there
+# the move simply succeeds and the else branch checks the result.)
+import stat
+w("_pipeline/build/X-DRAFT-v0.3.docx"); w("_pipeline/build/X-DRAFT-v0.3-Cover.docx")
+locked = [os.path.join(dest, f) for f in os.listdir(dest) if f != "client-profile.json"]   # the profile is rewritten
+for p in locked:
+    os.chmod(p, stat.S_IREAD)
+r = subprocess.run([sys.executable, "package.py", ws, dest], capture_output=True, text=True)
+if r.returncode == 0 and "CLEANUP PENDING" in r.stdout:
+    assert "--prune" in r.stdout and "X-DRAFT-v0.2.docx" in os.listdir(dest), r.stdout
+    for p in locked:
+        if os.path.exists(p):
+            os.chmod(p, stat.S_IREAD | stat.S_IWRITE)
+    r = subprocess.run([sys.executable, "package.py", "--prune", dest], capture_output=True, text=True)
+    assert r.returncode == 0 and "removed" in r.stdout, r.stdout + r.stderr
+else:
+    assert r.returncode == 0, r.stdout + r.stderr
+for p in os.listdir(dest):
+    os.chmod(os.path.join(dest, p), stat.S_IREAD | stat.S_IWRITE)
+assert sorted(os.listdir(dest)) == ["X-DRAFT-v0.3-Cover.docx", "X-DRAFT-v0.3-Review.xlsx", "X-DRAFT-v0.3.docx",
+                                    "X-DRAFT-v0.3.zip", "client-profile.json"], os.listdir(dest)
+inner = set(zipfile.ZipFile(os.path.join(dest, "X-DRAFT-v0.3.zip")).namelist())
+assert {"previous-versions/X-DRAFT-v0.2.docx", "previous-versions/X-DRAFT-v0.2-2.zip"} <= inner, sorted(inner)
 PYCHECK
 
 # MCP route: a get_tasks packet as pull_mcp.sh fetches it (photos and sheets inline, native

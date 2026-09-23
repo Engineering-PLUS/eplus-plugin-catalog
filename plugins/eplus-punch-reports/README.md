@@ -28,8 +28,17 @@ final message carries that list and asks its questions only then.
 applies an answer (a cover fact, an issuance date, a Task Report PDF that
 arrived later, a reworded item, keep or drop a pin, the folder to deliver to),
 re-renders in seconds with no worker, verifies, logs the change and delivers
-the next version (v0.1 to v0.2) beside the earlier one. In a later session the
-workspace is rebuilt from the delivered package in three commands.
+the next version (v0.1 to v0.2). A delivery to a folder that holds a Task
+Report PDF picks it up in the same call. In a later session the workspace is
+rebuilt from the delivered package in three commands.
+
+**The project folder stays tidy (0.9.2).** It holds the current version (body,
+cover, review sheet, package), `client-profile.json` and the user's own inputs,
+nothing else. Each delivery writes the earlier versions into the new package
+under `previous-versions/` and removes them from the folder only after the
+copies are verified; the first time in a folder, Cowork asks the user once to
+allow deletes there (`package.py` prints `CLEANUP PENDING` and the follow-up
+`--prune` command).
 
 The pipeline itself: `scripts/init_workspace.sh` stamps it into the session
 workspace (the one supported way to lay a workspace out; it refuses to finish

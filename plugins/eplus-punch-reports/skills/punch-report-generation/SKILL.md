@@ -284,11 +284,15 @@ Deleting in a mounted folder needs a permission the user has to grant by hand,
 with no context for what is being removed. So: no deletes, moves, or renames in
 the workspace or the project folder while the run is in progress, by anyone.
 Scratch goes under `_pipeline/build/_scratch/` (never packaged) or `/tmp`.
-Re-deliveries get a new name from `package.py` rather than replacing the old
-files. If files genuinely need removing, do it once at the very end, after
-delivery and after the summary to the user: one request naming every file and
-why. The session outputs folder is never cleaned; only the project folder, and
-only when a re-delivery left an earlier copy behind.
+Re-deliveries get a new version name, never an overwrite. The one exception is
+the project folder's own tidy-up at delivery: `package.py` writes the earlier
+versions of the report into the new package (`previous-versions/`) and removes
+them from the folder only after verifying the copies, so the folder holds the
+current version and the inputs. When Cowork has not yet allowed deletes there,
+it prints `CLEANUP PENDING`: one `allow_cowork_file_delete` on the first listed
+file (the approval covers the folder, and the user is told why in one
+sentence), then `package.py --prune "<folder>"`. Nothing else is ever deleted
+by the run, and the session outputs folder is never cleaned.
 
 ## House policy
 
