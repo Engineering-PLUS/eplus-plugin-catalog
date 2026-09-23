@@ -151,7 +151,7 @@ need "_pipeline/scripts/package.py"
 need "client-profile.json"
 need "README.md"
 mkdir -p "$WS/_pipeline/data" "$WS/_pipeline/build/thumbs_uniform" "$WS/_pipeline/build/sheet_clips_jpg" \
-         "$WS/_pipeline/build/_scratch" "$WS/_pipeline/review" "$WS/_pipeline/handoff/memory"
+         "$WS/_pipeline/build/_scratch" "$WS/_pipeline/review"
 for stray in "_pipeline/template" "_pipeline/templates"; do
     if [ -e "$WS/$stray" ]; then
         printf '  [WARN] %s exists: a template stamped into the wrong place; the packager skips it\n' "$stray"

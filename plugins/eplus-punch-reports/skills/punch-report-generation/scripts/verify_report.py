@@ -116,7 +116,7 @@ def main():
         checks.append(("every item carries a pin date (created_at)", False,
                        f"missing on {undated}; the pull's created_at did not reach items.json"))
 
-    # Deleted pins kept by intake decision are bannered, one banner per pin, and
+    # Deleted pins kept (deleted_pins keep) are bannered, one banner per pin, and
     # nothing else is.
     n_deleted = sum(1 for m in master if m.get("deleted_in_plangrid"))
     n_banner = norm.count("DELETED IN PLANGRID.")
@@ -135,6 +135,11 @@ def main():
     # scanning the whole document text produces false failures.
     voice_hits = []
     for m in master:
+        # Human-approved wording is exempt here exactly as in build_master.py;
+        # update_report.py marks every user edit user_reviewed, so without this
+        # the verifier could fail a sentence the build already accepted.
+        if m.get("origin") in ("reviewer_final", "user_reviewed"):
+            continue
         for pat in VOICE_BANNED:
             hit = re.search(pat, m["description"], re.I)
             if hit:
@@ -302,7 +307,7 @@ def main():
         # placeholder on a draft; the inspection date must still be a real date.
         n_dates = len(re.findall(r"\b\d{2}/\d{2}/\d{4}\b", ctext))
         iss = str(cfg.get("issuance_date") or "").strip().upper()
-        if iss in ("", "TBD"):
+        if iss in ("", "TBD") or iss.startswith("<"):
             checks.append(("cover: inspection date in MM/DD/YYYY, issuance date TBD",
                            n_dates >= 1 and "TBD" in ctext.upper(),
                            f"{n_dates} date(s) found; expected the inspection date and a visible TBD"))
@@ -311,6 +316,12 @@ def main():
                            "expected inspection and issuance dates as MM/DD/YYYY"))
         checks.append(("cover: no draft warning on the cover", "DRAFT" not in ctext.upper() or "FOR INTERNAL REVIEW" not in ctext.upper(),
                        "the draft block belongs in the first Editor's Note, not on the cover"))
+        # Template hint text ("<Client and project as it reads ...>") must never
+        # reach the cover; an unknown fact renders as a red [MISSING: ...] marker.
+        checks.append(("cover: no template placeholder text", "&lt;" not in ctext and "<" not in ctext,
+                       "a '<...>' template hint is on the cover; set the field or leave it empty"))
+        n_missing = ctext.count("[MISSING:")
+        checks.append((f"cover: {n_missing} field(s) marked MISSING (listed in the finish list)", True, ""))
     elif cover_mode == "template":
         checks.append(("cover file written beside the body", False, f"{os.path.basename(cover_path)} not found"))
 

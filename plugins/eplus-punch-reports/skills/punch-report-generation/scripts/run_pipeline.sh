@@ -87,19 +87,22 @@ echo
 
 # --- 1. consolidate --------------------------------------------------------
 echo "==> 1/5 consolidate"
-# Scope rules, all optional, all from the intake answers:
+# Scope rules, all optional, from the user's words or the client profile:
 #   SCOPE=11-30                       item numbers
 #   TITLE="Visit 2"                   keep only this title (the walk marker)
 #   CREATED_AFTER=2026-08-31          keep only items created after this date
 #   DROP_PHRASES="a; b"               record-only descriptions to drop (semicolon separated);
 #                                     near misses are reported, never dropped
-#   KEEP_DELETED=1                    keep deleted/archived pins, marked, so the numbering
-#                                     matches PlanGrid (intake decision "keep, marked")
-CONS_ARGS=()
+#
+# Deleted/archived pins are ALWAYS kept here, flagged deleted_in_plangrid, since
+# 0.9.0. Whether they appear in the report is decided at build master from
+# report.config.json "deleted_pins" ("drop", the default, or "keep";
+# KEEP_DELETED=1 still means keep), so changing that decision is a re-render
+# (update_report.py --deleted-pins keep), not a re-run of these data steps.
+CONS_ARGS=(--keep-deleted)
 [ -n "${SCOPE:-}" ] && CONS_ARGS+=(--only "$SCOPE")
 [ -n "${TITLE:-}" ] && CONS_ARGS+=(--title "$TITLE")
 [ -n "${CREATED_AFTER:-}" ] && CONS_ARGS+=(--created-after "$CREATED_AFTER")
-[ -n "${KEEP_DELETED:-}" ] && CONS_ARGS+=(--keep-deleted)
 if [ -n "${DROP_PHRASES:-}" ]; then
     IFS=';' read -r -a _phrases <<< "$DROP_PHRASES"
     for p in "${_phrases[@]}"; do
@@ -174,6 +177,12 @@ echo "==> run record"
 # build/<report>-Review.xlsx, which is where package.py delivers it from.
 echo "==> review sheet"
 "$PY" scripts/review_sheet.py export "$BUILD"
+
+# What the draft still needs before it can be issued, each with the one command
+# that supplies it (update_report.py). Written to build/finish.json and into the
+# ISSUES-LIST.md finish-list block, and printed so the final message can quote it.
+echo "==> finish list"
+"$PY" scripts/finish_list.py --build "$BUILD" || true
 
 echo
 echo "==> done: $BUILD/$OUT"

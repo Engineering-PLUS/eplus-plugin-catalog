@@ -34,8 +34,14 @@ Rules enforced here so the renderer never has to care:
     Field result 2026-09-14: the renderer used to take the date from photo
     titles, so 27 of 38 photo-less items printed "N/A" and the report had to be
     re-delivered. photo_date is still carried for the record.
-  - deleted_in_plangrid (from consolidate.py --keep-deleted) is carried through
-    so the renderer can banner the item and mark it in the TOC.
+  - Pins PlanGrid deleted or archived arrive flagged deleted_in_plangrid
+    (run_pipeline.sh always consolidates with --keep-deleted since 0.9.0).
+    This step applies the decision: report.config.json "deleted_pins" is
+    "drop" (default) or "keep"; KEEP_DELETED=1 still means keep. Kept pins
+    carry the flag so the renderer banners them and marks the TOC. Changing
+    the decision is therefore a re-render, never a data re-run.
+  - drafted_items.json may carry "omit": [N, ...], pins the reviewer dropped
+    from the report (update_report.py --drop). items.json is never edited.
 
 Usage:
     python3 build_master.py --items data/items.json \
@@ -71,6 +77,18 @@ VOICE_BANNED = [
     r"\b(as|is|are|was|were)\s+(shown|seen|pictured|visible|evident)\s+(in|from)\s+(the|this|that)\s+(photo|image|picture|frame)",
     r"\bthis photo", r"\bin the frame", r"\bnot determinable from",
     r"\bfield engineer", r"\bno description was recorded",
+    # Statements ABOUT the photo instead of the site. Field result 2026-09-23
+    # (test-punch step 7 and a live CTX2 run): "The image is unclear." passed the
+    # narration patterns above because it has no narration verb.
+    # ("frame" is left out on purpose: "the frame is bent" is a rack or door
+    # frame, a real site condition.)
+    r"\b(the|this|that|these|those)\s+(photo(graph)?s?|images?|pictures?)\s+(is|are|was|were|appears?|seems?|looks?)\b",
+    r"\b(photo(graph)?|image|picture)s?\s+(is|are)?\s*(unclear|blurry|blurred|out of focus|inconclusive|too dark)\b",
+    # Statements about the pin note instead of the site ("the note says ...").
+    # "reads" stays allowed: "The field note reads only Up, with no accompanying
+    # photograph." is how a thin pin states that nothing more was recorded.
+    r"\b(the|this)\s+(pin\s+|field\s+)?note\s+(says|states|mentions|indicates|describes)\b",
+    r"\bper the (pin |field )?note\b",
 ]
 
 
@@ -130,17 +148,27 @@ def main():
     ap.add_argument("--drafted", default="data/drafted_items.json")
     ap.add_argument("-o", "--out", default="build/master_report_items.json")
     ap.add_argument("--omit", default="", help="comma list of PlanGrid numbers to drop")
+    ap.add_argument("--config", default=None,
+                    help="report.config.json (default: beside the output); read for deleted_pins")
     args = ap.parse_args()
 
     items = json.load(open(args.items, encoding="utf-8"))
+    cfg_path = args.config or os.path.join(os.path.dirname(os.path.abspath(args.out)), "report.config.json")
+    try:
+        cfg = json.load(open(cfg_path, encoding="utf-8"))
+    except (OSError, ValueError):
+        cfg = {}
 
     # drafted_items.json is either the historical bare list, or an object
-    # {"items": [...], "merges": [...]} so reviewer pin-merge decisions live in
-    # the judgment layer instead of as a mutation of items.json.
+    # {"items": [...], "merges": [...], "omit": [...]} so reviewer decisions
+    # (pin merges, pins dropped from the report) live in the judgment layer
+    # instead of as a mutation of items.json.
     drafted_doc = json.load(open(args.drafted, encoding="utf-8"))
+    omit_doc = []
     if isinstance(drafted_doc, dict):
         drafted_list = drafted_doc["items"]
         merges = drafted_doc.get("merges", [])
+        omit_doc = [int(x) for x in drafted_doc.get("omit", [])]
     else:
         drafted_list = drafted_doc
         merges = []
@@ -153,7 +181,18 @@ def main():
         sys.exit("ERROR: every drafted item needs a title and a description. Missing on: "
                  + ", ".join(lacking))
     drafted = {d["number"]: d for d in drafted_list}
-    omit = {int(x) for x in args.omit.split(",") if x.strip()}
+    omit = {int(x) for x in args.omit.split(",") if x.strip()} | set(omit_doc)
+
+    # Pins PlanGrid has deleted or archived. Since 0.9.0 consolidate keeps them
+    # (flagged deleted_in_plangrid) and THIS step applies the decision, so
+    # changing it is a re-render, not a re-run of the data steps:
+    #   report.config.json "deleted_pins": "drop" (default) | "keep"
+    #   KEEP_DELETED=1 in the environment still means keep (older runs).
+    keep_deleted = str(cfg.get("deleted_pins") or "").lower() == "keep" \
+        or os.environ.get("KEEP_DELETED", "").strip() not in ("", "0")
+    deleted_nums = [i["number"] for i in items if i.get("deleted_in_plangrid")]
+    if not keep_deleted:
+        omit |= set(deleted_nums)
 
     # Apply merges in memory: fold the absorbed pin's photos in, dedupe by uid,
     # keep chronological order, drop named photos, and auto-omit the absorbed pin.
@@ -178,8 +217,12 @@ def main():
 
     missing = [i["number"] for i in items if i["number"] not in drafted and i["number"] not in omit]
     if missing:
+        hint = ""
+        if keep_deleted and set(missing) & set(deleted_nums):
+            hint = (f" {sorted(set(missing) & set(deleted_nums))} are pins PlanGrid deleted, kept by "
+                    f"deleted_pins=keep; draft them, or set deleted_pins back to drop.")
         sys.exit(f"ERROR: no drafted entry for PlanGrid items {missing}. "
-                 f"Every item must be drafted, including undeterminable ones.")
+                 f"Every item must be drafted, including undeterminable ones." + hint)
 
     master, display_n = [], 0
     for it in sorted(items, key=lambda x: x["number"]):
@@ -286,7 +329,9 @@ def main():
           + (f", MISSING on {undated}" if undated else ""))
     deleted = [m["plangrid_ref"] for m in master if m["deleted_in_plangrid"]]
     if deleted:
-        print(f"  deleted, kept  : {deleted} (marked in the document)")
+        print(f"  deleted, kept  : {deleted} (marked in the document; deleted_pins=keep)")
+    elif deleted_nums:
+        print(f"  deleted, dropped: {['#' + str(n) for n in deleted_nums]} (deleted_pins=drop, the default)")
     print(f"  em/en dashes   : 0 (asserted)")
 
 

@@ -458,8 +458,8 @@ function editorNoteBlock(lines) {
 }
 
 // ------------------------------------------------------------------------ deleted banner
-// A pin PlanGrid has deleted or archived, kept in the report by the intake
-// decision "keep, marked" (consolidate.py --keep-deleted) so the item numbering
+// A pin PlanGrid has deleted or archived, kept in the report by the decision
+// "keep, marked" (deleted_pins: "keep", applied by build_master.py) so the item numbering
 // still matches the pull. The banner is red and unmistakable, like every other
 // editor-facing mark, because the reviewer decides whether it ships.
 const DELETED_BANNER = 'DELETED IN PLANGRID';
@@ -733,11 +733,23 @@ function floatingBlock(x, y, w, children, fill) {
   });
 }
 
+// A cover fact nobody has supplied yet. The report is built first and finished
+// later (0.9.0), so a draft may go out before the client name, address, EP
+// number or inspector are known. Such a field renders as a visible red
+// "[MISSING: ...]" marker rather than the template's "<...>" hint text or a
+// silent gap, and finish_list.py names the command that fills it.
+const isMissing = (v) => v == null
+  || (typeof v === 'string' && (v.trim() === '' || v.trim().startsWith('<')))
+  || (Array.isArray(v) && (v.length === 0 || v.every(isMissing)));
+const MISSING = (label) => `[MISSING: ${label}]`;
+const valueRun = (value, opts) => run(value, String(value).startsWith('[MISSING:')
+  ? { ...opts, color: ALERT_RED, bold: true } : opts);
+
 const metaLine = (label, value) => new Paragraph({
   spacing: { before: 0, after: 40, line: 276, lineRule: 'auto' },
   children: [
     run(`${label}: `, { bold: true, size: 24, color: DARKGREY }),
-    run(value, { size: 24, color: DARKGREY }),
+    valueRun(value, { size: 24, color: DARKGREY }),
   ],
 });
 
@@ -768,32 +780,41 @@ const coverTitleBlock = floatingBlock(inDxa(0.75), inDxa(3.50), inDxa(3.4), [
   }),
   new Paragraph({
     spacing: { before: 0, after: 0 },
-    children: [run(CFG.cover_subtitle || '', { bold: true, size: 44, color: 'FFFFFF' })],
+    children: [valueRun(isMissing(CFG.cover_subtitle) ? MISSING('building or area') : CFG.cover_subtitle,
+      { bold: true, size: 44, color: 'FFFFFF' })],
   }),
 ]);
 
 // Bottom right: client display name and address, right-aligned to the text edge.
-const clientName = CFG.client_display_name || CFG.cover_title || '';
+// The internal PlanGrid project name (cover_title) used to stand in for a blank
+// client name. A config written by prefill_config.py (it carries fact_sources)
+// shows the gap instead, so an internal project code never reads as the client.
+const clientName = !isMissing(CFG.client_display_name) ? CFG.client_display_name
+  : (!CFG.fact_sources && !isMissing(CFG.cover_title) ? CFG.cover_title : MISSING('client name'));
+const addressLines = isMissing(CFG.site_address) ? [MISSING('site address')]
+  : (Array.isArray(CFG.site_address) ? CFG.site_address : [String(CFG.site_address)]).filter((l) => !isMissing(l));
 const coverClientBlock = floatingBlock(inDxa(4.25), inDxa(8.32), inDxa(3.5), [
   new Paragraph({
     alignment: AlignmentType.RIGHT,
     spacing: { before: 0, after: 60 },
-    children: [run(clientName, { bold: true, size: 40, color: BLUE })],
+    children: [valueRun(clientName, { bold: true, size: 40, color: BLUE })],
   }),
-  ...(CFG.site_address || []).map((line) => new Paragraph({
+  ...addressLines.map((line) => new Paragraph({
     alignment: AlignmentType.RIGHT,
     spacing: { before: 0, after: 20 },
-    children: [run(line, { size: 28, color: DARKGREY })],
+    children: [valueRun(line, { size: 28, color: DARKGREY })],
   })),
 ]);
 
 // Bottom left: the four meta lines. EP project number first, as on the issued sheet.
+// A missing fact shows as a red [MISSING: ...] marker instead of disappearing.
+const issuance = isMissing(CFG.issuance_date) ? 'TBD' : CFG.issuance_date;
 const coverMetaBlock = floatingBlock(inDxa(1.43), inDxa(9.20), inDxa(3.3), [
-  ...(CFG.ep_project_no && !String(CFG.ep_project_no).startsWith('<')
-    ? [metaLine('EP Project No', String(CFG.ep_project_no))] : []),
-  metaLine('Inspection Date', fmtDate(CFG.inspection_date || CFG.walk_date)),
-  metaLine('Issuance Date', fmtDate(CFG.issuance_date)),
-  ...(CFG.inspector ? [metaLine('Inspector', CFG.inspector)] : []),
+  metaLine('EP Project No', isMissing(CFG.ep_project_no) ? MISSING('EP project number') : String(CFG.ep_project_no)),
+  metaLine('Inspection Date', isMissing(CFG.inspection_date || CFG.walk_date)
+    ? MISSING('walk date') : fmtDate(CFG.inspection_date || CFG.walk_date)),
+  metaLine('Issuance Date', fmtDate(issuance)),
+  metaLine('Inspector', isMissing(CFG.inspector) ? MISSING('inspector') : String(CFG.inspector)),
 ]);
 
 // Bottom right: the client's logo, only when a file is present. It is the end
@@ -1056,8 +1077,14 @@ const letterheadHeader = new Header({
 
 // Footer wording is derived, not free text: the letterhead says Technology
 // System / Punch List and the footer says the same, whatever the file is called.
-const footerText = CFG.footer_text
-  || `Engineering PLUS  •  ${[CFG.client_display_name || CFG.cover_title, CFG.cover_subtitle].filter(Boolean).join(' ')} Technology System Punch List`;
+// A missing name or building is left out of the footer (the cover carries the
+// red MISSING marker; the footer repeats on every page and stays clean).
+const footerName = [
+  !isMissing(CFG.client_display_name) ? CFG.client_display_name : (!isMissing(CFG.cover_title) ? CFG.cover_title : ''),
+  !isMissing(CFG.cover_subtitle) ? CFG.cover_subtitle : '',
+].filter(Boolean).join(' ');
+const footerText = (!isMissing(CFG.footer_text) && CFG.footer_text)
+  || `Engineering PLUS  •  ${footerName ? footerName + ' ' : ''}Technology System Punch List`;
 const footer = new Footer({
   children: [new Paragraph({
     alignment: AlignmentType.CENTER,

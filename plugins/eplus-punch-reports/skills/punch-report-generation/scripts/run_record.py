@@ -164,7 +164,13 @@ def main():
                              if str(i["number"]) not in {re.sub(r"^item_(\d+)\.jpe?g$", r"\1", str(k)) for k in clips}],
             "with_room": len(with_room), "photographers": dict(photographers), "photo_dates": dates,
             "pin_dates": sorted({str(i.get("created_at") or "")[:10] for i in items if i.get("created_at")}),
-            "deleted_retained": [i["number"] for i in items if i.get("deleted_in_plangrid")],
+            # consolidate keeps every deleted pin since 0.9.0; build master applies
+            # deleted_pins, so "retained" is what reached the master.
+            "deleted_retained": [int(str(m.get("plangrid_ref", "")).lstrip("#") or 0)
+                                 for m in master if m.get("deleted_in_plangrid")],
+            "deleted_dropped": [i["number"] for i in items if i.get("deleted_in_plangrid")
+                                and f"#{i['number']}" not in {m.get("plangrid_ref") for m in master}],
+            "in_report": len(master),
         },
         "drafting": {"origins": dict(origins), "confidence": dict(confidence),
                      "with_precedent_note": len(with_precedent), "with_editor_note": len(with_editor_note)},
@@ -206,8 +212,10 @@ def main():
         "| Count | Value |",
         "|---|---|",
         f"| Items in scope | {c['items']} |",
+        f"| Items in the report | {c['in_report'] if master else 'not rendered yet'} |",
         f"| Pin dates (Date Recorded) | {', '.join(c['pin_dates']) or 'none in the pull'} |",
         f"| Deleted in PlanGrid, retained and marked | {c['deleted_retained'] or 'none'} |",
+        f"| Deleted in PlanGrid, dropped (deleted_pins=drop) | {c['deleted_dropped'] or 'none'} |",
         f"| Authored description | {len(c['described'])} |",
         f"| Photo only | {len(c['photo_only'])} {c['photo_only'] or ''} |",
         f"| No description, no photos | {len(c['no_photos'])} {c['no_photos'] or ''} |",

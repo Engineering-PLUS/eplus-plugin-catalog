@@ -12,25 +12,29 @@ conflicts. The update usually fixes typos and adds items.
 
 ### Step 3.5 — The wording mode, and the per-item review loop
 
-The wording mode is **asked at intake**, as question 4 of the single intake
-call in the `punch-report` command, not here: it used to be its own round at
-this point, and on 2026-09-14 that round alone cost four minutes of waiting.
-The three answers are the same:
+**The default, and the only mode a run starts in: draft it all** in
+field-report voice, mark every entry's `origin` and `confidence`, and give each
+inferred or low-confidence item an Editor's Note saying why. Nothing is asked
+before the draft exists (the command's rule: build first, ask last; field
+result 2026-09-14: this question as its own round cost four minutes, and runs
+left alone never got past it). The finish list names the items to review, and
+the user rewords any of them afterwards with
+`update_report.py --item N --description "..."`.
 
-1. **Draft it all** in field-report voice and flag inferred items (the
-   recommended default); the user reviews the finished draft.
+The two interactive modes exist for a user who asks for them in so many words
+("walk me through each item", "review the ones you are unsure about with me"),
+and even then they run **on the built draft**, after delivery, never before:
+
 2. **Review only the items the drafter is unsure about**, item by item.
-3. **Walk every item** with the user before its wording is locked.
-
-If a run reached this step without an intake answer (it started from a
-package, or without the command), ask it now, together with anything else
-outstanding, in one `AskUserQuestion` call; never as a round of its own.
+3. **Walk every item** with the user.
 
 "Unsure" in mode 2 means: every `photo_only` and `no_photos` item from the
 consolidate triage, anything whose description is inferred from photo content
-alone, and anything you would mark `confidence: low`.
+alone, and anything marked `confidence: low`. Each approved change is applied
+with `update_report.py --item N ...` (origin `user_reviewed`) and the report
+re-renders in seconds; no worker, no rebuild.
 
-**The per-item review loop (modes 2 and 3), order is mandatory:**
+**The per-item review loop (modes 2 and 3, on request only), order is mandatory:**
 
 1. **Render the preview FIRST, then ask.** Publish an HTML artifact staging the
    item as close as possible to the Word layout — use this skill's
@@ -46,24 +50,26 @@ alone, and anything you would mark `confidence: low`.
    when ambiguous, and anything the photo inference was unsure of. Ask only
    what is genuinely undecidable from the evidence; don't quiz for its own
    sake.
-3. Record each decision into the workspace's `data/drafted_items.json` as you
-   go. Wording the user approved or supplied gets `"origin": "user_reviewed"` —
-   `build_master.py` treats it as untouchable (no sanitize rewrites, no voice
-   guard, no recapitalisation) and FAILS LOUDLY if the text would need
-   cleaning, rather than silently altering approved wording.
+3. Apply each decision with `python3 scripts/update_report.py --item N
+   --description "..."` (or `--edits <file>.json` for several). Wording the user
+   approved or supplied becomes `"origin": "user_reviewed"`: `build_master.py`
+   treats it as untouchable (no sanitize rewrites, no voice guard, no
+   recapitalisation); the update script cleans dashes on the way in.
 
-**Items without photos — always raise it, in every mode.** For each `no_photos`
-item, ask (grouped into one AskUserQuestion when there are several):
-
-> Item N has no photos. Options: **(a)** I'll add my own photos in Word — render
-> the empty photo grid as a paste target; **(b)** no photos apply — drop the
-> grid and the Photos label for this item; **(c)** flag for a follow-up site
-> visit — render the empty grid and note it on the issues list.
-
-Record the answer as `"photo_mode": "own_photos" | "none" | "followup"` on the
-drafted entry. The renderer honors it: `none` suppresses the photo block
+**Items without photos: default `own_photos`, never a question.** Each
+`no_photos` item renders an empty photo grid as a paste target and appears in
+the finish list. The other two choices are one command each, afterwards:
+`--item N --photo-mode none` (no grid, no Photos label) or `--item N
+--photo-mode followup` (grid kept; say in the Editor's Note that a revisit is
+planned). The renderer honors `photo_mode`: `none` suppresses the photo block
 entirely; the other two render one empty grid row sized like a real photo cell
 (invisible-hairline rows are a shipped bug this fixed).
+
+**Pins PlanGrid deleted are drafted too.** `items.json` carries them flagged
+`deleted_in_plangrid`, and the default leaves them out at build master; with a
+draft already written, "keep them" is `--deleted-pins keep` and nothing else.
+A thin deleted pin gets a thin, honest entry ("Pin note reads only Up, with no
+accompanying photograph."), `origin: authored`, `photo_mode: none`.
 
 ### Step 4 — Draft a description for every item
 
@@ -306,17 +312,16 @@ invent wording to fill the space.
 
 
 **Handing this stage to a worker:** paste `reference/worker-brief.md`, then name
-this file, the paths, the scope, the wording mode the user chose in Step 3.5,
-and "stop after `data/drafted_items.json` validates through `build_master.py`".
-The wording question and the per-item review loop are the main thread's: they
-need `AskUserQuestion` and an artifact, which a worker cannot use. A worker
-drafts, marks `origin` and `confidence`, and runs the precedent pass. Items it
-cannot draft without a decision (a suspected misfire, a photo that contradicts
-the note, a source conflict) come back under Open questions, undrafted, and
-the worker stops; it does not pick a side. In modes 2 and 3 the main thread
-then runs the review loop over the flagged and low-confidence items and, if
-more drafting is needed, starts a new worker with the answers in its brief.
-Pins kept under `KEEP_DELETED=1` are in `items.json` already, flagged
+this file, the paths, the scope, "wording mode: draft it all, flag inferred
+items", and "stop after `data/drafted_items.json` validates through
+`build_master.py`". A worker drafts every item, deleted pins included, marks
+`origin` and `confidence`, and runs the precedent pass. An item it cannot
+settle (a suspected misfire, a photo that contradicts the note, a source
+conflict) it still drafts, as `origin: undetermined`, `confidence: low`, with
+an Editor's Note setting out the evidence both ways, and lists it under Open
+questions. The main thread settles each from house policy, records the
+question in `ISSUES-LIST.md`, and carries on to the render; it does not stop
+the run to ask. Deleted pins are in `items.json` flagged
 `deleted_in_plangrid`; the worker drafts them from that file and never
 reconstructs them from the raw pull.
 

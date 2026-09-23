@@ -116,12 +116,14 @@ replaces the body PDF's blank page 1 with the cover PDF once the user has both
 and has said yes.
 
 ```bash
-python3 scripts/package.py <workspace> "<project folder>"
+python3 scripts/package.py <workspace> "<deliver to>"
 ```
 
-That zips the workspace (pipeline, sources, data, build, handoff) into the
-project folder and places the `.docx`, the `-Cover.docx` and the review
-`.xlsx` beside it. It leaves out what the run superseded and prints each
+`<deliver to>` is the project folder `locate_inputs.py` found, or, when no
+folder is connected, the session outputs folder; the run never stops to ask
+for one first. That zips the workspace (pipeline, sources, data, build,
+handoff) into the destination and places the `.docx`, the `-Cover.docx` and
+the review `.xlsx` beside it. It leaves out what the run superseded and prints each
 exclusion: caches and `_scratch/`, anything named with a leading underscore
 (worker probe files), a template stamped into `_pipeline/`, `build/`
 subfolders other than `assets`, `thumbs_uniform` and `sheet_clips_jpg`, raw
@@ -134,7 +136,23 @@ overwrite a previous delivery unless `--replace` is passed (and that only
 when the user has said the earlier copy should be replaced), and `--dry-run`
 shows the manifest first. Do not copy files across by hand before or after it.
 
-**The issues list** (`_pipeline/ISSUES-LIST.md`) is first-class. It carries source
+**Every later delivery goes through `update_report.py --deliver`.** It re-renders
+what changed, steps the version up (v0.1 to v0.2) when the current name is
+already in the destination, and packages beside the earlier delivery, which
+is never overwritten. `--deliver "<folder>"` also moves a report built into
+the session outputs folder to a project folder the user connects afterwards.
+
+**The final message** after the first delivery, in this order: what was built
+and where (links into the folder it was delivered to; if that is the session
+outputs folder, say so in the first sentence), the finish list the pipeline
+printed (blocking entries first), then one `AskUserQuestion` of at most four
+questions for the blocking gaps a person can answer on the spot. The draft is
+complete whether or not they answer.
+
+**The issues list** (`_pipeline/ISSUES-LIST.md`) is first-class. Its top block,
+between `<!-- finish-list:start -->` and `<!-- finish-list:end -->`, is written
+by `finish_list.py` on every render: what blocks issuing and the review points,
+each with its `update_report.py` command. Below it, by hand, it carries source
 conflicts (report both, never silently pick one), items referencing documents you
 were not given, suspected misfires as questions, items where the photo contradicts
 the description, multi-condition pins for a split/keep decision, everything

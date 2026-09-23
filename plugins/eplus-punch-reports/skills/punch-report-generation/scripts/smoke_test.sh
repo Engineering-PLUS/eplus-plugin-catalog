@@ -52,7 +52,8 @@ for s in consolidate.py normalize_photos.py extract_sheet_clips.py \
          build_master.py review_sheet.py verify_report.py read_comments.py \
          package.py fix_bookmark_ids.py render_preview.py \
          import_reviewed_docx.py fetch_photos.py adapt_mcp_pull.py \
-         extract_pdf_photos.py export_pdf.py run_record.py staple_pdf.py; do
+         extract_pdf_photos.py export_pdf.py run_record.py staple_pdf.py \
+         locate_inputs.py prefill_config.py finish_list.py update_report.py; do
     if [ ! -f "$s" ]; then bad "$s is missing"; continue; fi
     out=$("$PY" "$s" --help 2>&1)
     case "$?:$out" in
@@ -126,7 +127,7 @@ fi
 
 # Behavioural checks on the pure-stdlib helpers, so a regression in the merge or
 # protection logic is caught here and not on a live report.
-"$PY" - <<'PYCHECK' 2>&1 && ok "build_master.py: merges block, origin protection, photo_mode, pin date, deleted flag" \
+"$PY" - <<'PYCHECK' 2>&1 && ok "build_master.py: merges block, origin protection, photo_mode, pin date, deleted_pins decision, omit, voice guard" \
     || bad "build_master.py behavioural check failed"
 import json, os, subprocess, sys, tempfile
 d = tempfile.mkdtemp()
@@ -146,6 +147,8 @@ drafted = {"items": [
 ], "merges": [{"into": 1, "from": 2}]}
 json.dump(items, open(os.path.join(d, "items.json"), "w", encoding="utf-8"))
 json.dump(drafted, open(os.path.join(d, "drafted.json"), "w", encoding="utf-8"))
+# deleted pins: the decision lives in report.config.json beside the output (0.9.0)
+json.dump({"deleted_pins": "keep"}, open(os.path.join(d, "report.config.json"), "w", encoding="utf-8"))
 out = os.path.join(d, "master.json")
 r = subprocess.run([sys.executable, "build_master.py", "--items", os.path.join(d, "items.json"),
                     "--drafted", os.path.join(d, "drafted.json"), "-o", out],
@@ -173,11 +176,15 @@ import re as _re
 hit = lambda s: any(_re.search(p, s, _re.I) for p in bm.VOICE_BANNED)
 for ok_text in ("The field note reads only Up, with no accompanying photograph.",
                 "No photographs were taken at this pin; condition requires field verification.",
-                "Cable tray is not bonded to the building grounding system."):
+                "Cable tray is not bonded to the building grounding system.",
+                "The rack frame is bent at the base.", "The door frame is damaged at the strike."):
     assert not hit(ok_text), ok_text
 for bad_text in ("The photograph shows an open junction box.", "Conduit is visible in the frame.",
                  "As seen in the image, the tray is unsupported.", "In the photo the box is open.",
-                 "The field engineer recorded the condition.", "This photo captures the stub."):
+                 "The field engineer recorded the condition.", "This photo captures the stub.",
+                 # 0.9.0: statements about the photo or the note, not the site
+                 "The image is unclear.", "The photos are too dark to read the label.",
+                 "Image unclear.", "The note says the box is missing.", "Per the pin note, conduit is open."):
     assert hit(bad_text), bad_text
 drafted["items"][0]["description"] = "Pin note reads Up, with no accompanying photograph."
 json.dump(drafted, open(os.path.join(d, "drafted.json"), "w", encoding="utf-8"))
@@ -197,6 +204,28 @@ r = subprocess.run([sys.executable, "build_master.py", "--items", os.path.join(d
                     "--drafted", os.path.join(d, "drafted.json"), "-o", out],
                    capture_output=True, text=True)
 assert r.returncode != 0 and "not sanitize-clean" in (r.stdout + r.stderr)
+drafted["items"][1]["description"] = "Approved text, kept verbatim."
+json.dump(drafted, open(os.path.join(d, "drafted.json"), "w", encoding="utf-8"))
+# 0.9.0: deleted pins are dropped by default at THIS step (consolidate keeps them
+# all), so the decision is a re-render; "omit" drops a pin without touching items.json
+json.dump({}, open(os.path.join(d, "report.config.json"), "w", encoding="utf-8"))
+r = subprocess.run([sys.executable, "build_master.py", "--items", os.path.join(d, "items.json"),
+                    "--drafted", os.path.join(d, "drafted.json"), "-o", out], capture_output=True, text=True)
+assert r.returncode == 0, r.stdout + r.stderr
+assert [x["plangrid_ref"] for x in json.load(open(out, encoding="utf-8"))] == ["#1"], "deleted pin must drop by default"
+assert "deleted, dropped: ['#3']" in r.stdout, r.stdout
+json.dump({"deleted_pins": "keep"}, open(os.path.join(d, "report.config.json"), "w", encoding="utf-8"))
+drafted["omit"] = [3]
+json.dump(drafted, open(os.path.join(d, "drafted.json"), "w", encoding="utf-8"))
+r = subprocess.run([sys.executable, "build_master.py", "--items", os.path.join(d, "items.json"),
+                    "--drafted", os.path.join(d, "drafted.json"), "-o", out], capture_output=True, text=True)
+assert r.returncode == 0 and [x["plangrid_ref"] for x in json.load(open(out, encoding="utf-8"))] == ["#1"], r.stdout + r.stderr
+# keeping a deleted pin that has no draft names it plainly
+drafted = {"items": [drafted["items"][0]], "merges": [{"into": 1, "from": 2}]}
+json.dump(drafted, open(os.path.join(d, "drafted.json"), "w", encoding="utf-8"))
+r = subprocess.run([sys.executable, "build_master.py", "--items", os.path.join(d, "items.json"),
+                    "--drafted", os.path.join(d, "drafted.json"), "-o", out], capture_output=True, text=True)
+assert r.returncode != 0 and "deleted_pins=keep" in r.stdout + r.stderr, r.stdout + r.stderr
 PYCHECK
 
 "$PY" - <<'PYCHECK' 2>&1 && ok "consolidate.py: multi-delta layering, scope rules, --keep-deleted" \
@@ -318,6 +347,7 @@ drafted = {"items": [{"number": 1, "title": "Alpha", "description": "Conduit stu
                       "corrective_action": "None.", "origin": "authored", "photo_mode": "none"}]}
 json.dump(items, open(os.path.join(d, "items.json"), "w", encoding="utf-8"))
 json.dump(drafted, open(os.path.join(d, "drafted.json"), "w", encoding="utf-8"))
+json.dump({"deleted_pins": "keep"}, open(os.path.join(d, "report.config.json"), "w", encoding="utf-8"))
 master = os.path.join(d, "master_report_items.json")
 r = subprocess.run([sys.executable, "build_master.py", "--items", os.path.join(d, "items.json"),
                     "--drafted", os.path.join(d, "drafted.json"), "-o", master],
@@ -328,7 +358,7 @@ json.dump({"master_file": "master_report_items.json", "output_filename": "fixtur
            "cover_subtitle": "Building X", "client_display_name": "Fixture Client Project",
            "site_address": ["1 Fixture St.,", "Town, ST"], "ep_project_no": "99999",
            "inspection_date": ["2026-01-01", "2026-01-02"], "issuance_date": "2026-01-03", "inspector": "Fixture",
-           "visit_sections": "by_date"},
+           "visit_sections": "by_date", "deleted_pins": "keep"},
           open(os.path.join(d, "report.config.json"), "w", encoding="utf-8"))
 json.dump({}, open(os.path.join(d, "sheet_clip_dims_jpg.json"), "w", encoding="utf-8"))
 r = subprocess.run(["node", "gen_report.js", d], capture_output=True, text=True)
@@ -430,6 +460,147 @@ shutil.rmtree(d, ignore_errors=True)
 PYCHECK
 else
     bad "gen_report.js render check skipped: docx package not installed (bash scripts/install_deps.sh)"
+fi
+
+# 0.9.0 build first, finish later. locate_inputs.py picks the project folder and
+# the version without asking; prefill_config.py fills the cover from sources on
+# record only; a draft with gaps renders red [MISSING: ...] markers, verifies,
+# and finish_list.py names one update_report.py command per gap; update_report.py
+# then edits surgically, re-renders, and delivers the next version beside the last.
+"$PY" - <<'PYCHECK' 2>&1 && ok "locate_inputs.py: project folder by hint or the only one, next version from the folder, none means outputs" \
+    || bad "locate_inputs.py behavioural check failed"
+import json, os, subprocess, sys, tempfile
+d = tempfile.mkdtemp(); mnt = os.path.join(d, "mnt")
+for p in ("outputs", "uploads", ".local-plugins", "CTX2_v2/pull1", "Other Job"):
+    os.makedirs(os.path.join(mnt, p))
+open(os.path.join(mnt, "CTX2_v2", "pull1", "tasks.json"), "w").write("[]")
+open(os.path.join(mnt, "CTX2_v2", "PlanGrid Task Report - Sep 10.pdf"), "wb").write(b"%PDF")
+open(os.path.join(mnt, "CTX2_v2", "CTX2-Punch-Report-DRAFT-v0.3.docx"), "wb").write(b"x")
+run = lambda *a: subprocess.run([sys.executable, "locate_inputs.py", *a, "--mnt", mnt, "--json"], capture_output=True, text=True)
+r = run("ctx2"); assert r.returncode == 0, r.stdout + r.stderr
+j = json.loads(r.stdout)
+assert j["project_folder"].endswith("CTX2_v2") and j["next_version"] == "0.4", j
+assert j["inputs"][j["project_folder"]]["pulls"] and j["inputs"][j["project_folder"]]["task_reports"], j
+assert set(os.path.basename(c) for c in j["connected"]) == {"CTX2_v2", "Other Job"}, j["connected"]
+r = run(); j = json.loads(r.stdout)
+assert j["project_folder"] is None and j["deliver_to"].endswith("outputs"), j   # two connected, no hint: never guess
+os.rename(os.path.join(mnt, "Other Job"), os.path.join(mnt, ".hidden"))
+j = json.loads(run().stdout)
+assert j["project_folder"].endswith("CTX2_v2"), j                                  # the only one connected
+os.rename(os.path.join(mnt, "CTX2_v2"), os.path.join(mnt, ".gone"))
+j = json.loads(run("ctx2").stdout)
+assert j["project_folder"] is None and j["next_version"] == "0.1", j               # nothing connected
+PYCHECK
+
+# Needs the plugin checkout (the template beside scripts/), like the stamper check;
+# from a workspace copy (test-punch step 2) it is skipped, not failed.
+if [ ! -d ../template/_pipeline ]; then
+    :
+elif node -e 'require("docx")' >/dev/null 2>&1; then
+"$PY" - <<'PYCHECK' 2>&1 && ok "build first: prefill from records, [MISSING] on the cover, finish list, update_report edits, re-render, deliver v0.1 then v0.2" \
+    || bad "build-first flow check failed"
+import json, os, re, subprocess, sys, tempfile, time, zipfile
+bash = os.environ.get("SMOKE_BASH") or "bash"
+here = os.getcwd()
+d = tempfile.mkdtemp(); mnt = os.path.join(d, "mnt")
+os.makedirs(os.path.join(mnt, "outputs")); os.makedirs(os.path.join(mnt, "Proj"))
+ws = os.path.join(mnt, "outputs", "ctx2-punch")
+r = subprocess.run([bash, "init_workspace.sh", ws], capture_output=True, text=True)
+assert r.returncode == 0, r.stdout + r.stderr
+pipe = os.path.join(ws, "_pipeline")
+env = dict(os.environ, PYTHONUTF8="1", NODE_PATH=os.path.join(here, "node_modules"), PIPELINE_BASH=bash)
+items = [{"number": 1, "photos": [], "sheet_name": "T02-01A", "sheet_description": "Plan", "room": "", "status": "open",
+          "created_at": "2026-08-27T10:00:00", "created_by": "leo.manning@eplusadvisors.com", "description": "Open box"},
+         {"number": 2, "photos": [], "sheet_name": "T02-01A", "sheet_description": "Plan", "room": "", "status": "open",
+          "created_at": "2026-08-28T09:00:00", "created_by": "leo.manning@eplusadvisors.com", "description": "Up",
+          "deleted_in_plangrid": True}]
+json.dump(items, open(os.path.join(pipe, "data", "items.json"), "w", encoding="utf-8"))
+json.dump({"near_miss": [[1, "Observation only, ignore."]]}, open(os.path.join(pipe, "data", "triage.json"), "w"))
+json.dump({"items": [{"number": 1, "title": "Open Junction Box", "description": "Junction box is open with no cover.",
+                      "corrective_action": "Install the cover.", "origin": "authored", "confidence": "high",
+                      "photo_mode": "none"}]},
+          open(os.path.join(pipe, "data", "drafted_items.json"), "w", encoding="utf-8"))
+py = lambda *a: subprocess.run([sys.executable, *a], cwd=pipe, env=env, capture_output=True, text=True)
+r = py("scripts/prefill_config.py", "--project-name", "CTX2", "--version", "0.1")
+assert r.returncode == 0, r.stdout + r.stderr
+cfg = json.load(open(os.path.join(pipe, "build", "report.config.json"), encoding="utf-8"))
+src = cfg["fact_sources"]
+assert cfg["output_filename"] == "CTX2-Punch-Report-DRAFT-v0.1.docx" and cfg["issuance_date"] == "TBD", cfg
+assert cfg["inspector"] == "Leo Manning" and "confirm" in src["inspector"], src          # a guess, flagged
+assert cfg["client_display_name"] == "" and src["client_display_name"] == "missing", src  # never invented
+assert cfg["inspection_date"] == ["2026-08-27", "2026-08-28"] and cfg["deleted_pins"] == "drop", cfg
+r = subprocess.run([bash, "scripts/run_pipeline.sh"], cwd=pipe, env=dict(env, RENDER_ONLY="1"), capture_output=True, text=True)
+assert r.returncode == 0, r.stdout[-2500:] + r.stderr[-1500:]
+assert "all checks passed" in r.stdout and "To finish this report" in r.stdout, r.stdout[-2000:]
+cz = zipfile.ZipFile(os.path.join(pipe, "build", "CTX2-Punch-Report-DRAFT-v0.1-Cover.docx"))
+ct = " ".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", cz.read("word/document.xml").decode("utf-8")))
+for needle in ("[MISSING: client name]", "[MISSING: site address]", "[MISSING: EP project number]",
+               "[MISSING: building or area]", "TBD", "Leo Manning", "08/27/2026 &amp; 08/28/2026"):
+    assert needle in ct, (needle, ct)
+assert "&lt;" not in ct, "template hint text on the cover"
+fin = json.load(open(os.path.join(pipe, "build", "finish.json"), encoding="utf-8"))
+blocking = {e["what"] for e in fin["blocking"]}
+for w in ("Client name", "Site address", "EP project number", "Building or area (cover subtitle)",
+          "Inspector (who walked it)", "Issuance date", "Drawing pin clips", "Delivery"):
+    assert w in blocking, (w, blocking)
+review = " ".join(e["detail"] + " " + (e["command"] or "") for e in fin["review"])
+assert "#2 left out" in review and "--deleted-pins keep" in review and "--drop 1" in review, review
+assert "<!-- finish-list:start -->" in open(os.path.join(pipe, "ISSUES-LIST.md"), encoding="utf-8").read()
+m = json.load(open(os.path.join(pipe, "build", "master_report_items.json"), encoding="utf-8"))
+assert [x["plangrid_ref"] for x in m] == ["#1"], m                                       # deleted pin dropped by default
+# surgical: the user supplies the cover facts; one command, re-render, no data steps
+t = time.time()
+r = py("scripts/update_report.py", "--set", "client_display_name=ServerFarm CTX2", "--set", "ep_project_no=27625",
+       "--set", "site_address=15515 Cutten Road, | Houston, TX", "--set", "cover_subtitle=Data Hall 1",
+       "--set", "inspector=Leo Manning", "--set", "issuance_date=09/30/2026", "--mnt-glob", os.path.join(d, "*"))
+assert r.returncode == 0, r.stdout + r.stderr
+assert "render only" in open(os.path.join(pipe, "build", "update_render.log"), encoding="utf-8").read()
+cz = zipfile.ZipFile(os.path.join(pipe, "build", "CTX2-Punch-Report-DRAFT-v0.1-Cover.docx"))
+ct = " ".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", cz.read("word/document.xml").decode("utf-8")))
+assert "[MISSING" not in ct and "27625" in ct and "ServerFarm CTX2" in ct and "09/30/2026" in ct, ct
+cfg = json.load(open(os.path.join(pipe, "build", "report.config.json"), encoding="utf-8"))
+assert cfg["fact_sources"]["ep_project_no"] == "user" and cfg["site_address"] == ["15515 Cutten Road,", "Houston, TX"], cfg
+prof = json.load(open(os.path.join(ws, "client-profile.json"), encoding="utf-8"))
+assert prof["ep_project_no"] == "27625" and prof["inspector"]["name"] == "Leo Manning", prof   # for the next report
+assert "set ep_project_no=27625" in open(os.path.join(pipe, "PROCESS-LOG.md"), encoding="utf-8").read()
+fin = json.load(open(os.path.join(pipe, "build", "finish.json"), encoding="utf-8"))
+assert {e["what"] for e in fin["blocking"]} == {"Drawing pin clips", "Delivery"}, fin["blocking"]
+# keeping the deleted pin is a re-render; with no draft for it the error says so
+r = py("scripts/update_report.py", "--deleted-pins", "keep")
+assert r.returncode != 0 and "deleted_pins=keep" in r.stdout + r.stderr, r.stdout + r.stderr
+r = py("scripts/update_report.py", "--deleted-pins", "keep", "--item", "2", "--title", "Unlabeled Pin",
+       "--description", "Pin note reads only Up — nothing further recorded.", "--photo-mode", "none")
+assert r.returncode == 0, r.stdout + r.stderr
+m = json.load(open(os.path.join(pipe, "build", "master_report_items.json"), encoding="utf-8"))
+assert [x["plangrid_ref"] for x in m] == ["#1", "#2"] and m[1]["deleted_in_plangrid"] is True, m
+assert m[1]["origin"] == "user_reviewed" and "—" not in m[1]["description"], m[1]      # dashes cleaned on the way in
+# delivery: paperwork written, then v0.1 to the project folder, then a change delivers v0.2 beside it
+for rel, marker in (("_pipeline/PROCESS-LOG.md", "<What was included, what was excluded"),
+                    ("_pipeline/PROCESS-LOG.md", "- Tools used and roughly how many calls"),
+                    ("_pipeline/ISSUES-LIST.md", "### Item <N> (PlanGrid #<N>)"),
+                    ("README.md", "<What this report covers, what was excluded"),
+                    ("_pipeline/CLAUDE.md", "<State what was excluded and by whose direction")):
+    p = os.path.join(ws, rel); s = open(p, encoding="utf-8").read()
+    open(p, "w", encoding="utf-8").write(s.replace(marker, "Written for the test."))
+r = py("scripts/update_report.py", "--deliver", "Proj", "--mnt-glob", os.path.join(d, "*"))
+assert r.returncode == 0, r.stdout + r.stderr
+assert os.path.isfile(os.path.join(mnt, "Proj", "CTX2-Punch-Report-DRAFT-v0.1.docx")), os.listdir(os.path.join(mnt, "Proj"))
+assert json.load(open(os.path.join(pipe, "build", "report.config.json"), encoding="utf-8"))["delivery_folder"] == "Proj"
+fin = json.load(open(os.path.join(pipe, "build", "finish.json"), encoding="utf-8"))
+assert "Delivery" not in {e["what"] for e in fin["blocking"]}, fin["blocking"]
+r = py("scripts/update_report.py", "--set", "issuance_date=2026-10-01", "--deliver", "--mnt-glob", os.path.join(d, "*"))
+assert r.returncode == 0, r.stdout + r.stderr
+got = sorted(os.listdir(os.path.join(mnt, "Proj")))
+assert "CTX2-Punch-Report-DRAFT-v0.1.docx" in got and "CTX2-Punch-Report-DRAFT-v0.2.docx" in got \
+    and "CTX2-Punch-Report-DRAFT-v0.2-Cover.docx" in got and "CTX2-Punch-Report-DRAFT-v0.2.zip" in got, got
+assert "version CTX2-Punch-Report-DRAFT-v0.1.docx -> CTX2-Punch-Report-DRAFT-v0.2.docx" in r.stdout, r.stdout
+# an unconnected folder is refused with the list of what is connected, never a picker
+r = py("scripts/update_report.py", "--deliver", "Nowhere", "--no-render", "--mnt-glob", os.path.join(d, "*"))
+assert r.returncode != 0 and "not connected" in r.stdout + r.stderr and "Proj" in r.stdout + r.stderr, r.stdout + r.stderr
+print(f"update round trip {time.time() - t:.0f} s")
+PYCHECK
+else
+    bad "build-first flow check skipped: docx package not installed (bash scripts/install_deps.sh)"
 fi
 
 # package.py: the zip carries the workspace and nothing that was superseded

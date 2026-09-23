@@ -24,7 +24,8 @@ worker's patch:**
   written by `build_master.py`), so every item has one. The photo timestamp is
   only a fallback for a master built before this field existed. Field result
   2026-09-14: 27 photo-less items printed N/A and cost a second delivery.
-- **Deleted pins** kept by intake (`KEEP_DELETED=1`) carry
+- **Deleted pins** kept by `deleted_pins: "keep"` in `report.config.json`
+  (`update_report.py --deleted-pins keep`; `KEEP_DELETED=1` still works) carry
   `deleted_in_plangrid`; the renderer prints a red DELETED IN PLANGRID banner
   under the heading and appends "(deleted in PlanGrid)" to the TOC entry.
   `verify_report.py` asserts one banner per such pin and none elsewhere.
@@ -80,7 +81,20 @@ page-anchored floating images behind the text; **the hero is emitted first**
 because docx derives z order from document order and the bands belong on top.
 Every piece of cover text is native and page-anchored, so it stays editable in
 Word and lines up at print size. No draft warning on the cover; the first
-Editor's Note in the body carries it. The original is set in Montserrat, which
+Editor's Note in the body carries it.
+
+**A cover fact nobody has supplied renders as a red `[MISSING: ...]` marker**
+(client name, site address, EP project number, building, inspector, walk date;
+an empty issuance date renders TBD). The draft is built before those facts are
+known, so the marker is the honest state, never a `<template hint>` and never a
+guess. `prefill_config.py` fills what the client profile and PlanGrid state
+and records each value's source in `fact_sources`; `finish_list.py` lists every
+marker with its `update_report.py --set` command; `verify_report.py` fails a
+cover that still carries template hint text. The old fallback of printing the
+PlanGrid project name where the client name belongs applies only to configs
+without `fact_sources`.
+
+The original is set in Montserrat, which
 the seats do not have, so the cover uses the document font (Arial) at the same
 sizes; when the fleet standardises a brand font, `FONT` is the one constant.
 

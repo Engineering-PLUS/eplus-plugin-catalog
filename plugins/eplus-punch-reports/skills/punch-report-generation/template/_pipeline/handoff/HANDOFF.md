@@ -11,19 +11,21 @@ Everything a future run needs in order to be better than this one. Start here.
 | 1 | `../CLAUDE.md` | How the pipeline works and the rules it enforces. Read before touching any script. |
 | 2 | `../LESSONS-LEARNED.md` | What broke, why, and the recommended skill updates. **This is the learning data.** |
 | 3 | `../PROCESS-LOG.md` | The run record: inputs, decisions, review rounds, verification. |
-| 4 | `../ISSUES-LIST.md` | Open questions on the report content, for the reviewer. |
-| 5 | `memory/` | Agent memory snapshots written this session. |
+| 4 | `../ISSUES-LIST.md` | What is still missing (generated block at the top, each with its `update_report.py` command), then the open questions for the reviewer. |
+| 5 | `../../client-profile.json` | Client-level facts (name, address, EP number, inspector, reviewer), delivered to the project folder for the next report. |
 
-## Memory snapshots
+Nothing in this package comes from, or is written to, agent memory. Everything
+the next run needs is in these files, where the next engineer can also read it.
 
-Point-in-time exports of the agent's persistent memory, so the learning travels
-with the project rather than living only in the agent's memory store.
+## Picking this report up again
 
-| File | Type | Carries |
-|---|---|---|
+In a new session, rebuild the workspace from this package and apply the change:
 
-**Which entries matter on re-import:** <name them. Standing decisions outrank
-per-report preferences.>
+```bash
+bash <plugin skill>/scripts/init_workspace.sh <new workspace> --from-package <this package>.zip
+cd <new workspace>/_pipeline && bash scripts/install_deps.sh
+python3 scripts/update_report.py <changes> --deliver
+```
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: punch-report-generation
-description: Use this skill to DRAFT a punch report, field progress report, or site inspection report from raw field material — a PlanGrid project pull, a folder of site photos, an engineer's walk notes, or any combination. Trigger when asked to write up a punch walk, turn photos and notes into a report, produce a draft punch list document, or generate a deliverable from a site visit. Covers intake, consolidating messy source data, drafting descriptions in field-report voice, checking wording against EPLUS precedent, and rendering a branded one-page-per-item Word document with a live table of contents. Distinct from the `punch` skill, which QUERIES the historical corpus; this one PRODUCES a new report.
+description: Use this skill to DRAFT a punch report, field progress report, or site inspection report from raw field material — a PlanGrid project pull, a folder of site photos, an engineer's walk notes, or any combination. Trigger when asked to write up a punch walk, turn photos and notes into a report, produce a draft punch list document, or generate a deliverable from a site visit. Builds the whole draft without stopping to ask, then lists what is missing and applies each answer as a surgical edit. Covers consolidating messy source data, drafting descriptions in field-report voice, checking wording against EPLUS precedent, and rendering a branded one-page-per-item Word document with a live table of contents. Distinct from the `punch` skill, which QUERIES the historical corpus; this one PRODUCES a new report.
 argument-hint: <folder of field material — e.g. "draft the report from the files in this folder">
 ---
 
@@ -42,15 +42,19 @@ bash. Run `init_workspace.sh` from that plugin path every run, including
 re-runs from a prior package: the package supplies data and decisions, the
 plugin supplies scripts (the script skips the package's `scripts/` on purpose).
 
-**Tooling facts come from this skill, not from memory.** Memory entries and a
-prior package's CLAUDE.md, PROCESS-LOG and LESSONS-LEARNED are good sources for
-project facts: client conventions, names, addresses, what an earlier report
-covered. They are not sources for what is reachable, installed, or broken on
-this seat today. Egress, missing packages and script bugs are re-tested on
-every run (the live photo fetch in `reference/build-data.md` is the usual
-case). When a memory entry contradicts this skill on tooling, the skill wins,
-and the main thread corrects that memory entry at the end of the run so the
-next one does not inherit it. Workers do not read memory at all.
+**Nothing in a report comes from memory.** Project facts (client, address, EP
+number, inspector, reviewer, what an earlier report covered, which version is
+next, scope decisions) come from records the next engineer can also see: the
+project folder's `client-profile.json`, a delivered package's CLAUDE.md,
+PROCESS-LOG and LESSONS-LEARNED, PlanGrid, and the user. Tooling facts (what is
+reachable, installed or broken today) come from this skill and are re-tested on
+every run. Do not open memory files during a run, main thread or worker. Field
+result 2026-09-23: a run read a memory note first, filled the cover, the
+deleted-pin decision and the cover mode from it, and labelled them "the earlier
+report record", so neither the reviewer nor the tester could tell where they
+came from. `prefill_config.py` records each cover fact's source in
+`report.config.json` `fact_sources`; a fact no record states stays
+`[MISSING]`.
 
 **Re-read `_pipeline/CLAUDE.md` whenever you resume a session, and again after a
 context compaction.** Nothing loads it for you: it sits one level below the
@@ -58,44 +62,43 @@ working folder, so it is not picked up automatically, and compaction drops what
 you had read. It carries this project's scope decision and the rules the
 renderer bakes in, so a run that skips it re-derives them the hard way.
 
-## Step 0 — Intake: one round, after the pull, before you start drafting
+## Step 0 — Build first, ask last
 
-The `punch-report` command carries the full intake procedure and the exact
-question set; follow it. The shape is fixed: gather first (the client profile
-from the project folder, the pull, the Task Report PDF, a consolidate run with
-the known rules), then **one `AskUserQuestion` call** covering scope edge
-cases (strays, deleted pins, a pull spanning two walk dates), issuance date,
-the identity block with the cover mode, and the wording mode. Field results
-2026-09-09 and 2026-09-10: three rounds on one report cost 47 minutes of
-waiting, and the cover fields that were never asked are why the reviewer
-rebuilds the cover by hand. Field result 2026-09-14: five rounds, 14 minutes
-of waiting, because identity and the EP number were asked at render time and
-the wording mode was asked as its own round after the clips.
+The `punch-report` command carries the run order; follow it. The shape is
+fixed: **no question, folder picker or confirmation before the draft exists.**
+Users start a report and walk away; field results 2026-09-09 to 2026-09-14 lost
+12 to 47 minutes per report to unanswered question rounds, and on 2026-09-23 a
+folder picker opened with no explanation and was cancelled. So every decision
+the old intake asked about has a default (the table in the command, section
+4), anything unknown shows on the draft as `[MISSING: ...]` or in the finish
+list, and the questions come once, at the end, with the draft already
+delivered. A user who never answers still has a complete draft; one who does
+gets each answer applied by `update_report.py` in seconds.
 
-**Offer only what the pipeline can do.** Every option in an intake question
-maps to a switch that exists: a deleted pin is dropped (default) or kept and
-marked (`KEEP_DELETED=1`); a two-date pull is one report with the pin date on
-every item (default), one report with visit section headings
-(`visit_sections: "by_date"` or `visit_breaks` in `report.config.json`), or one
-date only (`CREATED_AFTER` / `SCOPE`). On 2026-09-14 "keep both, marked" and
-"two visit sections" were offered and chosen before either existed; two workers
-hand-patched the data and a fifth question round undid the section decision.
+**Every default maps to a switch that exists, and so does every change.**
+Deleted pins: dropped (default) or kept and bannered (`deleted_pins` in
+`report.config.json`, applied at build master, so switching is a re-render).
+A two-date pull: one list with the pin date on every item (default), visit
+section headings (`visit_sections: "by_date"` or `visit_breaks`), or one date
+only (`CREATED_AFTER` / `SCOPE`). On 2026-09-14 options were offered that the
+pipeline did not have, and two workers hand-patched the data.
 
-| Input | Required? | Notes |
+| Input | Found by | If absent |
 |---|---|---|
-| `client-profile.json` | if present | client-level facts from earlier reports for this client; confirmed, not trusted blind, and written back at delivery |
-| PlanGrid pull | yes | a directory containing `tasks.json`, or built from the MCP (`reference/build-data.md` Step 0b) |
-| **PlanGrid Task Report PDF** | for pin clips | **not part of an API pull.** Exported separately. The only source of per-item annotated sheet clips. If it is missing, that is one of the intake questions. |
-| Scope rules | yes | `SCOPE`, `TITLE`, `CREATED_AFTER`, `DROP_PHRASES`; consolidate reports the strays and near misses those rules leave open, and they go into the intake question |
-| Walk notes | optional | often arrive as two near-identical files |
+| Project folder | `scripts/locate_inputs.py "<what the user typed>"` | build and deliver into the session outputs folder; ask for the folder at the end |
+| `client-profile.json` | the project folder | cover facts stay `[MISSING]`; the user's answers create it at delivery |
+| PlanGrid pull | a folder with `tasks.json`, or the `plangrid` MCP (`reference/build-data.md` Step 0b) | the only hard requirement |
+| **PlanGrid Task Report PDF** | the project folder or uploads | **not part of an API pull**; the only source of pin clips. Build without clips; finish list |
+| Scope rules | `SCOPE`, `TITLE`, `CREATED_AFTER`, `DROP_PHRASES` from the user's words or the profile | every item in the pull; near misses listed |
+| Walk notes | uploads or the project folder | optional; often two near-identical files |
 
-**The issuance date is asked, never inferred**, never today by default. It is a
-contractual fact about when the report goes out and the reviewer decides it.
+**The issuance date is never inferred**, never today by default: the draft
+carries TBD and the finish list asks for it. It is a contractual fact the
+reviewer decides.
 
-**The EP project number is captured at intake** into `report.config.json` as
-`ep_project_no` and into the client profile. It is rendered on the cover only,
-as the issued coversheet does; `verify_report.py` asserts it is on the cover
-and absent from the body.
+**The EP project number comes from the profile or the user**, into
+`report.config.json` as `ep_project_no` and the client profile. It renders on
+the cover only; `verify_report.py` asserts it is absent from the body.
 
 Then install the dependencies and check the tooling actually works:
 
@@ -151,13 +154,14 @@ bar from the data in front of you.
 
 ## Stage router — read one reference file, not all of them
 
-This file is the core. Everything after intake is stage-specific and lives in
+This file is the core. Everything after Step 0 is stage-specific and lives in
 `reference/`. Identify the stage from the user's ask and from what already
 exists in the workspace, then **read only the reference for the current stage;
 do not read them all.**
 
 | If the user asks for / the workspace shows | Read |
 |---|---|
+| **A draft exists and the user supplies a missing piece or answers the finish list** (a cover fact, an issuance date, a Task Report PDF, a folder to deliver to, a reworded item, keep or drop a pin) | **nothing: run `python3 scripts/update_report.py ...` from `_pipeline/`** (examples in the command, section 8). No worker, no rebuild |
 | A fresh start with a raw PlanGrid pull; `data/items.json`, `build/thumbs_uniform/` or `build/sheet_clips_jpg/` missing | `reference/build-data.md` (Steps 1, 2, 6) |
 | `data/items.json` exists but `data/drafted_items.json` does not; the user wants items written up | `reference/drafting.md` (Steps 3, 3.5, 4, 5) |
 | `data/drafted_items.json` exists and the user asks about wording, voice or precedent | `reference/drafting.md` (Step 5 for precedent) |
@@ -182,6 +186,11 @@ verification in one go once `data/drafted_items.json` exists; `SCOPE=11-30`
 in front of it sets the scope.
 
 ```bash
+# Step 0  Find the inputs and the project folder, no questions (run from the plugin path S)
+python3 "$S/scripts/locate_inputs.py" "<what the user typed>"
+bash "$S/scripts/init_workspace.sh" <workspace> && cd <workspace>/_pipeline \
+    && bash scripts/install_deps.sh && bash scripts/smoke_test.sh
+
 # Step 0b Only when the pull comes from the plangrid MCP  -> reference/build-data.md
 #         (get_tasks and list_sheets return summaries plus a packet url; never retype a
 #          result into a file: pull_mcp.sh fetches the packets and checks their sha256)
@@ -190,16 +199,21 @@ python3 scripts/fetch_photos.py --pull ../plangrid_mcp              # live origi
 python3 scripts/extract_pdf_photos.py "../<Task Report>.pdf" --pull ../plangrid_mcp   # only for photos fetch_photos could not get
 python3 scripts/adapt_mcp_pull.py                                   # ../plangrid_mcp -> ../plangrid_pull
 
+# Steps 1, 2, 6 in one go (consolidate, photos, clips); stops cleanly before drafting
+bash scripts/run_pipeline.sh
 # Step 1  Consolidate                         -> reference/build-data.md
-#         (--keep-deleted, or KEEP_DELETED=1 on run_pipeline.sh, when intake said "keep, marked")
-python3 scripts/consolidate.py <pull_dir> -o data/items.json [--only 11-30] [--keep-deleted]
+#         (run_pipeline.sh always passes --keep-deleted; build master applies deleted_pins)
+python3 scripts/consolidate.py <pull_dir> -o data/items.json [--only 11-30] --keep-deleted
+
+# Step 1b The cover from records only: profile, PlanGrid, defaults; the rest [MISSING]
+python3 scripts/prefill_config.py --project-name "<PlanGrid project>" --version <next> [--project-folder <dir>]
 
 # Step 2  Normalise photos                    -> reference/build-data.md
 python3 scripts/normalize_photos.py --items data/items.json \
     --dest build/thumbs_uniform --dims-out data/thumb_dims.json
 
 # Step 3  Read every source, diff duplicate notes   -> reference/drafting.md
-#         (the wording mode was settled at intake; the per-item review loop, if chosen, is Step 3.5)
+#         (default: draft every item, flag the inferred ones; the per-item review loop, Step 3.5, only when the user asks)
 # Step 4  Draft data/drafted_items.json       -> reference/drafting.md
 # Step 5  Precedent: query_hermes_punch, then get_punch_item -> reference/drafting.md
 
@@ -209,7 +223,8 @@ python3 scripts/extract_sheet_clips.py "<Task Report>.pdf" build/sheet_clips_jpg
 
 # Step 7  Assemble and render                 -> reference/render.md
 #         (build master, gen_report.js, fix_bookmark_ids.py, verify_report.py,
-#          review_sheet.py export -> build/<report>-Review.xlsx, in one go)
+#          review_sheet.py export -> build/<report>-Review.xlsx, and the finish
+#          list -> build/finish.json + the top of ISSUES-LIST.md, in one go)
 RENDER_ONLY=1 bash scripts/run_pipeline.sh
 
 # Step 8  Verify: the verifier already ran; look at THREE preview pages and stop
@@ -224,7 +239,13 @@ python3 scripts/review_sheet.py import build build/<report>-Review.xlsx
 RENDER_ONLY=1 bash scripts/run_pipeline.sh
 
 # Step 10 Deliver, once, through package.py   -> reference/verify-and-deliver.md
-python3 scripts/package.py <workspace> "<project folder>"          # --replace only when the user said so
+python3 scripts/package.py <workspace> "<deliver to>"              # --replace only when the user said so
+#         then the final message: what was built and where, the finish list, one AskUserQuestion
+
+# Step 11 Every answer or missing piece afterwards: one surgical command, seconds, no worker
+python3 scripts/update_report.py --set issuance_date=2026-09-30 --set ep_project_no=27625 --deliver
+python3 scripts/update_report.py --task-report "<Task Report>.pdf" --deliver
+python3 scripts/update_report.py --item 12 --description "..." --deleted-pins keep --deliver
 ```
 
 A revision of an already-delivered report (the common case) starts from
@@ -247,14 +268,15 @@ workspace is not a fix; it is a divergence the next run cannot see.
 Workers make no decisions. A worker that reaches a decision the brief does not
 cover finishes what does not depend on it, stops, and returns the question
 under **Open questions** with the evidence both ways. It cannot be resumed.
-The main thread settles every open question before the next worker starts:
-ask the user (all questions at once, one `AskUserQuestion`) or, when the
-user's intent is not in doubt, decide from house policy and the decisions
-already on record. The answer goes into the next worker's brief as a settled
-decision so it cannot come back. When the main thread would have to guess, it
-asks. Never block inside an Agent call on something only the user can answer;
-the worker cannot ask, and the user cannot reach a worker. **Files to remove**
-waits for the end of the run.
+The main thread settles every open question before the next worker starts,
+**without asking the user mid-run**: it decides from house policy and the
+defaults in the command, writes the question and the choice into
+`ISSUES-LIST.md` so the reviewer sees both, and puts the choice in the next
+worker's brief as a settled decision. Where no default is safe (a photo that
+contradicts the note, a suspected misfire), the item ships `undetermined` with
+an Editor's Note and the question joins the finish list; the run does not
+stop. Never block inside an Agent call on something only the user can answer.
+**Files to remove** waits for the end of the run.
 
 ## Nothing is deleted during a run
 
@@ -278,15 +300,17 @@ Standing decisions. Follow them unless told otherwise for a particular report:
   evidence a shot was missed and are worth seeing.
 - **Suspected misfire pins are surfaced as questions**, never deleted and never
   force-described.
-- **Pins PlanGrid has deleted or archived are dropped**, and listed, unless
-  intake settled "keep, marked": then `KEEP_DELETED=1` keeps them, every item
-  carries `deleted_in_plangrid`, and the renderer prints a red DELETED IN
-  PLANGRID banner and marks the TOC entry. Nobody types a deleted pin back into
-  `items.json`.
+- **Pins PlanGrid has deleted or archived are dropped**, and listed in the
+  finish list. `items.json` keeps them flagged `deleted_in_plangrid`; build
+  master applies `deleted_pins` from `report.config.json`, so "keep them,
+  marked" is `update_report.py --deleted-pins keep`, a re-render: the renderer
+  prints a red DELETED IN PLANGRID banner and marks the TOC entry. Draft the
+  deleted pins along with the rest so that switch needs nothing else. Nobody
+  types a deleted pin into `items.json`.
 - **Date Recorded is the pin's own creation date**, on every item, from
   `created_at`. Photo timestamps are never the source. A pull spanning two walk
   dates therefore reads correctly as a flat list; visit section headings are an
-  intake option on top of that, never a substitute for the dates.
+  option on top of that (`--set visit_sections=by_date`), never a substitute for the dates.
 - **The `.docx` is the working file and the file of record.** The reviewer
   issues the report from Word. PDFs for your own layout checks are fine under
   `build/_scratch/`; a PDF is packaged only when the user asks, via

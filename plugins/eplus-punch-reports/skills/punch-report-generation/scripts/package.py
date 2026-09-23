@@ -312,7 +312,7 @@ def main():
     print(f"delivered   : {os.path.basename(zip_path)}")
 
     # The client profile is the one file that is updated in place: it holds the
-    # client-level facts confirmed at intake (name, address, EP number, inspector,
+    # client-level facts supplied by the user (name, address, EP number, inspector,
     # reviewer, drop phrases, cover settings) so the next report for this client
     # starts from them instead of asking again or reading memory.
     profile = os.path.join(ws, "client-profile.json")

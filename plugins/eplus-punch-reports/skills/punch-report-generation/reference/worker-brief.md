@@ -61,9 +61,12 @@ between two sources, a scope edge case), do not pick an answer and do not
 guess "what the user would want". Finish whatever does not depend on it, then
 stop and return your report with the question under **Open questions**: what
 needs deciding, the evidence both ways, and what is left undone until it is
-answered. The main thread decides or asks the user, and starts a new worker
-with the answer written into its brief. You cannot be resumed, so do not wait
-for one.
+answered. For a drafting stage, an item you cannot settle is still drafted,
+as `origin: undetermined`, `confidence: low`, with an Editor's Note giving the
+evidence both ways, and listed under Open questions; the run does not stop on
+it. The main thread decides from house policy (it does not stop the run to ask
+the user) and starts a new worker with the decision written into its brief.
+You cannot be resumed, so do not wait for one.
 
 **7. Read one reference file: the one this prompt names.** Not the others.
 
@@ -105,16 +108,17 @@ Keep it to facts the worker cannot get from the workspace or the reference file:
 - **Project folder** (bash path), marked read-only.
 - **Stage and the one reference file to read**, by name (`reference/<stage>.md`),
   as a host path the Read tool can open.
-- **Scope and decisions already made** by the user (item numbers, walk date,
-  issuance date, wording mode, drop rules, `KEEP_DELETED`, visit sections),
-  each stated as the pipeline switch it maps to, so the worker never
-  re-derives, re-asks, or has to implement them.
+- **Scope and decisions in force** (item numbers, drop rules, title and date
+  filters, visit sections), each stated as the pipeline switch it maps to, so
+  the worker never re-derives or has to implement them. Most are the build-first
+  defaults in the command's section 4, not answers from the user.
 - **Where to stop.** For a render stage, the stop is: the pipeline's verifier
   has run and three preview pages (cover, one photo item, one photo-less item)
   have been looked at. Not eight pages, not the OOXML, not the renderer source.
-- For the drafting stage only: the wording mode the user chose at intake. A
-  worker drafts and marks confidence; the per-item review with the user is the
-  main thread's loop, not the worker's.
+- For the drafting stage only: "wording mode: draft it all, flag inferred
+  items; draft the pins PlanGrid deleted too; an item you cannot settle ships
+  as `origin: undetermined`, `confidence: low`, with an Editor's Note giving
+  the evidence both ways, and goes under Open questions".
 
 Never appended: a request to "check what a script keys off", to "make the
 renderer do X", or to lay out the workspace (the main thread runs
@@ -122,14 +126,15 @@ renderer do X", or to lay out the workspace (the main thread runs
 
 Two things the main thread does after the worker returns, never during:
 
-- **Settles every Open question before the next worker starts.** A worker
-  cannot be resumed, so a question it kicks back is answered by the main thread
-  in one of two ways: ask the user, all questions at once in one
-  `AskUserQuestion`, or decide it from house policy and the decisions already
-  on record when the user's intent is not in doubt. Either way the answer is
-  written into the next worker's brief under "decisions already made", so the
-  same question cannot come back. If the main thread would have to guess, it
-  asks; it never leaves a question open for a worker to interpret.
+- **Settles every Open question before the next worker starts, without asking
+  the user mid-run.** A worker cannot be resumed, and the user has usually
+  walked away (build first, ask last). The main thread decides each question
+  from house policy and the command's defaults, writes the question and the
+  choice into `ISSUES-LIST.md`, and puts the choice in the next worker's brief
+  under "decisions in force" so it cannot come back. Where no choice is safe,
+  the item ships `undetermined` with an Editor's Note and the question joins
+  the finish list; the user answers it after delivery, and the answer is an
+  `update_report.py` call, not another worker.
 - Handles **Files to remove** once, at the very end of the run (after delivery
   and after the summary to the user): one delete request listing every file and
   the reason. Files in the session outputs folder are left alone, the session

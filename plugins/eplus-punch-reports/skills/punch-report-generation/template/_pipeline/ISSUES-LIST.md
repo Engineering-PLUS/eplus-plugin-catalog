@@ -1,5 +1,9 @@
 # Open questions for the reviewer, <PROJECT> v0.1
 
+<!-- finish-list:start -->
+Written by `scripts/finish_list.py` on every render: what the draft still needs, each with the command that supplies it.
+<!-- finish-list:end -->
+
 The issues list is a **first-class deliverable**, not an appendix. It is where
 the reviewer's attention gets directed, and it is the difference between a draft
 that can be trusted and one that reads well and is partly fiction.

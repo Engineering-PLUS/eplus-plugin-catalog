@@ -1,8 +1,8 @@
 # Build the data: Steps 1, 2 and 6
 
 Covers consolidating the PlanGrid pull, normalising photos and extracting sheet clips.
-Assumes intake (SKILL.md Step 0) is done, dependencies are installed, and the pull and
-Task Report PDF sit beside `_pipeline/` in the workspace; `data/items.json` may not exist yet.
+Assumes the inputs were located (SKILL.md Step 0, `locate_inputs.py`), dependencies are
+installed, and the pull and any Task Report PDF sit beside `_pipeline/` in the workspace; `data/items.json` may not exist yet.
 
 ### Step 0b — Pulling from the MCP (when there is no pre-exported pull folder)
 
@@ -84,7 +84,7 @@ sandbox; `run_pipeline.sh`, `smoke_test.sh` and `install_deps.sh` resolve the
 interpreter themselves, and on a Windows host the same commands are `python …`.
 
 `--only` accepts ranges and comma lists and is **the only place scope lives**.
-Three more rules, all from the intake answers and all passed through by
+Three more rules, from the user's own words or the client profile, all passed through by
 `run_pipeline.sh` (`SCOPE`, `TITLE`, `CREATED_AFTER`, `DROP_PHRASES`):
 
 - `--title "Visit 2"` keeps only items with that title (the walk marker).
@@ -93,20 +93,21 @@ Three more rules, all from the intake answers and all passed through by
   profile's `drop_phrases` list) drops items whose whole description is that
   phrase. A description that shares the phrase's first two words but is not
   the phrase ("Observation only, ignore.") is reported as **NEAR-MISS** and
-  kept; it goes into the intake question, and the answer, if "drop", is added
-  to `drop_phrases` so the next report does not ask again.
+  kept; it goes into the finish list (`update_report.py --drop N`), and if the
+  user drops it the phrase can join the profile's `drop_phrases` for next time.
 
-Deleted and archived items are dropped and listed by default. When intake
-settled "keep them, marked" (the numbering must match PlanGrid), pass
-`--keep-deleted` (`KEEP_DELETED=1` in front of `run_pipeline.sh`): they stay
-in `items.json` with `deleted_in_plangrid: true`, the drafter writes them up
-like any other item (a one-line "pin carries no usable content" is a valid
-write-up), and the renderer banners them. Never type a deleted pin back into
-`items.json` by hand; that is the retyping this pipeline exists to prevent.
-Every item also carries the pin's `created_at`, which is what the report's
-Date Recorded row prints. Run consolidate once with the known rules *before*
-the intake question, so the strays, deleted pins and near misses it reports
-can be asked about in the same round.
+Deleted and archived items: `run_pipeline.sh` always passes `--keep-deleted`
+(0.9.0), so they stay in `items.json` with `deleted_in_plangrid: true` and the
+drafter writes them up like any other item (a one-line "Pin note reads only Up,
+with no accompanying photograph." is a valid write-up). Whether they reach the
+report is decided at build master by `report.config.json` `deleted_pins`:
+`drop` (the default; they are listed in the finish list) or `keep` (the
+renderer banners them), switched later with `update_report.py --deleted-pins`.
+Never type a deleted pin back into `items.json` by hand; that is the retyping
+this pipeline exists to prevent. Every item also carries the pin's
+`created_at`, which is what the report's Date Recorded row prints. The strays,
+deleted pins and near misses consolidate reports become finish-list entries;
+none of them is a question before the build.
 
 It emits one record per live item (number, description, sheet ref, pin stamp,
 status, photos resolved to files on disk with capture time and photographer)
@@ -187,7 +188,8 @@ a draft may use to call two items a possible duplicate; see
 **A Task Report only covers the export window it was generated for.** A
 multi-visit report needs one Task Report export per visit; clips for items from
 an earlier visit are simply absent from a later export. Ask for the missing
-export rather than salvaging clips from a previously rendered document.
+export (a finish-list entry, `update_report.py --task-report`) rather than
+salvaging clips from a previously rendered document.
 
 
 **Handing this stage to a worker:** the main thread runs
@@ -195,9 +197,10 @@ export rather than salvaging clips from a previously rendered document.
 lays out a workspace. Then paste `reference/worker-brief.md`, name this file,
 the workspace and project paths, the scope, and "stop after Step 6; report the
 triage summary, the photo route, and the sheet-clip result". Give it the drop
-rules already agreed (deleted or archived pins and whether `KEEP_DELETED=1`
-applies, record-only phrases, title filters) as settled decisions. Anything
-those rules do not cover, a stray pin or a near-miss phrase, the worker
-returns under Open questions and stops; it does not decide.
+rules in force (record-only phrases, title and date filters) as settled
+decisions; deleted pins need no rule at this stage, they are always kept and
+flagged. Anything those rules do not cover, a stray pin or a near-miss phrase,
+the worker reports; the main thread leaves it in at its default and lists it
+in the finish list.
 
 Next: `reference/drafting.md` (read every source and draft `data/drafted_items.json`).

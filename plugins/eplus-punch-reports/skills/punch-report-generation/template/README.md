@@ -65,7 +65,7 @@ _pipeline/
   PROCESS-LOG.md         this run: inputs, decisions, review rounds, verification
   LESSONS-LEARNED.md     what broke and the recommended skill updates
   ISSUES-LIST.md         open questions for the reviewer
-  handoff/               session handoff + agent memory snapshots
+  handoff/               session handoff (how to pick the report up again)
   scripts/               the pipeline
   data/                  items.json (facts) + drafted_items.json (judgment)
   build/                 everything the renderer reads, plus the rendered .docx

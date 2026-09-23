@@ -7,20 +7,38 @@ wording defensible.
 ## Producing a report
 
 ```
-/punch-report [project folder]
+/punch-report [project folder or PlanGrid project]
 ```
 
-Stamps a complete pipeline into the session workspace with
-`scripts/init_workspace.sh` (the one supported way to lay a workspace out;
-it refuses to finish with anything missing), then walks the run: one intake
-round (scope edge cases, issuance date, identity and cover, wording mode),
-consolidate, draft in field-report voice, check precedent, extract the
-annotated sheet clips, render, verify. Output is a **.docx**, the file of
-record — one page per item, a real Word table of contents field, native EPLUS
-letterhead, the pin's own date on every item, optional visit section
-headings, and deleted PlanGrid pins kept and bannered when the reviewer wants
-the numbering intact. Revisions run `init_workspace.sh --from-package` on the
-prior delivery and deliver again under a new name.
+**Build first, ask last (0.9.0).** Users start a report and walk away, so the
+run never stops for a question, a confirmation or the folder picker before the
+draft exists. `scripts/locate_inputs.py` finds the connected project folder, the
+pull, any Task Report PDF and the next version on its own; with no folder
+connected the report is built and delivered into the session outputs folder.
+Every decision the old intake round asked about has a default (deleted pins
+left out, issuance date TBD, one flat list with pin dates, every item drafted
+and the inferred ones flagged). Cover facts come only from the project folder's
+`client-profile.json` and PlanGrid (`scripts/prefill_config.py`, never from
+memory), and whatever no record states renders on the cover as a red
+`[MISSING: ...]` marker. After every render `scripts/finish_list.py` lists what
+the draft still needs, each gap with the one command that supplies it; the
+final message carries that list and asks its questions only then.
+
+**Missing pieces are surgical edits, not rebuilds.** `scripts/update_report.py`
+applies an answer (a cover fact, an issuance date, a Task Report PDF that
+arrived later, a reworded item, keep or drop a pin, the folder to deliver to),
+re-renders in seconds with no worker, verifies, logs the change and delivers
+the next version (v0.1 to v0.2) beside the earlier one. In a later session the
+workspace is rebuilt from the delivered package in three commands.
+
+The pipeline itself: `scripts/init_workspace.sh` stamps it into the session
+workspace (the one supported way to lay a workspace out; it refuses to finish
+with anything missing), then consolidate, draft in field-report voice, check
+precedent, extract the annotated sheet clips, render, verify. Output is a
+**.docx**, the file of record: one page per item, a real Word table of contents
+field, native EPLUS letterhead, the pin's own date on every item, optional
+visit section headings, and deleted PlanGrid pins kept and bannered when the
+reviewer wants the numbering intact.
 
 On Cowork the plugin is mounted read-only in the VM, and copies inherit that
 mode. `init_workspace.sh` makes the stamped workspace writable immediately after
@@ -64,7 +82,8 @@ _pipeline/
                          extract_pdf_photos.py as the fallback, adapt_mcp_pull.py)
   data/                  items.json (facts) + drafted_items.json (judgment)
   build/                 what the renderer reads, report.config.json, the .docx
-  ISSUES-LIST.md         open questions for the reviewer
+  ISSUES-LIST.md         what is still missing (generated, with commands), then
+                         open questions for the reviewer
   PROCESS-LOG.md         inputs, decisions, review rounds, verification
   LESSONS-LEARNED.md     what broke, and what should change in the skill
   handoff/HANDOFF.md     entry point for the next run
@@ -117,7 +136,7 @@ Response sizes vary by more than 50x across these tools, so routing matters:
   Assumes the input is messy because it always is, and surfaces what it cannot
   determine instead of inventing it. Carries the pipeline, the project template,
   and the rendering defaults that were learned the hard way. `SKILL.md` is a
-  short core (intake, premise, a stage router, the command per step); the
+  short core (build first, premise, a stage router, the command per step); the
   step detail lives in `reference/` as one file per stage (`build-data`,
   `drafting`, `render`, `verify-and-deliver`, `revising`), loaded one at a
   time for the stage the run is in.
@@ -156,7 +175,10 @@ Pipeline dependencies are installed by `scripts/install_deps.sh` (PyMuPDF,
 Pillow, openpyxl from `requirements.txt`; the `docx` Node package from
 `package.json`) and checked by `scripts/smoke_test.sh`, which also exercises
 the workspace stamper, the deleted-pin and pin-date paths, the visit-section
-render, the packager's manifest rules and the review-sheet naming.
+render, the packager's manifest rules, the review-sheet naming, and the
+build-first flow end to end (input discovery, prefill from records, the
+`[MISSING]` cover, the finish list, surgical updates and versioned
+re-delivery).
 
 Workers never edit the scripts during a run. A needed code change comes back
 to the main thread as an open question, is recorded in the workspace's

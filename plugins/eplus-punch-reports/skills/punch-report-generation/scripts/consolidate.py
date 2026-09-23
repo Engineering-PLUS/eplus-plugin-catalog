@@ -123,7 +123,7 @@ def main():
                     help="keep only items created after this date, YYYY-MM-DD (exclusive)")
     ap.add_argument("--keep-deleted", action="store_true",
                     help="keep deleted/archived pins, marked deleted_in_plangrid, so the item "
-                         "numbering matches PlanGrid (an intake decision; default drops them)")
+                         "numbering matches PlanGrid (run_pipeline.sh always passes it; build_master.py applies deleted_pins)")
     args = ap.parse_args()
 
     root = os.path.abspath(args.project_root)

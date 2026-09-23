@@ -18,16 +18,25 @@ which become `consolidate.py` arguments:
 
 ```bash
 SCOPE=11-30 TITLE="<walk marker>" CREATED_AFTER=<YYYY-MM-DD> \
-DROP_PHRASES="<record-only phrase>; <another>" KEEP_DELETED=<1 or unset> \
+DROP_PHRASES="<record-only phrase>; <another>" \
 bash scripts/run_pipeline.sh
 ```
 
 **This report's values:** `SCOPE=<…>` `TITLE=<…>` `CREATED_AFTER=<…>`
-`DROP_PHRASES=<…>` `KEEP_DELETED=<…>` (record them here at intake; they are
-the run's scope of record). Nothing else in the pipeline hardcodes scope.
-Unset a variable to apply no rule of that kind. Deleted and archived items
-are dropped unless `KEEP_DELETED=1`, in which case they stay, flagged
-`deleted_in_plangrid`, and render with a red DELETED IN PLANGRID banner.
+`DROP_PHRASES=<…>` (record them here when the run starts; they are the run's
+scope of record). Nothing else in the pipeline hardcodes scope. Unset a
+variable to apply no rule of that kind. Deleted and archived pins are always
+kept in `data/items.json`, flagged `deleted_in_plangrid`; `deleted_pins` in
+`build/report.config.json` decides whether they reach the report (`drop`, the
+default, or `keep`, with a red DELETED IN PLANGRID banner), and
+`update_report.py --deleted-pins` switches it with a re-render.
+
+**Changes after the first delivery are one command each**, from this folder:
+`python3 scripts/update_report.py --set <key>=<value> | --task-report <pdf> |
+--item N --description "..." | --drop N | --deleted-pins keep ... --deliver`.
+It re-renders, verifies, logs the change in PROCESS-LOG.md and delivers the
+next version. The list of what is still missing is at the top of
+ISSUES-LIST.md (`scripts/finish_list.py` writes it on every render).
 Visit sections, when the report has them, are `visit_sections` or
 `visit_breaks` in `build/report.config.json`. Client-level facts (display
 name, address, EP number, inspector, reviewer, drop phrases, cover settings)
@@ -65,8 +74,10 @@ the user grants blind, and a worker cannot explain what it is removing. Write
 to new filenames; put scratch, test renders and preview PDFs under
 `build/_scratch/` (the packager skips it) or `/tmp`. Anything that should go is
 listed in the worker's "Files to remove" section and handled by the main
-thread once, after delivery. Workers do not read memory; this file and the one
-reference named in their brief are their only sources.
+thread once, after delivery. Nobody reads memory during a run, main thread or
+worker: project facts come from `../client-profile.json`, PlanGrid, this
+file and the user, and each cover fact's source is in
+`build/report.config.json` `fact_sources`.
 
 ---
 
@@ -296,10 +307,10 @@ timestamped `.bak.json` is written before anything changes.
   `build_master.py`, so every item has one whether or not it has a photo. The
   photo timestamp is only a fallback for an old master. `verify_report.py`
   fails a render that prints N/A on an item whose pin has a date.
-- **Deleted pins kept by intake are bannered, not hidden.** With
-  `KEEP_DELETED=1` they stay in `items.json` flagged `deleted_in_plangrid`,
-  render with a red DELETED IN PLANGRID banner under the heading, and their
-  TOC entry says "(deleted in PlanGrid)". Nobody retypes them into the data.
+- **Deleted pins, when kept, are bannered, not hidden.** With `deleted_pins:
+  "keep"` (or `KEEP_DELETED=1`) they render with a red DELETED IN PLANGRID
+  banner under the heading, and their TOC entry says "(deleted in PlanGrid)".
+  `items.json` always carries them flagged; nobody retypes them into the data.
 - **Visit sections are a config key, not a renderer edit.** `visit_sections:
   "by_date"` in `report.config.json` (or an explicit `visit_breaks` list)
   puts a Heading 1 "Site Visit N, MM/DD/YYYY" on the first item of each pin
