@@ -58,7 +58,12 @@ from a Chat export.
 The second hook, `SubagentStop` scoped to `^eplus-rfis-submittals:rfi-researcher$`,
 appends the researcher's full brief (with a 220-character excerpt header) to
 `<session project dir>/<session_id>/subagent-final-messages.log`, the
-directory the session exporter zips. Disable with
+directory the session exporter zips. On Cowork the brief travels in the
+researcher's `SubagentHandback` call and its last plain message is only a
+stub such as "Report delivered.", so the hook takes the message of the last
+`SubagentHandback` call from the subagent's own transcript and falls back to
+`last_assistant_message` only when none is found; the entry header says which
+(`source=handback` or `source=last_message`). Disable with
 `EPLUS_NO_RFI_SUBAGENT_ECHO=1`. There is no `SessionStart` hook and no
 per-message banner: the fleet is Windows-only, each hook is one
 `powershell -File` call costing up to a second, so only the two that matter
@@ -89,7 +94,10 @@ so it is kept out of the file the app parses.
   directory the session exporter zips. No `displayContent` banner: that needs
   a `MessageDisplay` drain firing on every message, which this plugin does not
   wire. Disable with `EPLUS_NO_RFI_SUBAGENT_ECHO=1`.
-- **Form.** Both scripts read stdin with `[Console]::In.ReadToEnd()`, never
+- **Form.** `gate-commit.ps1` reads stdin with `[Console]::In.ReadToEnd()`;
+  `show-researcher-final.ps1` reads it as UTF-8 bytes, because the hook
+  console code page on the seats (IBM437) mangles non-ASCII text in a brief,
+  and appends the log as UTF-8 without a BOM. Both never
   emit `additionalContext` or `decision` on `SubagentStop`, and always exit 0
   with the decision in the JSON body. Every entry uses `"shell": "powershell"`
   with a direct `& "${CLAUDE_PLUGIN_ROOT}\scripts\<name>.ps1"` call, adopted

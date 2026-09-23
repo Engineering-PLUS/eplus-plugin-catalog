@@ -32,7 +32,7 @@ text; they see only their JSON payload. Two payloads carry the model:
 
 | Detected tier | What route-check injects on the prompt |
 |---|---|
-| Opus or Fable | first prompt: the full digest, about 110 tokens; later prompts: a one-line reminder, about 25 tokens. Both tell the model to confirm against its own env `Model:` line. |
+| Opus or Fable | first prompt: the full digest, about 110 tokens; later prompts: a one-line reminder, about 25 tokens. Both tell the model to confirm against its own env `Model:` line. Subagent hand-backs and task notifications get nothing (see below). |
 | Sonnet or Haiku | nothing |
 | Unknown | a one-line instruction to check the env `Model:` line and, if it names Opus or Fable, read the skill |
 
@@ -72,6 +72,11 @@ so it is kept out of the file the app parses.
   model to confirm against the `Model:` line in its own env block. First
   injection per session is the full digest (~110 tokens), later ones a
   one-line reminder (~25 tokens); on Sonnet or Haiku nothing is injected.
+  Machine-generated prompts are skipped: on Cowork each subagent's
+  `SubagentHandback` reaches `UserPromptSubmit` as a queued prompt starting
+  with `<agent-message from="...">` (export of 2026-09-23: three parallel
+  workers produced three reminders in two seconds, mid-turn), so a prompt
+  starting with `<agent-message` or `<task-notification` gets no note.
   (3) `spawn-gate.ps1` on `PreToolUse:Agent` logs every spawn's
   `subagent_type` and `model` to `routing.log` under `%TEMP%\eplus-model-routing`
   (and plugin data when set) and returns `permissionDecision: "ask"` when a
