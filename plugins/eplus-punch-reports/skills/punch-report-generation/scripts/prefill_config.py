@@ -149,8 +149,10 @@ def main():
     out = str(cfg.get("output_filename") or "")
     if missing(out) or args.version or args.force:
         stem = slug(args.project_name or cfg.get("cover_title") or "")
-        ver = args.version or (re.search(r"-DRAFT-v(\d+\.\d+)", out).group(1)
-                               if re.search(r"-DRAFT-v(\d+\.\d+)", out) else "0.1")
+        # "v0.1" and "0.1" both mean 0.1 (field result 2026-09-23: locate_inputs.py
+        # prints "v0.1", and passing that on made "...-DRAFT-vv0.1.docx")
+        ver = (args.version or "").strip().lstrip("vV") or (
+            re.search(r"-DRAFT-v(\d+\.\d+)", out).group(1) if re.search(r"-DRAFT-v(\d+\.\d+)", out) else "0.1")
         cfg["output_filename"] = f"{stem}-Punch-Report-DRAFT-v{ver}.docx"
     if args.project_folder:
         cfg["delivery_folder"] = os.path.basename(os.path.normpath(args.project_folder))

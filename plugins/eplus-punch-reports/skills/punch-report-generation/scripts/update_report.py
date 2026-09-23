@@ -254,7 +254,12 @@ def main():
         sanitize = sanitize_fn()
         by_num = {int(d["number"]): d for d in drafted["items"]}
         for e in item_edits:
-            n = int(e["number"])
+            # "item" is accepted for "number" (field result 2026-09-23: a batch file
+            # keyed by "item" died on a KeyError)
+            key = "number" if "number" in e else ("item" if "item" in e else None)
+            if key is None:
+                sys.exit(f"ERROR: every --edits entry needs \"number\" (the PlanGrid number): {e}")
+            n = int(str(e[key]).lstrip("#"))
             entry = by_num.get(n)
             if entry is None:
                 if not (e.get("title") and e.get("description")):
@@ -321,7 +326,7 @@ def main():
             cfg["delivery_folder"] = os.path.basename(os.path.normpath(dest))
     out = str(cfg.get("output_filename") or "")
     if args.version:
-        cfg["output_filename"] = set_version(out, args.version)
+        cfg["output_filename"] = set_version(out, args.version.strip().lstrip("vV"))
     elif dest and not args.replace and os.path.exists(os.path.join(dest, out)):
         have = versions_in(dest)
         hi = max(have) if have else (0, 1)

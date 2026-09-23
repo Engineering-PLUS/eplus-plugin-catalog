@@ -87,7 +87,12 @@ VOICE_BANNED = [
     # Statements about the pin note instead of the site ("the note says ...").
     # "reads" stays allowed: "The field note reads only Up, with no accompanying
     # photograph." is how a thin pin states that nothing more was recorded.
-    r"\b(the|this)\s+(pin\s+|field\s+)?note\s+(says|states|mentions|indicates|describes)\b",
+    # Field result 2026-09-23 (CTX2 build-first run): 16 drafts said "the pin note
+    # requests / records / flags ..." and passed, so the verb list is wide.
+    r"\b(the|this)\s+(pin\s+|field\s+)?note\s+(says|states|mentions|indicates|describes|requests|records"
+    r"|flags|asks|calls|notes|reports|lists|identifies|references|documents|suggests|specifies|asserts)\b",
+    r"\b(the|this)\s+pin\s+(says|states|mentions|indicates|describes|requests|records|flags|asks|calls"
+    r"|notes|reports|identifies|references|documents|suggests)\b",
     r"\bper the (pin |field )?note\b",
 ]
 
@@ -111,13 +116,22 @@ def normalize_sheet(name):
 
 
 def sanitize(s):
-    """Remove em/en dashes and hyphens used as em dashes. Preserve real hyphens."""
+    """Remove em/en dashes and hyphens used as em dashes. Preserve real hyphens.
+
+    A dash between digits is a range and becomes a hyphen ("10–12" -> "10-12").
+    Any other dash becomes a comma with its spacing normalised: field result
+    2026-09-23, "Switch Cabinet Position – Cabinets 201 & 202" rendered as
+    "Position , Cabinets" because the dash was replaced in place.
+    """
     if not isinstance(s, str):
         return s
-    s = DASH_RE.sub(",", s)
+    s = re.sub(r"(?<=\d)\s*[–—]\s*(?=\d)", "-", s)
+    s = re.sub(r"\s*[–—]\s*", ", ", s)
     s = re.sub(r" - ", ", ", s)
+    s = re.sub(r",\s*,", ",", s)
+    s = re.sub(r"\s+,", ",", s)
     s = re.sub(r"\s{2,}", " ", s)
-    return s.strip()
+    return s.strip().strip(",").strip()
 
 
 def walk_sanitize(obj):

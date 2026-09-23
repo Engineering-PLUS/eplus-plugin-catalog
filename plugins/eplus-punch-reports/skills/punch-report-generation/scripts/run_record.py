@@ -250,9 +250,16 @@ def main():
     out_name = rec["output"]["file"] or ""
     ver_m = re.search(r"-DRAFT-v(\d+(?:\.\d+)*)", out_name, flags=re.I)
     xlsx = [f for f in glob.glob(os.path.join(build, "*.xlsx")) if not os.path.basename(f).startswith("~$")]
+    # A template hint ("<PlanGrid project name, internal; ...>") is not a value.
+    # Field result 2026-09-23: the data-only run before prefill_config.py filled
+    # the ISSUES-LIST heading with that hint, and the placeholder was consumed.
+    def real(v):
+        v = (v or "").strip() if isinstance(v, str) else ""
+        return v if v and not v.startswith("<") else ""
     facts = {
-        "project": (cfg.get("cover_title") or cfg.get("cover_subtitle") or cfg.get("client_display_name") or "").strip() or None,
-        "building": (cfg.get("cover_subtitle") or "").strip() or None,
+        "project": real(cfg.get("cover_title")) or real(cfg.get("cover_subtitle"))
+                   or real(cfg.get("client_display_name")) or None,
+        "building": real(cfg.get("cover_subtitle")) or None,
         "version": ver_m.group(1) if ver_m else None,
         "output": out_name or None,
         "review": os.path.basename(max(xlsx, key=os.path.getmtime)) if xlsx else None,

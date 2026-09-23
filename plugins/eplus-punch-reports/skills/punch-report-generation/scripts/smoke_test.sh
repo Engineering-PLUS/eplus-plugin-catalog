@@ -184,8 +184,13 @@ for bad_text in ("The photograph shows an open junction box.", "Conduit is visib
                  "The field engineer recorded the condition.", "This photo captures the stub.",
                  # 0.9.0: statements about the photo or the note, not the site
                  "The image is unclear.", "The photos are too dark to read the label.",
-                 "Image unclear.", "The note says the box is missing.", "Per the pin note, conduit is open."):
+                 "Image unclear.", "The note says the box is missing.", "Per the pin note, conduit is open.",
+                 "The pin note requests confirmation of the ground bar.", "The pin note records a missing cover.",
+                 "The pin flags a conduit to be relocated."):
     assert hit(bad_text), bad_text
+# a spaced dash becomes ", " (not " ,"), a numeric range keeps a hyphen
+assert bm.sanitize("Switch Cabinet Position – Cabinets 201 & 202") == "Switch Cabinet Position, Cabinets 201 & 202"
+assert bm.sanitize("Rows 10–12") == "Rows 10-12" and bm.sanitize("Open box—no cover") == "Open box, no cover"
 drafted["items"][0]["description"] = "Pin note reads Up, with no accompanying photograph."
 json.dump(drafted, open(os.path.join(d, "drafted.json"), "w", encoding="utf-8"))
 r = subprocess.run([sys.executable, "build_master.py", "--items", os.path.join(d, "items.json"),
@@ -521,7 +526,11 @@ json.dump({"items": [{"number": 1, "title": "Open Junction Box", "description": 
                       "photo_mode": "none"}]},
           open(os.path.join(pipe, "data", "drafted_items.json"), "w", encoding="utf-8"))
 py = lambda *a: subprocess.run([sys.executable, *a], cwd=pipe, env=env, capture_output=True, text=True)
-r = py("scripts/prefill_config.py", "--project-name", "CTX2", "--version", "0.1")
+# the data-only run records BEFORE prefill; a template hint must never become the project name
+r = py("scripts/run_record.py")
+assert r.returncode == 0, r.stdout + r.stderr
+assert "<PlanGrid project name" not in open(os.path.join(pipe, "ISSUES-LIST.md"), encoding="utf-8").read().splitlines()[0]
+r = py("scripts/prefill_config.py", "--project-name", "CTX2", "--version", "v0.1")   # "v0.1" as locate_inputs prints it
 assert r.returncode == 0, r.stdout + r.stderr
 cfg = json.load(open(os.path.join(pipe, "build", "report.config.json"), encoding="utf-8"))
 src = cfg["fact_sources"]
@@ -545,7 +554,8 @@ for w in ("Client name", "Site address", "EP project number", "Building or area 
     assert w in blocking, (w, blocking)
 review = " ".join(e["detail"] + " " + (e["command"] or "") for e in fin["review"])
 assert "#2 left out" in review and "--deleted-pins keep" in review and "--drop 1" in review, review
-assert "<!-- finish-list:start -->" in open(os.path.join(pipe, "ISSUES-LIST.md"), encoding="utf-8").read()
+il = open(os.path.join(pipe, "ISSUES-LIST.md"), encoding="utf-8").read()
+assert "<!-- finish-list:start -->" in il and il.startswith("# Open questions for the reviewer, CTX2 v0.1"), il[:200]
 m = json.load(open(os.path.join(pipe, "build", "master_report_items.json"), encoding="utf-8"))
 assert [x["plangrid_ref"] for x in m] == ["#1"], m                                       # deleted pin dropped by default
 # surgical: the user supplies the cover facts; one command, re-render, no data steps
@@ -571,6 +581,12 @@ assert r.returncode != 0 and "deleted_pins=keep" in r.stdout + r.stderr, r.stdou
 r = py("scripts/update_report.py", "--deleted-pins", "keep", "--item", "2", "--title", "Unlabeled Pin",
        "--description", "Pin note reads only Up — nothing further recorded.", "--photo-mode", "none")
 assert r.returncode == 0, r.stdout + r.stderr
+# a batch file keyed by "item" instead of "number" is accepted
+json.dump([{"item": 1, "title": "Open Junction Box – Level 1"}], open(os.path.join(pipe, "build", "_scratch", "edits.json"), "w"))
+r = py("scripts/update_report.py", "--edits", "build/_scratch/edits.json")
+assert r.returncode == 0, r.stdout + r.stderr
+m1 = json.load(open(os.path.join(pipe, "build", "master_report_items.json"), encoding="utf-8"))[0]
+assert m1["title"] == "Open Junction Box, Level 1", m1["title"]
 m = json.load(open(os.path.join(pipe, "build", "master_report_items.json"), encoding="utf-8"))
 assert [x["plangrid_ref"] for x in m] == ["#1", "#2"] and m[1]["deleted_in_plangrid"] is True, m
 assert m[1]["origin"] == "user_reviewed" and "—" not in m[1]["description"], m[1]      # dashes cleaned on the way in
@@ -593,6 +609,8 @@ assert r.returncode == 0, r.stdout + r.stderr
 got = sorted(os.listdir(os.path.join(mnt, "Proj")))
 assert "CTX2-Punch-Report-DRAFT-v0.1.docx" in got and "CTX2-Punch-Report-DRAFT-v0.2.docx" in got \
     and "CTX2-Punch-Report-DRAFT-v0.2-Cover.docx" in got and "CTX2-Punch-Report-DRAFT-v0.2.zip" in got, got
+# the review sheet of v0.2 is delivered under the versioned name, not left stale behind v0.1's
+assert "CTX2-Punch-Report-Review.xlsx" in got and "CTX2-Punch-Report-DRAFT-v0.2-Review.xlsx" in got, got
 assert "version CTX2-Punch-Report-DRAFT-v0.1.docx -> CTX2-Punch-Report-DRAFT-v0.2.docx" in r.stdout, r.stdout
 # an unconnected folder is refused with the list of what is connected, never a picker
 r = py("scripts/update_report.py", "--deliver", "Nowhere", "--no-render", "--mnt-glob", os.path.join(d, "*"))

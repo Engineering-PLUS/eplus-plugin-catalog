@@ -230,6 +230,17 @@ requires field verification"* — how an engineer would actually say it.
 ongoing progress" reads as somebody else narrating the author. Write *"Work
 remained in progress at the time of the walk."*
 
+**3. Talking about the pin or its note, or about the photo itself.** "The pin
+note requests confirmation of the ground bar", "the pin flags a relocation",
+"the image is unclear". The description states the condition and what is
+required: *"The ground bar material requires confirmation against the specified
+requirement."* Field result 2026-09-23: a worker wrote "the pin note ..." into
+17 of 38 descriptions and the main thread rewrote them all before delivery; the
+guard now rejects these forms (the note *says, states, requests, records,
+flags, asks, calls, notes, reports, identifies*, and the same for "the pin",
+and "the photo is / the image is"). The one allowed form is the thin-pin
+sentence "The field note reads only 'Up', with no accompanying photograph."
+
 Editor's Notes are internal, are deleted before issuing, and are exempt from both.
 
 **The verbatim pin note is never rendered**, for the same third-person reason. It

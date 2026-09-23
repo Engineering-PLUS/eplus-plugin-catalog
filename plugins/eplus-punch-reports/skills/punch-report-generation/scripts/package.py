@@ -247,7 +247,13 @@ def main():
         beside.append((cover, f"{stem}{suffix}-Cover.docx"))
     if xlsx:
         xstem = os.path.splitext(os.path.basename(xlsx))[0]
-        beside.append((xlsx, f"{xstem}{suffix}.xlsx"))
+        xname = f"{xstem}{suffix}.xlsx"
+        # The review sheet's name carries no version (<report>-Review.xlsx), so a
+        # v0.2 delivery found v0.1's sheet there and left it stale (field result
+        # 2026-09-23). A later version's sheet takes the body's versioned stem.
+        if not args.replace and os.path.exists(os.path.join(dest, xname)):
+            xname = f"{stem}{suffix}-Review.xlsx"
+        beside.append((xlsx, xname))
     pdf = None
     if args.pdf:
         build = os.path.join(ws, "_pipeline", "build")
