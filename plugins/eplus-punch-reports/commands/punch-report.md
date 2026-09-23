@@ -157,11 +157,18 @@ the report already there (body, cover, review sheet, package) are written into
 the new package under `previous-versions/` and then removed from the folder,
 each only after the new zip is verified to hold an identical copy. If Cowork
 has not allowed deletes in that folder yet, the packager prints `CLEANUP
-PENDING` with the files: tell the user in one sentence that the earlier
-version is now inside the new package and the folder is being tidied, call
-`allow_cowork_file_delete` once with the path of the first listed file (one
-approval covers the folder), then run the command it printed,
-`python3 scripts/package.py --prune "<folder>"`. That is the only delete in a
+PENDING` and three steps. **Step 1: post the message it prints, as written,
+before asking for anything.** It names every file that will be deleted, says
+they are the previous version, that identical copies are inside the new
+package, that nothing else in the folder is touched, and that declining just
+leaves them there. Cowork's permission prompt names one file and gives no
+reason, so without this message people cannot tell what they are approving
+(field result 2026-09-23: "I'll tidy them out of the folder" was all the user
+got). Never shorten it to a summary and never ask before posting it. Step 2:
+call `allow_cowork_file_delete` once with the path it names (one approval
+covers the folder). Step 3: if allowed, run
+`python3 scripts/package.py --prune "<folder>"`. Read the whole packager
+output, never a `tail` of it, so the message is not cut. That is the only delete in a
 run, and it removes nothing the new package does not hold. The Task Report
 PDF and `client-profile.json` always stay.
 

@@ -134,8 +134,10 @@ these rules a package was 26.6 MB and 252 files for a 38-item report. It is
 the only write to the project folder in the entire run. It moves earlier
 versions of the report into the new package under `previous-versions/` and
 removes them from the folder once the copies are verified, so the folder holds
-the current version and the inputs (`CLEANUP PENDING` and `--prune` when Cowork
-has not allowed deletes there yet; see the command, section 6). It refuses to
+the current version and the inputs. When Cowork has not allowed deletes there
+yet it prints `CLEANUP PENDING` with a message naming every file to be deleted
+and why; post it as written before asking for the permission, then `--prune`
+(the command, section 6). It refuses to
 overwrite a delivery of the same name unless `--replace` is passed (and that only
 when the user has said the earlier copy should be replaced), and `--dry-run`
 shows the manifest first. Do not copy files across by hand before or after it.

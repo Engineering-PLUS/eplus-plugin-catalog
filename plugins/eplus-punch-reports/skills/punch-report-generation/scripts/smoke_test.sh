@@ -700,6 +700,11 @@ for p in locked:
 r = subprocess.run([sys.executable, "package.py", ws, dest], capture_output=True, text=True)
 if r.returncode == 0 and "CLEANUP PENDING" in r.stdout:
     assert "--prune" in r.stdout and "X-DRAFT-v0.2.docx" in os.listdir(dest), r.stdout
+    # the message for the user names every file to be deleted, before the permission step
+    msg = r.stdout.split("STEP 1.", 1)[1].split("STEP 2.", 1)[0]
+    assert "exactly what I will delete" in msg and "nothing else in the folder is touched" in msg, msg
+    for n in ("X-DRAFT-v0.2.docx", "X-DRAFT-v0.2-2.zip", "X-Review-2.xlsx"):
+        assert f"- {n}" in msg, (n, msg)
     for p in locked:
         if os.path.exists(p):
             os.chmod(p, stat.S_IREAD | stat.S_IWRITE)

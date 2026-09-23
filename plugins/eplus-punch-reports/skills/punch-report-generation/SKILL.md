@@ -289,9 +289,11 @@ the project folder's own tidy-up at delivery: `package.py` writes the earlier
 versions of the report into the new package (`previous-versions/`) and removes
 them from the folder only after verifying the copies, so the folder holds the
 current version and the inputs. When Cowork has not yet allowed deletes there,
-it prints `CLEANUP PENDING`: one `allow_cowork_file_delete` on the first listed
-file (the approval covers the folder, and the user is told why in one
-sentence), then `package.py --prune "<folder>"`. Nothing else is ever deleted
+it prints `CLEANUP PENDING` with a message for the user that names every file
+to be deleted and why: post that message as written, **before** the one
+`allow_cowork_file_delete` call (the approval covers the folder; the prompt
+itself names one file and gives no reason), then `package.py --prune
+"<folder>"`. Nothing else is ever deleted
 by the run, and the session outputs folder is never cleaned.
 
 ## House policy
