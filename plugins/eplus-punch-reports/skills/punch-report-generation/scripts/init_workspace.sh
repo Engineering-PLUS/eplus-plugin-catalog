@@ -19,11 +19,14 @@
 #      <workspace>/client-profile.json and <workspace>/README.md exist.
 #      Files already present are never overwritten (a second run on the same
 #      workspace keeps the filled-in CLAUDE.md, config and profile).
+#      The stamped tree is made writable straight away (see 3), before step 2
+#      creates _pipeline/scripts inside it.
 #   2. Refreshes <workspace>/_pipeline/scripts/ from THIS plugin checkout,
 #      always. A package's scripts are never the source for a new run.
 #   3. Makes everything under the workspace writable (copies off a read-only
 #      plugin mount otherwise inherit the read-only bit; field result
-#      2026-09-14: a worker could not edit its own workspace copy).
+#      2026-09-14: a worker could not edit its own workspace copy; field result
+#      2026-09-23: the copied template dirs blocked step 2's mkdir).
 #   4. Checks the layout and exits non-zero naming whatever is missing.
 #
 # Run it from the plugin path, not from a workspace copy: the template lives
@@ -106,6 +109,14 @@ else
         done
     }
 fi
+
+# Writable BEFORE step 2 creates anything inside the stamped tree. Field result
+# 2026-09-23 (Cowork acceptance run, export 1790161330022): the plugin is mounted
+# read-only in the VM (dr-x------), cp carries that mode onto the copied
+# template directories, and the mkdir of _pipeline/scripts below failed with
+# "Permission denied", leaving the workspace incomplete. Step 3 repeats this for
+# the script files step 2 copies off the same mount.
+chmod -R u+w "$WS" 2>/dev/null || true
 
 # --- 2. scripts, always from the plugin --------------------------------------
 mkdir -p "$WS/_pipeline/scripts"

@@ -22,6 +22,11 @@ headings, and deleted PlanGrid pins kept and bannered when the reviewer wants
 the numbering intact. Revisions run `init_workspace.sh --from-package` on the
 prior delivery and deliver again under a new name.
 
+On Cowork the plugin is mounted read-only in the VM, and copies inherit that
+mode. `init_workspace.sh` makes the stamped workspace writable immediately after
+the template copy, before it creates `_pipeline/scripts/` (0.8.4; in 0.8.0 to
+0.8.3 a fresh workspace failed with "Permission denied" on that folder).
+
 The Word file is the file of record; the reviewer issues the report by exporting
 it from Word, which recalculates the TOC page-number fields. PDFs for the
 model's own layout checks are fine and stay out of the package. When the user
