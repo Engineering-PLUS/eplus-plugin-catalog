@@ -1,7 +1,7 @@
 ---
-name: punch-report-generation
-description: Use this skill to DRAFT a punch report, field progress report, or site inspection report from raw field material — a PlanGrid project pull, a folder of site photos, an engineer's walk notes, or any combination. Trigger when asked to write up a punch walk, turn photos and notes into a report, produce a draft punch list document, or generate a deliverable from a site visit. Builds the whole draft without stopping to ask, then lists what is missing and applies each answer as a surgical edit. Covers consolidating messy source data, drafting descriptions in field-report voice, checking wording against EPLUS precedent, and rendering a branded one-page-per-item Word document with a live table of contents. Distinct from the `punch` skill, which QUERIES the historical corpus; this one PRODUCES a new report.
-argument-hint: <folder of field material — e.g. "draft the report from the files in this folder">
+name: punch-report
+description: Use this skill to DRAFT a punch report, field progress report, or site inspection report from raw field material — a PlanGrid project pull, a folder of site photos, an engineer's walk notes, or any combination. Trigger when asked to write up a punch walk, turn photos and notes into a report, produce a draft punch list document, or generate a deliverable from a site visit. Builds the whole draft without stopping to ask, then lists what is missing and applies each answer as a surgical edit. Covers consolidating messy source data, drafting descriptions in field-report voice, checking wording against EPLUS precedent, and rendering a branded one-page-per-item Word document with a live table of contents. Distinct from the `punch-history` skill, which QUERIES the historical corpus; this one PRODUCES a new report.
+argument-hint: [project folder or PlanGrid project name, or leave blank]
 ---
 
 # Drafting a punch report from field material
@@ -10,7 +10,7 @@ Turns a site walk into a reviewable draft. The human finishes and issues it —
 the target is ~80% of the way there with every uncertainty surfaced, not a
 publishable document.
 
-$ARGUMENTS
+What the user typed: $ARGUMENTS
 
 **The pipeline is a stampable project template, not a set of loose scripts.**
 Build a workspace in the session's own outputs area (your working folder, never
@@ -35,7 +35,7 @@ project and is the file a future run reads first — fill it in as you go rather
 than at the end.
 
 **Where the plugin is.** From bash in the sandbox this skill is
-at `/sessions/<session>/mnt/.local-plugins/marketplaces/eplus-claude-plugins/plugins/eplus-punch-reports/skills/punch-report-generation/`
+at `/sessions/<session>/mnt/.local-plugins/marketplaces/eplus-claude-plugins/plugins/eplus-punch-reports/skills/punch-report/`
 (`ls /sessions` gives `<session>`). The host-side path in this file's "Base
 directory" line is the same folder seen by Read and Grep; it is not visible to
 bash. Run `init_workspace.sh` from that plugin path every run, including
@@ -64,13 +64,14 @@ renderer bakes in, so a run that skips it re-derives them the hard way.
 
 ## Step 0 — Build first, ask last
 
-The `punch-report` command carries the run order; follow it. The shape is
+**`reference/run-order.md` carries the run order: read it first on every
+fresh run and follow it.** The shape is
 fixed: **no question, folder picker or confirmation before the draft exists.**
 Users start a report and walk away; field results 2026-09-09 to 2026-09-14 lost
 12 to 47 minutes per report to unanswered question rounds, and on 2026-09-23 a
 folder picker opened with no explanation and was cancelled. So every decision
-the old intake asked about has a default (the table in the command, section
-4), anything unknown shows on the draft as `[MISSING: ...]` or in the finish
+the old intake asked about has a default (the table in
+`reference/run-order.md`, section 4), anything unknown shows on the draft as `[MISSING: ...]` or in the finish
 list, and the questions come once, at the end, with the draft already
 delivered. A user who never answers still has a complete draft; one who does
 gets each answer applied by `update_report.py` in seconds.
@@ -161,7 +162,7 @@ do not read them all.**
 
 | If the user asks for / the workspace shows | Read |
 |---|---|
-| **A draft exists and the user supplies a missing piece or answers the finish list** (a cover fact, an issuance date, a Task Report PDF, a folder to deliver to, a reworded item, keep or drop a pin) | **nothing: run `python3 scripts/update_report.py ...` from `_pipeline/`** (examples in the command, section 8). No worker, no rebuild |
+| **A draft exists and the user supplies a missing piece or answers the finish list** (a cover fact, an issuance date, a Task Report PDF, a folder to deliver to, a reworded item, keep or drop a pin) | **nothing: run `python3 scripts/update_report.py ...` from `_pipeline/`** (examples in `reference/run-order.md`, section 8). No worker, no rebuild |
 | A fresh start with a raw PlanGrid pull; `data/items.json`, `build/thumbs_uniform/` or `build/sheet_clips_jpg/` missing | `reference/build-data.md` (Steps 1, 2, 6) |
 | `data/items.json` exists but `data/drafted_items.json` does not; the user wants items written up | `reference/drafting.md` (Steps 3, 3.5, 4, 5) |
 | `data/drafted_items.json` exists and the user asks about wording, voice or precedent | `reference/drafting.md` (Step 5 for precedent) |
@@ -270,7 +271,7 @@ cover finishes what does not depend on it, stops, and returns the question
 under **Open questions** with the evidence both ways. It cannot be resumed.
 The main thread settles every open question before the next worker starts,
 **without asking the user mid-run**: it decides from house policy and the
-defaults in the command, writes the question and the choice into
+defaults in `reference/run-order.md`, writes the question and the choice into
 `ISSUES-LIST.md` so the reviewer sees both, and puts the choice in the next
 worker's brief as a settled decision. Where no default is safe (a photo that
 contradicts the note, a suspected misfire), the item ships `undetermined` with

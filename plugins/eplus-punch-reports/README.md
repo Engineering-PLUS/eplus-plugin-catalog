@@ -111,7 +111,7 @@ body PDF on request.
 The `punch-knowledge-hub` MCP server is delivered as a **managed connector from
 the desktop bootstrap configuration**, not bundled with this plugin: the plugin
 no longer ships a `.mcp.json`. The managed server **must be named
-`punch-knowledge-hub`**, because the `punch` skill addresses its tools as
+`punch-knowledge-hub`**, because the `punch-history` skill addresses its tools as
 `mcp__punch-knowledge-hub__<tool>` and those names only hold under that server
 name. It is backed by **724 punch items and 41 narrative report bodies** from
 41 published EPLUS reports (2022–2026) across nine data center projects:
@@ -134,22 +134,24 @@ All six are read-only — this plugin cannot modify the punch database.
 
 Response sizes vary by more than 50x across these tools, so routing matters:
 `punch_stats` answers a count in ~120 tokens where a search costs ~6,400. The
-`punch` skill carries the routing table and the measured figures.
+`punch-history` skill carries the routing table and the measured figures.
 
 ## Skills
 
-- **`punch`** — the query workflow, the exact filter vocabulary (trades, project
+- **`punch-history`** — searches past punch walks: the query workflow, the exact filter vocabulary (trades, project
   codes, statuses, sheet references), response-size budgets, and the real
   behaviour of the `trade` filter. Load before calling any engine tool.
-- **`punch-report-generation`** — produces a new report from raw field material.
+- **`punch-report`** — produces a new report from raw field material (`/punch-report`,
+  or just ask for a report).
   Assumes the input is messy because it always is, and surfaces what it cannot
   determine instead of inventing it. Carries the pipeline, the project template,
   and the rendering defaults that were learned the hard way. `SKILL.md` is a
   short core (build first, premise, a stage router, the command per step); the
-  step detail lives in `reference/` as one file per stage (`build-data`,
+  run order is `reference/run-order.md` (the former `/punch-report` command, merged
+  in 0.9.5), and the step detail lives in `reference/` as one file per stage (`build-data`,
   `drafting`, `render`, `verify-and-deliver`, `revising`), loaded one at a
   time for the stage the run is in.
-- **`plangrid-extraction`** — how PlanGrid PDFs store their data, for when someone
+- **`plangrid-punch-extraction`** (hidden from the `/` menu) — how PlanGrid PDFs store their data, for when someone
   drops a raw punch report into the chat.
 
 ## Hooks

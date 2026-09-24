@@ -15,7 +15,7 @@ conflicts. The update usually fixes typos and adds items.
 **The default, and the only mode a run starts in: draft it all** in
 field-report voice, mark every entry's `origin` and `confidence`, and give each
 inferred or low-confidence item an Editor's Note saying why. Nothing is asked
-before the draft exists (the command's rule: build first, ask last; field
+before the draft exists (`run-order.md`'s rule: build first, ask last; field
 result 2026-09-14: this question as its own round cost four minutes, and runs
 left alone never got past it). The finish list names the items to review, and
 the user rewords any of them afterwards with
@@ -248,7 +248,7 @@ stays on the record as `field_note` and appears in the review spreadsheet.
 
 ### Step 5 — Check wording against EPLUS precedent
 
-Use the `punch` skill's tools. **Two steps, always:**
+Use the `punch-history` skill's tools. **Two steps, always:**
 
 1. `query_hermes_punch` to find candidate precedent.
 2. **`get_punch_item` to read the exact wording before citing it.** Never quote

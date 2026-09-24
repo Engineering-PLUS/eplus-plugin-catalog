@@ -137,7 +137,7 @@ removes them from the folder once the copies are verified, so the folder holds
 the current version and the inputs. When Cowork has not allowed deletes there
 yet it prints `CLEANUP PENDING` with a message naming every file to be deleted
 and why; post it as written before asking for the permission, then `--prune`
-(the command, section 6). It refuses to
+(`run-order.md`, section 6). It refuses to
 overwrite a delivery of the same name unless `--replace` is passed (and that only
 when the user has said the earlier copy should be replaced), and `--dry-run`
 shows the manifest first. Do not copy files across by hand before or after it.

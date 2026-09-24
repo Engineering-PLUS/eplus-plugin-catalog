@@ -53,7 +53,7 @@ SKILL="$(cd "$HERE/.." && pwd)"
 if [ ! -d "$SKILL/template/_pipeline" ]; then
     echo "ERROR: $SKILL/template/_pipeline not found." >&2
     echo "       Run this script from the PLUGIN's scripts folder, not from a workspace copy:" >&2
-    echo "       bash <plugin>/skills/punch-report-generation/scripts/init_workspace.sh <workspace>" >&2
+    echo "       bash <plugin>/skills/punch-report/scripts/init_workspace.sh <workspace>" >&2
     exit 1
 fi
 

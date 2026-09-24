@@ -111,7 +111,7 @@ Keep it to facts the worker cannot get from the workspace or the reference file:
 - **Scope and decisions in force** (item numbers, drop rules, title and date
   filters, visit sections), each stated as the pipeline switch it maps to, so
   the worker never re-derives or has to implement them. Most are the build-first
-  defaults in the command's section 4, not answers from the user.
+  defaults in `run-order.md` section 4, not answers from the user.
 - **Where to stop.** For a render stage, the stop is: the pipeline's verifier
   has run and three preview pages (cover, one photo item, one photo-less item)
   have been looked at. Not eight pages, not the OOXML, not the renderer source.
@@ -129,7 +129,7 @@ Two things the main thread does after the worker returns, never during:
 - **Settles every Open question before the next worker starts, without asking
   the user mid-run.** A worker cannot be resumed, and the user has usually
   walked away (build first, ask last). The main thread decides each question
-  from house policy and the command's defaults, writes the question and the
+  from house policy and the `run-order.md` defaults, writes the question and the
   choice into `ISSUES-LIST.md`, and puts the choice in the next worker's brief
   under "decisions in force" so it cannot come back. Where no choice is safe,
   the item ships `undetermined` with an Editor's Note and the question joins

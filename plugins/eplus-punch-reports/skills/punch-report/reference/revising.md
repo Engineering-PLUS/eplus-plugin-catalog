@@ -43,7 +43,7 @@ The delivered package carries everything the render needs (data, drafts,
 config, photos, clips, paperwork). Three commands bring it back:
 
 ```bash
-S=/sessions/<session>/mnt/.local-plugins/marketplaces/eplus-claude-plugins/plugins/eplus-punch-reports/skills/punch-report-generation
+S=/sessions/<session>/mnt/.local-plugins/marketplaces/eplus-claude-plugins/plugins/eplus-punch-reports/skills/punch-report
 bash "$S/scripts/init_workspace.sh" <new workspace> --from-package "<project folder>/<package>.zip"
 cd <new workspace>/_pipeline && bash scripts/install_deps.sh
 python3 scripts/update_report.py <changes> --deliver

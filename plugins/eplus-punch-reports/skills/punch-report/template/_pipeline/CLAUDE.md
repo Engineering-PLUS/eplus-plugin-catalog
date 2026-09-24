@@ -375,7 +375,7 @@ Two rules about that file:
 ## Precedent
 
 Item wording is checked against the EPLUS punch corpus via the
-`punch-knowledge-hub` tools, using the `punch` skill. Search to find candidates,
+`punch-knowledge-hub` tools, using the `punch-history` skill. Search to find candidates,
 then `get_punch_item` to read the exact wording before citing it.
 
 <Record this project's precedent coverage here: how many items carry a citation,

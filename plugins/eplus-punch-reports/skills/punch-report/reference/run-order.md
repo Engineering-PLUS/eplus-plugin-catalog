@@ -1,14 +1,10 @@
----
-description: Build a punch report from a PlanGrid pull without stopping to ask - pulls, drafts, checks precedent, renders, verifies and delivers a complete draft, then lists what is missing with one command per gap.
-argument-hint: [project folder or PlanGrid project name, or leave blank]
----
+# Run order: building a punch report
 
-Build a punch report from field material. What the user typed: `$ARGUMENTS`
-(a folder name, a PlanGrid project name, or nothing).
-
-Load the `punch-report-generation` skill and follow it; this command is the
-run order, the skill and its `reference/` files are the authority on each
-step. Read only the reference the step names.
+The order of a run, from finding the inputs to applying the answers. SKILL.md
+and the other `reference/` files are the authority on each step; read only the
+reference a step names. "What the user typed" is the text after `/punch-report`,
+or the folder or project the user named when asking for the report: a folder
+name, a PlanGrid project name, or nothing.
 
 ## The rule: build first, ask last
 
@@ -37,8 +33,8 @@ explanation and the user cancelled it. So:
 ## 1. Find the inputs: one command
 
 ```bash
-S=/sessions/<session>/mnt/.local-plugins/marketplaces/eplus-claude-plugins/plugins/eplus-punch-reports/skills/punch-report-generation
-python3 "$S/scripts/locate_inputs.py" "$ARGUMENTS"
+S=/sessions/<session>/mnt/.local-plugins/marketplaces/eplus-claude-plugins/plugins/eplus-punch-reports/skills/punch-report
+python3 "$S/scripts/locate_inputs.py" "<what the user typed>"
 ```
 
 `<session>` is the first path segment under `/sessions/` (`ls /sessions`).
