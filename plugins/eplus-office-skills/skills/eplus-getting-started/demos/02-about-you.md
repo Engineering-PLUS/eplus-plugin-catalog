@@ -18,7 +18,9 @@ conversations, so they do not have to repeat themselves.
    carry on: their answers are still used in demos 3 and 6 of this
    conversation.
 4. Show them how to check and change it: "You can ask me what I remember about
-   you, or tell me to forget something, at any time."
+   you, or tell me to forget something, at any time. Now and then, type
+   /consolidate-memory and I'll tidy it up: merge duplicates and fix old
+   facts."
 5. Add the card to the cheat sheet: title "I remember you", what "Tell me about
    yourself once and I'll keep it in mind in future chats.", try "Remember
    that I ..." / "What do you remember about me?"

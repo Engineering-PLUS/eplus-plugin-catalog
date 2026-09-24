@@ -1,11 +1,11 @@
 ---
-name: getting-started
-description: Take a hands-on tour of what Claude can do for you in Cowork. Build a page, save a skill, brand a document, use the browser, set up a LibreChat agent and schedule a task.
+name: eplus-getting-started
+description: The EPLUS tour of Claude in Cowork. A hands-on look at what Claude can do for you. Build a page, save a skill, brand a document, use the browser, set up a LibreChat agent and schedule a task.
 when_to_use: Use whenever someone asks what Claude or Cowork can do, asks for a demo, a tour, onboarding or "show me around", asks how to get started, or asks to be shown one capability ("show me the browser", "how do I make a skill", "how do schedules work", "how do I build an agent in LibreChat", "can you remember things about me", "show me an artifact", "make me a branded document"). Also use when a new EPLUS user seems unsure what to ask for. Runs a guided, hands-on tour of Cowork's own capabilities for EPLUS engineers, one short demo at a time.
 argument-hint: [leave blank for the menu, or name one demo like browser]
 ---
 
-# Getting started: a hands-on tour of Cowork
+# EPLUS getting started: a hands-on tour of Cowork
 
 The person in front of you is an EPLUS engineer (technology, AEC) who is new to
 Claude. Your job is to show them, by doing it with them, what Claude can do in
@@ -35,8 +35,9 @@ What the user typed: $ARGUMENTS
 6. **Read only the demo file you are about to run** (`demos/`), never all of
    them.
 7. **End every demo the same way**: two lines, "What you just saw: ..." and
-   "Try saying: ..." with one or two prompts they can reuse, then add the same
-   card to their cheat sheet (demo 1) and offer the next demo.
+   "Try saying: ..." with one or two prompts they can reuse, then append the
+   demo's card to `cheatsheet-cards.json` (demo 1 explains) and offer the next
+   demo.
 
 ## Start
 
@@ -65,7 +66,9 @@ stop any time and pick it up later by asking "show me what you can do".
 
 ## Finish
 
-After the last demo, update the cheat sheet one final time, then say in three
-lines what they now have (the page, the skill, the document, anything they
-created), and close with: "Whenever you want to see what else I can do, just
-ask me to show you."
+After the last demo, rebuild the cheat sheet with the same
+`build_cheatsheet.py` command as demo 1 (it now carries every card), update the
+artifact with the new file (`update_artifact`), and present the file again so
+they can print it. Then say in three lines what they now have (the page, the
+skill, the document, anything they created), and close with: "Whenever you
+want to see what else I can do, just ask me to show you."

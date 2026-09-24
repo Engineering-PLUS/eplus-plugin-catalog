@@ -1,0 +1,140 @@
+{
+  "capabilities": [
+    {
+      "title": "Branded documents",
+      "what": "Word, PowerPoint, Excel and PDF files in EPLUS branding, ready to edit.",
+      "try": [
+        "Make a one-page memo about ... with our branding",
+        "Turn this into a PowerPoint in EPLUS style"
+      ]
+    },
+    {
+      "title": "Pages and dashboards",
+      "what": "Live pages that open beside the chat: trackers, calculators, dashboards.",
+      "try": [
+        "Make me a page that tracks ...",
+        "Turn this table into a dashboard"
+      ]
+    },
+    {
+      "title": "Your own skills",
+      "what": "Describe a task you repeat and Claude saves it as a skill in your / menu.",
+      "try": [
+        "Make a skill that ...",
+        "Change my ... skill so it ..."
+      ]
+    },
+    {
+      "title": "Memory",
+      "what": "Tell Claude about yourself once and it keeps it in mind in future chats.",
+      "try": [
+        "Remember that I ...",
+        "What do you remember about me?"
+      ]
+    },
+    {
+      "title": "Websites",
+      "what": "Claude opens sites in the built-in browser, reads them, clicks through them and pulls out what you need.",
+      "try": [
+        "Open ... and find ...",
+        "Compare these two product pages"
+      ]
+    },
+    {
+      "title": "LibreChat agents",
+      "what": "Claude builds agents for you in EPLUS LibreChat, with their own models, tools and helper agents.",
+      "try": [
+        "Build me a LibreChat agent that ..."
+      ]
+    },
+    {
+      "title": "Scheduled tasks",
+      "what": "Things Claude does on its own, once at a set time or every day or week.",
+      "try": [
+        "Every Monday at 8, summarize ...",
+        "/schedule"
+      ]
+    },
+    {
+      "title": "Your files and folders",
+      "what": "Connect a project folder and Claude reads, compares and summarizes what is in it.",
+      "try": [
+        "Open my project folder and summarize the latest submittals"
+      ]
+    },
+    {
+      "title": "Research",
+      "what": "Web research with sources you can check.",
+      "try": [
+        "Research ... and give me the sources",
+        "Find the manufacturer's data sheet for ..."
+      ]
+    }
+  ],
+  "commands": [
+    {
+      "command": "/eplus-getting-started",
+      "does": "The EPLUS tour of Claude, or one demo from it"
+    },
+    {
+      "command": "/setup-claude",
+      "does": "Tell Claude what you do and get skills recommended for you"
+    },
+    {
+      "command": "/schedule",
+      "does": "Create or change a task that runs on a schedule"
+    },
+    {
+      "command": "/context",
+      "does": "See how full this conversation is"
+    },
+    {
+      "command": "/explain-usage",
+      "does": "See where this conversation's usage went, as a simple chart"
+    },
+    {
+      "command": "/consolidate-memory",
+      "does": "Tidy what Claude remembers about you: merge duplicates, fix old facts"
+    }
+  ],
+  "help": {
+    "intro": "If Claude gets stuck, shows an error, or a tool does not work, send the session to Victor so he can see exactly what happened.",
+    "steps": [
+      "Export the session: type / then e, and pick Export session (press Tab). It runs right away, saves a .zip of this conversation, and offers Show in folder.",
+      "Send the .zip to Victor Ortega on Teams, with one line about what you were doing.",
+      "You can also tell Claude \"report this issue\" and it logs it for the EPLUS team."
+    ]
+  },
+  "builtin_skills": [
+    {
+      "skill": "Word documents",
+      "does": "Create, read and edit .docx files",
+      "ask": "Write this up as a Word document"
+    },
+    {
+      "skill": "PowerPoint",
+      "does": "Build and edit slide decks",
+      "ask": "Turn this into a 5-slide deck"
+    },
+    {
+      "skill": "Excel",
+      "does": "Build, clean up and analyze spreadsheets",
+      "ask": "Put these numbers in a spreadsheet with totals"
+    },
+    {
+      "skill": "PDF",
+      "does": "Read, fill, merge, split and create PDFs",
+      "ask": "Merge these PDFs"
+    },
+    {
+      "skill": "PDF reading",
+      "does": "Pull text, tables and drawings out of PDFs",
+      "ask": "What does section 3 of this PDF say about ..."
+    },
+    {
+      "skill": "Design",
+      "does": "Good-looking pages, dashboards and layouts",
+      "ask": "Make this page look polished"
+    }
+  ]
+}

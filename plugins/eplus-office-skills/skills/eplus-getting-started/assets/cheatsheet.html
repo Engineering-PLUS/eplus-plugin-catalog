@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Cowork cheat sheet</title>
+<!--
+  Filled in by scripts/build_cheatsheet.py; never edit by hand in a session.
+  EPLUS brand, default-fonts edition: Arial; Primary Blue #666f89 for headings,
+  Dark Grey #58595b for text, Light Grey #a6a6a5 for rules, Accent Green
+  #3c7d7f only in the header rule. White page so it prints as it looks. One
+  self-contained file: logos inlined, no browser storage, no external scripts.
+-->
+<style>
+  :root { --blue: #666f89; --grey: #58595b; --light: #a6a6a5; --green: #3c7d7f; --panel: #f4f5f8; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #fff; color: var(--grey);
+    font-family: Arial, Helvetica, "Liberation Sans", sans-serif; font-size: 14px; line-height: 1.45;
+  }
+  .page { max-width: 8.5in; margin: 0 auto; padding: 0 0.5in 0.5in; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 16px;
+           padding: 0.4in 0 14px; border-bottom: 4px solid var(--green); }
+  header img { height: 44px; width: auto; }
+  .who { text-align: right; }
+  h1 { margin: 0; font-size: 22px; color: var(--blue); }
+  .sub { margin: 2px 0 0; font-size: 13px; }
+  h2 { margin: 22px 0 8px; font-size: 16px; color: var(--blue); text-transform: uppercase; letter-spacing: 0.06em; }
+  .cards { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+  .card { background: var(--panel); border: 1px solid var(--light); border-radius: 6px; padding: 10px 12px; break-inside: avoid; }
+  .card h3 { margin: 0 0 4px; font-size: 14px; color: var(--blue); }
+  .card p { margin: 0 0 6px; }
+  .try { font-style: italic; }
+  .try b { font-style: normal; color: var(--blue); }
+  table { width: 100%; border-collapse: collapse; }
+  tr { break-inside: avoid; }
+  th { text-align: left; color: #fff; background: var(--blue); padding: 5px 8px; font-size: 13px; }
+  td { padding: 5px 8px; border-bottom: 1px solid var(--light); vertical-align: top; }
+  td:first-child { white-space: nowrap; font-family: Consolas, "Courier New", monospace; color: var(--blue); }
+  td.ask { font-style: italic; }
+  .plain td:first-child { font-family: inherit; color: var(--blue); font-weight: bold; white-space: normal; }
+  .cols { display: grid; gap: 0 24px; grid-template-columns: 1fr 1fr; align-items: start; }
+  .keep { break-inside: avoid; }
+  h2 { break-after: avoid; }
+  .help { background: var(--panel); border-left: 4px solid var(--blue); padding: 10px 14px; break-inside: avoid; }
+  .help ol { margin: 6px 0 0; padding-left: 20px; }
+  .notes { break-inside: avoid; }
+  .line { height: 30px; border-bottom: 1px solid var(--light); }
+  footer { margin-top: 18px; display: flex; align-items: center; gap: 10px; font-size: 12px; }
+  footer img { height: 22px; }
+  .print { margin: 16px 0 0; padding: 8px 16px; border: 0; border-radius: 4px; background: var(--blue);
+           color: #fff; font: bold 13px Arial, sans-serif; cursor: pointer; }
+  @media (max-width: 600px) { .cols { grid-template-columns: 1fr; } header { flex-direction: column; align-items: flex-start; } .who { text-align: left; } }
+  @media print {
+    @page { size: letter; margin: 0.5in; }
+    .page { padding: 0; max-width: none; }
+    header { padding-top: 0; }
+    .print { display: none; }
+    th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .card, .help, header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <img src="{{LOGO}}" alt="Engineering Plus">
+    <div class="who">
+      <h1>{{TITLE}}</h1>
+      <p class="sub">{{SUBTITLE}}</p>
+    </div>
+  </header>
+
+  {{TRIED}}
+
+  <h2>Things you can ask Claude for</h2>
+  <div class="cards">
+    {{CAPABILITIES}}
+  </div>
+
+  {{SKILLS}}
+
+  <section>
+    <h2>Skills Claude uses for you</h2>
+    <p>Built in. Just ask in plain words.</p>
+    {{BUILTIN}}
+  </section>
+
+  <section>
+    <h2>Slash commands</h2>
+    <p>Type <b>/</b> in the message box to see them, next to your EPLUS skills above.</p>
+    {{COMMANDS}}
+  </section>
+
+  <section class="keep">
+    <h2>If something goes wrong</h2>
+    <div class="help">
+      {{HELP}}
+    </div>
+  </section>
+
+  <section class="keep">
+    <h2>My notes</h2>
+    <div class="notes">
+      {{NOTE_LINES}}
+    </div>
+  </section>
+
+  <footer>
+    <img src="{{ICON}}" alt="">
+    <span>Whenever you want to see what else Claude can do, just ask: "Show me what you can do."</span>
+  </footer>
+  <button class="print" onclick="window.print()">Print this page</button>
+</div>
+</body>
+</html>

@@ -16,11 +16,11 @@ hand-writing replacements.
 |-------|---------|
 | `eplus-branding` | EPLUS brand guidelines (colors, logos, typography) using portable system fonts — for deliverables that must survive PDF round-trips and cross-app editing |
 | `workflow-packager` | Detects document-heavy conversations and, after completing the task, offers to package the prompt and reference documents into a reusable personal skill |
-| `getting-started` | Onboarding tour ("show me what you can do"): seven short hands-on demos of Cowork itself, a cheat-sheet artifact, memory, making a skill, a branded Word document, the browser (EPLUS model viewer), building a LibreChat agent, and a scheduled task. One file per demo under `demos/`, the cheat-sheet template in `assets/` |
+| `eplus-getting-started` | Onboarding tour ("show me what you can do"): seven short hands-on demos of Cowork itself, a cheat-sheet artifact, memory, making a skill, a branded Word document, the browser (EPLUS model viewer), building a LibreChat agent, and a scheduled task. One file per demo under `demos/`, the cheat-sheet template in `assets/` |
 
 `eplus-branding` carries its brand summary, logo assets, and
 the Brand Guidelines PDF inside the skill folder. `workflow-packager` and
-`getting-started` have no server dependency; `getting-started` uses only
+`eplus-getting-started` have no server dependency; `eplus-getting-started` uses only
 Cowork's built-in tools (artifacts, memory, save_skill, the browser, scheduled
 tasks) plus `eplus-branding`. Nothing in this plugin needs a server or a local process.
 

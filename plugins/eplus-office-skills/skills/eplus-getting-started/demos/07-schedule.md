@@ -19,7 +19,8 @@ every week) without being asked each time.
    ("Getting started test" or "Monday check-in") and a prompt that is
    self-contained (it runs later with no memory of this chat).
 4. Show them the list of their scheduled tasks (`list_scheduled_tasks`) and
-   where to find it. For the one-time test, tell them to look for the result in
+   where to find it, and tell them `/schedule` is the shortcut for setting one
+   up or changing it later. For the one-time test, tell them to look for the result in
    about five minutes.
 5. Offer to delete it now or keep it. Delete only on a clear yes
    (`delete_scheduled_task`).
