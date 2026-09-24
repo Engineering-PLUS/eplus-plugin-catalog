@@ -268,7 +268,7 @@ a. **User explicitly requested a file** (said "Word doc", "docx",
    docx template to match): FIRST load the docx skill if one is
    available in this environment and follow it to produce the
    response as a .docx file built from the markdown draft. Apply EPLUS
-   branding per the `eplus-branding-default-fonts` skill (portable
+   branding per the `eplus-branding` skill (portable
    fonts — RFI responses get issued as PDFs and reopened in Bluebeam).
    Present the file when done (`present_files` where that tool exists,
    otherwise by path). If no docx skill or file-creation tools are

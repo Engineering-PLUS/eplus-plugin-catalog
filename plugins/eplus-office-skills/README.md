@@ -14,10 +14,10 @@ hand-writing replacements.
 
 | Skill | Purpose |
 |-------|---------|
-| `eplus-branding-default-fonts` | EPLUS brand guidelines (colors, logos, typography) using portable system fonts — for deliverables that must survive PDF round-trips and cross-app editing |
+| `eplus-branding` | EPLUS brand guidelines (colors, logos, typography) using portable system fonts — for deliverables that must survive PDF round-trips and cross-app editing |
 | `workflow-packager` | Detects document-heavy conversations and, after completing the task, offers to package the prompt and reference documents into a reusable personal skill |
 
-`eplus-branding-default-fonts` carries its brand summary, logo assets, and
+`eplus-branding` carries its brand summary, logo assets, and
 the Brand Guidelines PDF inside the skill folder. `workflow-packager` has no
 server dependency. Nothing in this plugin needs a server or a local process.
 
@@ -47,6 +47,6 @@ trigger a sync — bump `version` in `.claude-plugin/plugin.json` in every
 release PR, or trigger manually via "Update" on the marketplace.
 
 Verify by asking Claude to "style this deck with EPLUS branding" —
-`eplus-branding-default-fonts` should load. For the packager, attach 3+
+`eplus-branding` should load. For the packager, attach 3+
 office files with a structured prompt and confirm the workflow-packaging
 offer appears after the task is delivered.

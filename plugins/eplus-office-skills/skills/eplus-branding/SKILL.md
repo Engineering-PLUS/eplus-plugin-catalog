@@ -1,18 +1,18 @@
 ---
-name: eplus-branding-default-fonts
-description: Applies the EPLUS corporate brand guidelines, color palette, and logos to UI components using only default, universally-available system fonts (Arial and standard sans-serif fallbacks) instead of the custom Montserrat/Sui Generis company fonts. Use this whenever the output must stay editable or render correctly across applications and machines that do not support installed custom fonts — for example a PowerPoint exported to PDF and reopened in Bluebeam, AutoCAD, or on a reviewer's computer. Optimized for web, Microsoft Teams, Windows apps (WPF), PowerPoint/Office, PDF deliverables, and pyRevit (XAML/Python) extensions. Prefer this over the eplus-branding skill any time portability, PDF round-tripping, or cross-app text editing matters.
+name: eplus-branding
+description: Applies the EPLUS corporate brand guidelines, color palette, and logos to UI components using only default, universally-available system fonts (Arial and standard sans-serif fallbacks) instead of the custom Montserrat/Sui Generis company fonts. Use this whenever the output must stay editable or render correctly across applications and machines that do not support installed custom fonts — for example a PowerPoint exported to PDF and reopened in Bluebeam, AutoCAD, or on a reviewer's computer. Optimized for web, Microsoft Teams, Windows apps (WPF), PowerPoint/Office, PDF deliverables, and pyRevit (XAML/Python) extensions.
 ---
 
 # EPLUS Branding Skill Workflow (Default-Fonts Edition)
 
 You are an expert UI/UX developer. Your goal is to style applications strictly adhering to the EPLUS Brand Guidelines, using **default, universally-available system fonts** so that all code and assets are fully portable and all text remains editable for distribution to other users and other applications.
 
-**Why this edition exists:** The custom company fonts (`Montserrat`, `Sui Generis`) are not supported by many applications even when the font files are installed. A common failure: a PowerPoint styled in Montserrat is exported to PDF and reopened in Bluebeam, where the text can no longer be edited because Bluebeam does not support that font. This edition avoids that entirely by mapping the brand hierarchy onto `Arial` and standard fallbacks. If the deliverable genuinely requires the embedded company fonts, use the `eplus-branding` skill instead.
+**Why this edition exists:** The custom company fonts (`Montserrat`, `Sui Generis`) are not supported by many applications even when the font files are installed. A common failure: a PowerPoint styled in Montserrat is exported to PDF and reopened in Bluebeam, where the text can no longer be edited because Bluebeam does not support that font. This edition avoids that entirely by mapping the brand hierarchy onto `Arial` and standard fallbacks.
 
 ## Step 1: Context Gathering
 - Read the `brand-summary.md` file located in this skill's directory to load the exact color palette (Blue: #666f89, accent Green: #3c7d7f, etc.), the color role/proportion rules, and the default-font typography hierarchy.
 - Identify the user's current framework: Are they building a web app (HTML/CSS), a Teams app, a Windows app (WPF), an Office/PowerPoint deliverable, a PDF, or a pyRevit extension (XAML/Python)?
-- **No font opt-in is required.** This edition always uses default system fonts, so proceed directly without asking whether to install company fonts. (If the user explicitly asks for the embedded Montserrat/Sui Generis fonts, point them to the `eplus-branding` skill.)
+- **No font opt-in is required.** This edition always uses default system fonts, so proceed directly without asking whether to install company fonts. (If the user explicitly asks for the Montserrat/Sui Generis fonts, explain that EPLUS deliverables use Arial so the text stays editable in Bluebeam and on other machines, and continue with Arial.)
 
 ## Step 2: Asset Portability & Copying
 **NEVER hardcode absolute paths** to this skill's directory (e.g., never use `C:\Users\...\.copilot\skills\`). All assets must live locally within the project for distribution.

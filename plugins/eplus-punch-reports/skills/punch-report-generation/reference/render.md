@@ -66,7 +66,7 @@ exported body PDF gets replaced by the coversheet (in Bluebeam, or with
 counted that page, "Page 2 of 10" stays right with no field tricks. Never put
 a header or footer on that section.
 
-Read the `docx` skill for mechanics and `eplus-branding-default-fonts` for styling
+Read the `docx` skill for mechanics and `eplus-branding` for styling
 if you need to modify the renderer. Its defaults are all learned the hard way —
 **do not re-derive them**:
 

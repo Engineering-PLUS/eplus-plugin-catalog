@@ -1,5 +1,6 @@
 ---
 name: plangrid-punch-extraction
+user-invocable: false
 description: >
   Extract drawings, photos, and marked-up views from PlanGrid-generated punch
   report PDFs. Use whenever a punch report, punch list, field progress report,

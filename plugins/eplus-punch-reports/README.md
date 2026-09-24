@@ -61,14 +61,14 @@ asks for a PDF from the pipeline, `scripts/export_pdf.py` produces a clearly
 labelled convenience copy (two LibreOffice passes, so its page numbers match
 its own pagination) and `package.py --pdf` delivers it beside the zip.
 
-**Temporary:** `/test-punch [project] [days back]` runs a scripted, token-minimal
+**Testing:** `/eplus-acceptance:test-punch [project] [days back]` (eplus-acceptance
+plugin, eplus-verification catalog, testing profiles only) runs a scripted, token-minimal
 smoke test of the workspace flow, the build rules, `package.py`, and the
 `plangrid` MCP route (`list_projects`, `list_sheets` and `get_tasks`
 summaries, then `pull_mcp.sh` fetching the sha256-checked packets,
 `fetch_photos.py`, `adapt_mcp_pull.py` and `consolidate.py` on them, which
 also shows whether the sandbox can reach the MCP host), for capturing
-evidence in a session export. Remove `commands/test-punch.md` before wide
-rollout.
+evidence in a session export. It is not shipped in this plugin.
 
 The MCP's bulk tools return summaries; the full JSON stays on the MCP host as
 a packet that `scripts/pull_mcp.sh` fetches. The model never retypes a tool

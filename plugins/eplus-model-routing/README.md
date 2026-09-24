@@ -46,8 +46,6 @@ text; they see only their JSON payload. Two payloads carry the model:
 | Hook | `scripts/note-model.ps1` | SessionStart: records the payload model to `%TEMP%\eplus-model-routing\<session>\model.txt` (and plugin data when set), plus the payload's key names as a diagnostic; emits nothing. |
 | Hook | `scripts/route-check.ps1` | UserPromptSubmit: tier detection and the injection above. |
 | Hook | `scripts/spawn-gate.ps1` | PreToolUse on Agent: logs every spawn to `routing.log`; returns `ask` when a spawn requests Opus or Fable. |
-| Command | `commands/model-check.md` | Temporary test aid: prints the env model line and whether the routing note arrived. Remove before wide rollout. |
-| Command | `commands/routing-test.md` | Temporary scripted test: detection, one haiku-fast spawn, one sonnet-standard spawn, one gated Opus spawn attempt, five-row results table. Remove before wide rollout. |
 
 Switches: `EPLUS_NO_MODEL_ROUTING=1` disables recording and injection;
 `EPLUS_ALLOW_EXPENSIVE_SPAWN=1` disables the gate but keeps the spawn log.
@@ -107,13 +105,16 @@ when a task turns out to need writing or judgment.
 
 ## Testing
 
-Fastest path: run `/eplus-model-routing:routing-test` once on an Opus or
+The test commands live in the `eplus-acceptance` plugin of the
+eplus-verification catalog (testing profiles only), not in this plugin.
+
+Fastest path: run `/eplus-acceptance:routing-test` once on an Opus or
 Fable session. **Step 4 raises an approval prompt in the Cowork UI; that prompt
 is the test, so read it and decline it.** Then export. The
 five-row table plus the export's hook attachments and `routing.log` cover
 every mechanism. The manual steps below do the same thing piecewise.
 
-1. Run `/eplus-model-routing:model-check` as the first prompt of a session.
+1. Run `/eplus-acceptance:model-check` as the first prompt of a session.
    Line 1 shows the env model. Line 2 should say `received` on an Opus or
    Fable session and `not received` on a Sonnet session, which proves the
    SessionStart recording worked. If it says `received` on Sonnet, the

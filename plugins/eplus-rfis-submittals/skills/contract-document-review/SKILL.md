@@ -212,7 +212,7 @@ are open.
   unclean placements (Step 0 standing choice or ask), then the real run.
   Originals are never modified. A general note the user supplies goes on its
   own unnumbered line under the header, before comment 1.
-- **Word documents:** the docx skill with `eplus-branding-default-fonts`, built
+- **Word documents:** the docx skill with `eplus-branding`, built
   by a parser script kept in the working folder that reads `FINAL_CONTENT.md`,
   so every revision rebuilds the same way. A general note is not a numbered
   comment and is not counted in comment counts.

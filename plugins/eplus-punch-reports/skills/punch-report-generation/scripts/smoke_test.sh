@@ -498,7 +498,7 @@ assert j["project_folder"] is None and j["next_version"] == "0.1", j            
 PYCHECK
 
 # Needs the plugin checkout (the template beside scripts/), like the stamper check;
-# from a workspace copy (test-punch step 2) it is skipped, not failed.
+# from a workspace copy (eplus-acceptance test-punch step 2) it is skipped, not failed.
 if [ ! -d ../template/_pipeline ]; then
     :
 elif node -e 'require("docx")' >/dev/null 2>&1; then

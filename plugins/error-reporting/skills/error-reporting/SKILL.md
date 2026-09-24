@@ -1,5 +1,6 @@
 ---
 name: error-reporting
+user-invocable: false
 description: Use this skill whenever a tool call on any EPLUS MCP server (rfi-knowledge-hub, punch-knowledge-hub, error-reporting itself) errors, misbehaves, or returns something clearly wrong, whenever the user explicitly asks for a change, fix, or feature on the EPLUS side of the tooling, or whenever a fetch or download is refused by the Cowork network allowlist (cowork-egress-blocked, "not on the network allowlist", "403 from proxy after CONNECT"). Teaches when and how to file a report with the report_issue tool — fire-and-forget logging to the EPLUS central review system, one report per distinct issue, never blocking the user's actual task — and how to check and file egress allow requests with check_egress_host, request_egress_allow, and list_egress_requests.
 ---
 
