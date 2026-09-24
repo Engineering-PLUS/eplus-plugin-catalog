@@ -64,11 +64,28 @@ don't respond to it, drop it for the rest of the conversation.
 4. In SKILL.md, note which inputs are expected as fresh attachments
    each run, so the skill asks for a missing variable file instead
    of assuming the references cover it.
-5. Deliver the skill folder as a zip with 2–3 sentence install
-   instructions for Claude Desktop, and tell them how to invoke it
-   (/<skill-name> or by describing the task naturally).
+5. Save it. Which way depends on whether it has files besides SKILL.md:
+   - **SKILL.md only** (the references are short enough to go inside
+     it): call `mcp__cowork__save_skill` (load it first with ToolSearch
+     `select:mcp__cowork__save_skill`) with `name` (kebab-case),
+     `description` (one line saying when to use it; it becomes the
+     trigger) and `content` (the SKILL.md body in Markdown, self-contained,
+     no reference to this conversation). Cowork asks the user to approve
+     the save. This tool cannot attach any other file.
+   - **With a `references/` or `scripts/` folder:** build the folder in
+     the sandbox with SKILL.md carrying `name` and `description`
+     frontmatter, zip it with the folder at the top level as
+     `<skill-name>.skill` (`cd /tmp && zip -r <skill-name>.skill
+     <skill-name>`), copy it into the session outputs folder, and call
+     `mcp__cowork__present_files` with its path there. The user gets a
+     card with a **Save skill** button that installs the whole folder.
+   Either way the skill is saved to the user's own account, available in
+   all their conversations; it is not shared with the team. Tell them how
+   to invoke it (/<skill-name> or by describing the task naturally).
 6. Tell them the skill can be edited later: they can just tell
-   Claude what to change about it in any future chat.
+   Claude what to change about it in any future chat. A SKILL.md-only
+   skill is updated with `save_skill` and `overwrite: true`; a skill with
+   files is rebuilt and presented again as a new `.skill` card.
 
 ## Rule 5: staleness
 
