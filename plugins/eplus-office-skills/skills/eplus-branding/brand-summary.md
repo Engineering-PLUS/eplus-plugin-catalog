@@ -5,9 +5,7 @@
 > **universally available system fonts** (Arial and standard sans-serif fallbacks).
 > Use it whenever the output must stay editable across applications that do not embed
 > or support the custom company fonts — e.g. a PowerPoint exported to PDF and reopened
-> in Bluebeam, AutoCAD, or another reviewer's machine. If the deliverable genuinely
-> requires the embedded `Montserrat` / `Sui Generis` company fonts, use the
-> `eplus-branding` skill instead.
+> in Bluebeam, AutoCAD, or another reviewer's machine.
 
 ## 1. Color Palette
 Always use these exact HEX codes when styling components:

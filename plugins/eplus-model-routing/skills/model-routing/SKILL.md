@@ -1,5 +1,6 @@
 ---
 name: model-routing
+user-invocable: false
 description: Use whenever the "Model:" line in your env block names Opus or Fable, whenever a [model-routing] note appears in context, before any multi-step task, and whenever the user asks about models, speed, or cost. Teaches an expensive main thread to keep itself to decisions and hand the work to the sonnet-standard and haiku-fast workers, with the real cost order and the EPLUS rule that routing is by difficulty AND stakes.
 ---
 
