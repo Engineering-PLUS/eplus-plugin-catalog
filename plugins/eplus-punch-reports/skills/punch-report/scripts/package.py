@@ -309,6 +309,25 @@ def report_cleanup(dest, zip_path, removed, blocked):
         print(f"  python3 scripts/package.py --prune \"{dest}\"")
 
 
+def deliver_template(docx, dest, args):
+    """An empty fill-in report: the body and its cover, nothing else. There is no
+    data worth a package, and the user asked for the two Word files only. Never
+    overwrites: an existing name gets the next free -2, -3, ... suffix."""
+    stem = args.name or os.path.splitext(os.path.basename(docx))[0]
+    cover = re.sub(r"\.docx$", "-Cover.docx", docx, flags=re.I)
+    pairs = [(docx, ".docx")] + ([(cover, "-Cover.docx")] if os.path.isfile(cover) else [])
+    suffix = free_suffix(dest, stem, [".docx"])
+    print(f"destination : {dest}  (template only: body and cover, no package)")
+    for src, tail in pairs:
+        name = f"{stem}{suffix}{tail}"
+        if args.dry_run:
+            print(f"would deliver: {name}")
+            continue
+        shutil.copy2(src, os.path.join(dest, name))
+        print(f"delivered   : {name}")
+    return 0
+
+
 def main():
     if "--prune" in sys.argv:
         ap = argparse.ArgumentParser(description="remove earlier versions already inside the newest package")
@@ -342,6 +361,9 @@ def main():
     ap.add_argument("--allow-placeholders", action="store_true",
                     help="deliver even though PROCESS-LOG, ISSUES-LIST, README or CLAUDE.md still "
                          "carry template text (tests and dry runs only)")
+    ap.add_argument("--template-only", action="store_true",
+                    help="an empty fill-in report (blank_template.py): deliver the body and the cover "
+                         "only; no package, no review sheet, no client profile, no paperwork check")
     args = ap.parse_args()
 
     ws = os.path.abspath(args.workspace)
@@ -354,6 +376,8 @@ def main():
     docx, xlsx = find_deliverables(ws)
     if not docx:
         sys.exit("ERROR: no rendered .docx under _pipeline/build/; render before delivering")
+    if args.template_only:
+        return deliver_template(docx, dest, args)
     unfilled = unfilled_paperwork(ws)
     if unfilled and not (args.allow_placeholders or args.dry_run):
         lines = "\n".join(f"  {rel}: still contains {marker!r}" for rel, marker in unfilled)

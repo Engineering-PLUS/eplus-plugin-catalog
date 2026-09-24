@@ -215,6 +215,8 @@ function metaRowsData(item) {
   // date_recorded). The earliest photo timestamp is only a fallback for a
   // master built without it: on 2026-09-14 the photo-only rule printed N/A on
   // 27 of 38 items and forced a second delivery.
+  // A blank fill-in page (blank_template.py) leaves both values for the engineer.
+  if (item.blank) return [['Drawing Sheet', ''], ['Date Recorded', '']];
   const shots = (item.photo_titles || []).map(fmtTimestamp).filter(Boolean).sort();
   const recorded = item.date_recorded || (shots.length ? shots[0].split(' ')[0] : 'N/A');
   return [
@@ -245,7 +247,7 @@ function metaTable(item) {
   } else {
     clipCellChildren = [new Paragraph({
       alignment: AlignmentType.CENTER,
-      children: [run('(no pin clip)', { italics: true, size: 15, color: LIGHTGREY })],
+      children: item.blank ? [] : [run('(no pin clip)', { italics: true, size: 15, color: LIGHTGREY })],
     })];
   }
 
@@ -504,7 +506,7 @@ function itemSection(item, opts = {}) {
   children.push(new Paragraph({ text: '', spacing: { after: 80 }, keepNext: true }));
 
   children.push(labelPara('Item Description'));
-  children.push(bodyPara(item.description || '(no description available)'));
+  children.push(bodyPara(item.blank ? '' : (item.description || '(no description available)')));
 
   children.push(labelPara('Corrective Action'));
   children.push(bodyPara(item.corrective_action));
@@ -1192,7 +1194,7 @@ Packer.toBuffer(doc).then(async (buf) => {
   }
   const undetermined = master.filter(m => m.corrective_action.startsWith('N/A')).length;
   const deleted = master.filter(m => m.deleted_in_plangrid).length;
-  const undated = master.filter(m => !m.date_recorded).length;
+  const undated = master.filter(m => !m.date_recorded && !m.blank).length;
   console.log(`items=${master.length} precedent=${withPrecedent} editor_notes=${editorNoted} undetermined=${undetermined} photos=${totalPhotos}`
     + ` visit_sections=${VISIT_BREAKS.length} deleted_marked=${deleted}`
     + (undated ? ` DATE_RECORDED_MISSING=${undated}` : ''));

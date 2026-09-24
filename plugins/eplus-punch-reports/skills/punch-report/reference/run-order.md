@@ -15,7 +15,8 @@ explanation and the user cancelled it. So:
 
 - **No question, folder picker or confirmation before the draft exists.** Not
   `AskUserQuestion`, not `request_cowork_directory`, not a question in prose
-  that waits for a reply. Every decision below has a default; take it.
+  that waits for a reply. Every decision below has a default; take it. The
+  one exception is **No match** in section 1.
 - **Anything unknown goes on the draft, visibly.** A missing cover fact
   renders as a red `[MISSING: ...]` marker; everything else the draft still
   needs lands in the finish list with the one command that supplies it.
@@ -51,11 +52,39 @@ an earlier package.
   and changes only what changed.
 - **The pull:** a pull folder on disk is copied into the workspace (section
   2). Otherwise use the `plangrid` MCP: `list_projects`, take the project
-  whose name matches the argument or the project folder's name; if nothing
-  matches, the most recently updated project, and say which one you took in
-  the finish list and the final message. Then one `get_tasks` and one
-  `list_sheets`; `scripts/pull_mcp.sh` fetches their packets
-  (`reference/build-data.md`, Step 0b). Never retype a result into a file.
+  whose name matches the argument or the project folder's name. When the user
+  typed nothing and nothing matches, take the most recently updated project,
+  and say which one you took in the finish list and the final message. Then
+  one `get_tasks` and one `list_sheets`; `scripts/pull_mcp.sh` fetches their
+  packets (`reference/build-data.md`, Step 0b). Never retype a result into a
+  file.
+- **No match: the one question before a draft.** The user named a project,
+  `list_projects` finds nothing for it (search again with
+  `active_only: false`), and there is no pull or Task Report PDF on disk.
+  Never substitute an unrelated project: field result 2026-09-24, "htx2"
+  matched nothing and the most recent project would have put a Project Miner
+  report in the htx2 folder. Ask one `AskUserQuestion`: **an empty report**
+  (the cover plus three blank item pages to fill in by hand, two Word files),
+  up to two PlanGrid projects whose names come closest, or **I'll add the
+  inputs** (a pull or a Task Report PDF in the folder, then tell you). A
+  project picked from the options is a normal run. An empty report is built
+  and delivered like this, and nothing else from sections 3 to 6 applies:
+
+  ```bash
+  bash "$S/scripts/init_workspace.sh" <workspace>
+  cd <workspace>/_pipeline && bash scripts/install_deps.sh
+  python3 scripts/blank_template.py --pages 3
+  python3 scripts/prefill_config.py --project-name "<what the user typed>" --version <next version> \
+      [--project-folder <project folder>]
+  RENDER_ONLY=1 bash scripts/run_pipeline.sh
+  python3 scripts/package.py <workspace> "<deliver to>" --template-only
+  ```
+
+  `--template-only` delivers the body and the cover and nothing else: no
+  package, no review sheet, no client profile, no paperwork. The final
+  message names the two files, says the item pages are blank for the
+  engineer to fill in (more pages: `--pages N`), and lists the cover fields
+  marked `[MISSING]`; no finish-list questions.
 - **No Task Report PDF:** build without pin clips. It is a finish-list entry,
   not a question.
 

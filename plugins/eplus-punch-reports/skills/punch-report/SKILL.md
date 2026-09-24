@@ -1,6 +1,7 @@
 ---
 name: punch-report
-description: Use this skill to DRAFT a punch report, field progress report, or site inspection report from raw field material — a PlanGrid project pull, a folder of site photos, an engineer's walk notes, or any combination. Trigger when asked to write up a punch walk, turn photos and notes into a report, produce a draft punch list document, or generate a deliverable from a site visit. Builds the whole draft without stopping to ask, then lists what is missing and applies each answer as a surgical edit. Covers consolidating messy source data, drafting descriptions in field-report voice, checking wording against EPLUS precedent, and rendering a branded one-page-per-item Word document with a live table of contents. Distinct from the `punch-history` skill, which QUERIES the historical corpus; this one PRODUCES a new report.
+description: Build a draft punch report from a PlanGrid project. Pulls the pins and photos, writes each item in field-report voice, and delivers a branded Word report with a list of what's still missing.
+when_to_use: Trigger when asked to draft or write up a punch report, field progress report, or site inspection report from raw field material — a PlanGrid project pull, a folder of site photos, an engineer's walk notes, or any combination — to turn photos and notes into a report, produce a draft punch list document, or generate a deliverable from a site visit. Builds the whole draft without stopping to ask, then lists what is missing and applies each answer as a surgical edit. Covers consolidating messy source data, drafting descriptions in field-report voice, checking wording against EPLUS precedent, and rendering a branded one-page-per-item Word document with a live table of contents. Distinct from the `punch-history` skill, which QUERIES the historical corpus; this one PRODUCES a new report.
 argument-hint: [project folder or PlanGrid project name, or leave blank]
 ---
 
@@ -66,7 +67,10 @@ renderer bakes in, so a run that skips it re-derives them the hard way.
 
 **`reference/run-order.md` carries the run order: read it first on every
 fresh run and follow it.** The shape is
-fixed: **no question, folder picker or confirmation before the draft exists.**
+fixed: **no question, folder picker or confirmation before the draft exists**,
+except when the project the user named matches nothing in PlanGrid and nothing
+is on disk (run order, section 1, **No match**: one question, and an empty
+report is the cover plus blank item pages from `scripts/blank_template.py`).
 Users start a report and walk away; field results 2026-09-09 to 2026-09-14 lost
 12 to 47 minutes per report to unanswered question rounds, and on 2026-09-23 a
 folder picker opened with no explanation and was cancelled. So every decision

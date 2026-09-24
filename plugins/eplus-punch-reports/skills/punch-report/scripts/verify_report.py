@@ -107,7 +107,8 @@ def main():
     # Date Recorded comes from the pin, so it is never N/A on an item whose pin
     # carries a date. Field result 2026-09-14: photo-derived dates left 27 of 38
     # items reading N/A and cost a second delivery.
-    undated = [m["plangrid_ref"] for m in master if not m.get("date_recorded")]
+    # Blank fill-in pages (blank_template.py) have no pin and no date by design.
+    undated = [m["plangrid_ref"] for m in master if not m.get("date_recorded") and not m.get("blank")]
     n_na = norm.count("Date Recorded N/A")
     checks.append(("Date Recorded populated from the pin date", n_na <= len(undated),
                    f"{n_na} item(s) read 'Date Recorded N/A' but only {len(undated)} lack a pin date "
@@ -306,13 +307,18 @@ def main():
         # The issuance date is asked, never inferred, and "TBD" is the sanctioned
         # placeholder on a draft; the inspection date must still be a real date.
         n_dates = len(re.findall(r"\b\d{2}/\d{2}/\d{4}\b", ctext))
+        # With no pins there is no walk date to take (an empty or blank-template
+        # report): a red [MISSING: walk date] stands in for it and the finish list
+        # asks for it. Field result 2026-09-24: an empty report failed here, which
+        # stopped the run before the review sheet and the finish list.
+        walk = 1 if (not pin_dates and "[MISSING: walk date]" in ctext) else 0
         iss = str(cfg.get("issuance_date") or "").strip().upper()
         if iss in ("", "TBD") or iss.startswith("<"):
             checks.append(("cover: inspection date in MM/DD/YYYY, issuance date TBD",
-                           n_dates >= 1 and "TBD" in ctext.upper(),
+                           n_dates + walk >= 1 and "TBD" in ctext.upper(),
                            f"{n_dates} date(s) found; expected the inspection date and a visible TBD"))
         else:
-            checks.append(("cover: dates in MM/DD/YYYY", n_dates >= 2,
+            checks.append(("cover: dates in MM/DD/YYYY", n_dates + walk >= 2,
                            "expected inspection and issuance dates as MM/DD/YYYY"))
         checks.append(("cover: no draft warning on the cover", "DRAFT" not in ctext.upper() or "FOR INTERNAL REVIEW" not in ctext.upper(),
                        "the draft block belongs in the first Editor's Note, not on the cover"))

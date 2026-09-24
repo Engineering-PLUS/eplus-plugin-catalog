@@ -1,6 +1,7 @@
 ---
 name: pdf-stamping
-description: Apply EPLUS Bluebeam review stamps and the EPLUS comment block to submittal PDFs, producing an "EPLUS RESPONSE - " copy with live, Bluebeam-editable annotations. Use whenever the user asks to stamp a submittal, add a DRAFT or FOR REFERENCE ONLY watermark, apply "Exceptions As Noted" / "No Exception" / "Rejected (Resubmit)" / "Review Required" / "For Record" / "For Information Only", add the ENGINEERING PLUS COMMENTS box to a drawing, change the comment colour or add a general note on already-stamped copies, stamp a batch of submittals, or mark a submittal reviewed. Cowork-only — it needs PyMuPDF and a real filesystem. Handles Bluebeam annotation stamps, which a plain PDF merge silently fails to render.
+description: Stamp submittal PDFs with the EPLUS Bluebeam review stamps and comment block, editable in Bluebeam.
+when_to_use: Use whenever the user asks to stamp a submittal, add a DRAFT or FOR REFERENCE ONLY watermark, apply "Exceptions As Noted" / "No Exception" / "Rejected (Resubmit)" / "Review Required" / "For Record" / "For Information Only", add the ENGINEERING PLUS COMMENTS box to a drawing, change the comment colour or add a general note on already-stamped copies, stamp a batch of submittals, or mark a submittal reviewed. Produces an "EPLUS RESPONSE - " copy with live, Bluebeam-editable annotations. Cowork-only — it needs PyMuPDF and a real filesystem. Handles Bluebeam annotation stamps, which a plain PDF merge silently fails to render.
 ---
 
 # EPLUS submittal stamping

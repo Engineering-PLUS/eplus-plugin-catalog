@@ -1,6 +1,7 @@
 ---
 name: eplus-branding
-description: Applies the EPLUS corporate brand guidelines, color palette, and logos to UI components using only default, universally-available system fonts (Arial and standard sans-serif fallbacks) instead of the custom Montserrat/Sui Generis company fonts. Use this whenever the output must stay editable or render correctly across applications and machines that do not support installed custom fonts — for example a PowerPoint exported to PDF and reopened in Bluebeam, AutoCAD, or on a reviewer's computer. Optimized for web, Microsoft Teams, Windows apps (WPF), PowerPoint/Office, PDF deliverables, and pyRevit (XAML/Python) extensions.
+description: Apply EPLUS colors, logos and typography to documents, slides and apps, using Arial so they stay editable in Bluebeam and on any machine.
+when_to_use: Use this whenever the output must stay editable or render correctly across applications and machines that do not support installed custom fonts — for example a PowerPoint exported to PDF and reopened in Bluebeam, AutoCAD, or on a reviewer's computer. Applies the EPLUS corporate brand guidelines, color palette, and logos using only default, universally-available system fonts (Arial and standard sans-serif fallbacks), never the custom Montserrat/Sui Generis company fonts. Optimized for web, Microsoft Teams, Windows apps (WPF), PowerPoint/Office, PDF deliverables, and pyRevit (XAML/Python) extensions.
 ---
 
 # EPLUS Branding Skill Workflow (Default-Fonts Edition)

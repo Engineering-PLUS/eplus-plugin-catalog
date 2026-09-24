@@ -42,6 +42,8 @@ Rules enforced here so the renderer never has to care:
     the decision is therefore a re-render, never a data re-run.
   - drafted_items.json may carry "omit": [N, ...], pins the reviewer dropped
     from the report (update_report.py --drop). items.json is never edited.
+  - Entries with "blank": true (blank_template.py, an empty fill-in report)
+    render as empty pages: no title, no description, no N/A, no voice check.
 
 Usage:
     python3 build_master.py --items data/items.json \
@@ -190,7 +192,7 @@ def main():
     for d in drafted_list:
         d["number"] = int(d["number"])
     lacking = [f"#{d['number']} ({', '.join(f for f in ('title', 'description') if not d.get(f))})"
-               for d in drafted_list if not d.get("title") or not d.get("description")]
+               for d in drafted_list if not d.get("blank") and (not d.get("title") or not d.get("description"))]
     if lacking:
         sys.exit("ERROR: every drafted item needs a title and a description. Missing on: "
                  + ", ".join(lacking))
@@ -245,6 +247,21 @@ def main():
             continue
         d = drafted[num]
         display_n += 1
+
+        # An empty fill-in page (blank_template.py): every field stays empty so
+        # the engineer types into it in Word; nothing reads "N/A".
+        if d.get("blank"):
+            master.append({
+                "display_number": display_n, "plangrid_ref": f"#{num}", "blank": True,
+                "title": "", "description": "", "corrective_action": "", "location": "",
+                "sheet_display": "", "sheet_name": "", "sheet_description": "",
+                "photo_paths": [], "photo_titles": [], "origin": "blank_template",
+                "confidence": None, "field_note_original": None, "precedent_note": None,
+                "editor_note": None, "photo_mode": None, "status": None,
+                "date_recorded": "", "created_at": None, "photo_date": None,
+                "deleted_in_plangrid": False,
+            })
+            continue
 
         # Text that a human approved is never altered by the pipeline. It must
         # arrive already clean; anything sanitize would change is an error, not
@@ -338,7 +355,7 @@ def main():
     print(f"  origins        : {origins}")
     print(f"  with precedent : {sum(1 for m in master if m['precedent_note'])}")
     print(f"  editor notes   : {sum(1 for m in master if m['editor_note'])}")
-    undated = [m["plangrid_ref"] for m in master if not m["date_recorded"]]
+    undated = [m["plangrid_ref"] for m in master if not m["date_recorded"] and not m.get("blank")]
     print(f"  date recorded  : {len(master) - len(undated)} from pin created_at"
           + (f", MISSING on {undated}" if undated else ""))
     deleted = [m["plangrid_ref"] for m in master if m["deleted_in_plangrid"]]

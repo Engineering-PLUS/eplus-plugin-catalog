@@ -1,7 +1,7 @@
 ---
 name: workflow-packager
 user-invocable: false
-description: Use this skill whenever a conversation is heavily loaded with attached documents — several office files (docx, xlsx, pdf) attached at once, or large volumes of extracted document content dominating the conversation. Strong signals: 3 or more attachments in one message, long extracted tables or spec text, a structured prompt accompanying a document dump, or the user mentioning they've run this same request before or reuse a saved prompt. When these signals appear, complete the user's task first, then ask whether this is a workflow they'd like to make repeatable.
+description: Use this skill whenever a conversation is heavily loaded with attached documents — several office files (docx, xlsx, pdf) attached at once, or large volumes of extracted document content dominating the conversation. Strong signals are 3 or more attachments in one message, long extracted tables or spec text, a structured prompt accompanying a document dump, or the user mentioning they've run this same request before or reuse a saved prompt. When these signals appear, complete the user's task first, then ask whether this is a workflow they'd like to make repeatable.
 ---
 
 # Workflow Packager — turn repeated prompts + files into skills
