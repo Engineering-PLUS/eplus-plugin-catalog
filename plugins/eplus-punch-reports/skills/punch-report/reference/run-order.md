@@ -85,8 +85,15 @@ an earlier package.
   message names the two files, says the item pages are blank for the
   engineer to fill in (more pages: `--pages N`), and lists the cover fields
   marked `[MISSING]`; no finish-list questions.
-- **No Task Report PDF:** build without pin clips. It is a finish-list entry,
-  not a question.
+- **No Task Report PDF** (none attached, none found): export one from
+  PlanGrid in the built-in browser, `reference/task-report-export.md`. Start
+  it as soon as `list_projects` gives the uid; it generates (about 100
+  seconds for 36 tasks) while the run carries on, and is fetched into the
+  workspace before the data pass or, failing that, before the render. It
+  never holds the run up: if the user is signed out of PlanGrid, post the
+  sign-in message once and carry on; if the export has not arrived by the
+  render, build without pin clips and it is a finish-list entry, not a
+  question.
 
 ## 2. Build the workspace
 
@@ -139,7 +146,7 @@ later with one command (section 8):
 | Client, address, EP number, building, inspector | from the profile and PlanGrid, else `[MISSING]` | `--set <key>=...` |
 | Cover | a separate `-Cover.docx`; body page 1 blank for it | `--set cover_mode=supplied\|blank\|none` |
 | Wording | every item drafted in field-report voice; inferred items flagged with confidence and an Editor's Note | `--item N --description "..."` |
-| No Task Report PDF | no pin clips | `--task-report "<pdf>"` |
+| No Task Report PDF | exported from PlanGrid in the browser; if it does not arrive, no pin clips | `--task-report "<pdf>"` |
 | Items without photos | an empty paste grid | `--item N --photo-mode none` |
 | Where it goes | the project folder, else the session outputs folder | `--deliver <folder>` |
 

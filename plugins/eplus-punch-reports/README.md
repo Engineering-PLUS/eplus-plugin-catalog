@@ -24,6 +24,22 @@ memory), and whatever no record states renders on the cover as a red
 the draft still needs, each gap with the one command that supplies it; the
 final message carries that list and asks its questions only then.
 
+**The Task Report PDF comes from PlanGrid itself.** It is the only source of the
+per-pin drawing clips and is not part of the connector pull. When the user
+attached none and none is on disk, the main thread opens PlanGrid in the
+built-in browser, starts a Task Report export (Tasks, Export (All), Generate),
+and carries on with the run while it generates (about 100 seconds for 36
+tasks). Before the render it reads the signed download link from the report's
+page and `scripts/fetch_task_report.sh` pulls the PDF into the workspace
+(the sandbox needs egress to
+`plangrid-reports-prod-reportsresults-19fdmf8y8pfpb.s3.amazonaws.com`); a
+render-only pass cuts the clips itself when the PDF arrived after the data
+steps. A signed-out user gets one sign-in message (Claude cannot sign in for
+them) and the run does not wait; an export that does not arrive in time
+leaves the report without clips and the finish list names where it waits in
+PlanGrid. `PROCESS-LOG.md` records the route (`browser export (fetched)`,
+`on disk`, or the skip and its reason). Steps: `reference/task-report-export.md`.
+
 **Missing pieces are surgical edits, not rebuilds.** `scripts/update_report.py`
 applies an answer (a cover fact, an issuance date, a Task Report PDF that
 arrived later, a reworded item, keep or drop a pin, the folder to deliver to),

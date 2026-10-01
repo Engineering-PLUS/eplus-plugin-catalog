@@ -5,7 +5,8 @@ run_record.py -- write the run record from what the pipeline actually produced.
 run_pipeline.sh calls this as its last step. It reads the artifacts on disk
 (data/items.json, data/triage.json, build/master_report_items.json,
 build/report.config.json, build/sheet_clip_dims_jpg.json, the verifier output
-captured in build/verify_output.txt, the pull's photo_route.json) and writes:
+captured in build/verify_output.txt, the pull's photo_route.json, the
+workspace's task_report_route.json from fetch_task_report.sh) and writes:
 
   build/run.json          the machine-readable record of this run
   PROCESS-LOG.md          the block between <!-- run-record:start --> and
@@ -94,6 +95,19 @@ def fill_placeholders(text, facts):
     return out
 
 
+def task_report_route(task_report, rec):
+    """One line for how the Task Report PDF reached this run."""
+    name = os.path.basename(task_report) if task_report else ""
+    status = rec.get("status")
+    if task_report and status == "fetched" and rec.get("file") == name:
+        return f"browser export (fetched from {rec.get('host') or 'PlanGrid'})"
+    if task_report:
+        return "on disk" + (f" (the browser export did not land: {rec.get('reason')})" if status in ("fallback", "skipped") else "")
+    if status in ("fallback", "skipped"):
+        return f"browser export ({status}: {rec.get('reason') or 'no reason recorded'})"
+    return "none"
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--pipeline", default=".", help="the _pipeline folder (default: cwd)")
@@ -118,6 +132,7 @@ def main():
     pull = args.pull or prev.get("inputs", {}).get("pull")
     task_report = args.task_report or prev.get("inputs", {}).get("task_report")
     route = load(os.path.join(pull, "photo_route.json"), {}) if pull else {}
+    tr_route = load(os.path.join(pipe, "..", "task_report_route.json"), {})
     try:
         with open(os.path.join(build, "verify_output.txt"), encoding="utf-8") as f:
             verify = f.read().strip()
@@ -151,7 +166,9 @@ def main():
     rec = {
         "recorded_at": dt.datetime.now().isoformat(timespec="seconds"),
         "inputs": {"pull": pull, "task_report": task_report,
-                   "photo_route": route.get("route", "unknown"), "photo_route_detail": route},
+                   "photo_route": route.get("route", "unknown"), "photo_route_detail": route,
+                   "task_report_route": task_report_route(task_report, tr_route),
+                   "task_report_route_detail": tr_route},
         "scope_rules": scope,
         "triage": triage,
         "clip_similarity": sim,
@@ -200,6 +217,7 @@ def main():
         "|---|---|",
         f"| PlanGrid pull | `{pull or 'unknown'}` |",
         f"| Task Report PDF | `{task_report or 'none, items render (no pin clip)'}` |",
+        f"| Task Report route | {rec['inputs']['task_report_route']} |",
         "| Photo route | " + (f"{route['route']} ({route.get('live', 0)} live, {route.get('pdf', 0)} from PDF)" if route
                               else "not recorded (pre-exported pull, photos shipped with it)") + " |",
         f"| Scope rules | {', '.join(f'{k}={v}' for k, v in scope.items()) or 'none (every item in the pull)'} |",

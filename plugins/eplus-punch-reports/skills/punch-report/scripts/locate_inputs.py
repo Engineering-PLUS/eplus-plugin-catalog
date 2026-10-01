@@ -171,7 +171,8 @@ def main():
     if not any(f["pulls"] for f in scans.values()):
         print("pull           : none on disk; pull from the plangrid MCP (reference/build-data.md, Step 0b)")
     if not any(f["task_reports"] for f in scans.values()):
-        print("task report    : none; build without pin clips and list it in the finish list")
+        print("task report    : none on disk; export it from PlanGrid in the browser while the run carries on "
+              "(reference/task-report-export.md); if it does not arrive, build without pin clips")
     return 0
 
 

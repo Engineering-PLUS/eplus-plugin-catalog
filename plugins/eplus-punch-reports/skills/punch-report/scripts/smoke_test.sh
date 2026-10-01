@@ -790,6 +790,76 @@ assert not _re.search(r"2>\s*/tmp/\w", open("pull_mcp.sh", encoding="utf-8").rea
 srv.shutdown()
 PYCHECK
 
+# fetch_task_report.sh: saves a whole PDF under the report's name beside _pipeline/,
+# refuses a link that is not a PlanGrid report download, reports an expired link and
+# a truncated file, never prints the signature, and records every outcome in
+# task_report_route.json, which run_record.py and finish_list.py turn into the
+# PROCESS-LOG route row and the finish-list entry. Then run_pipeline.sh finds the
+# browser's underscore spelling and a render-only pass cuts the clips of a PDF that
+# arrived after the data steps (asserted on the script text: no real PDF here).
+[ -f fetch_task_report.sh ] && bash -n fetch_task_report.sh 2>/dev/null \
+    && ok "fetch_task_report.sh parses" || bad "fetch_task_report.sh missing or unparseable"
+SMOKE_BASH="$(cygpath -w "$BASH" 2>/dev/null || echo "$BASH")" "$PY" - <<'PYCHECK' 2>&1 && ok "fetch_task_report.sh: fetch, name, refuse, expired, truncated, skip, route row, finish list" \
+    || bad "fetch_task_report.sh behavioural check failed"
+import http.server, json, os, re, socketserver, subprocess, sys, tempfile, threading
+d = tempfile.mkdtemp()
+pdf = b"%PDF-1.4\n" + b"x" * 4000 + b"\n%%EOF\n"
+class Q(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        body, code = {"/ok.pdf": (pdf, 200), "/cut.pdf": (pdf[:2000], 200),
+                      "/old.pdf": (b"<Error><Code>AccessDenied</Code><Message>Request has expired</Message></Error>", 403)
+                      }.get(self.path.split("?")[0], (b"", 404))
+        self.send_response(code); self.end_headers(); self.wfile.write(body)
+    def log_message(self, *a): pass
+socketserver.TCPServer.allow_reuse_address = True
+srv = socketserver.TCPServer(("127.0.0.1", 0), Q); port = srv.server_address[1]
+threading.Thread(target=srv.serve_forever, daemon=True).start()
+host = f"127.0.0.1:{port}"
+sig = "AWSAccessKeyId=AKIATEST&Signature=SECRETSIG%3D&Expires=1"
+cd = "response-content-disposition=attachment%3B%20filename%3DPlanGrid_Task_Report_-_Oct_1_2026.pdf"
+env = dict(os.environ, TASK_REPORT_TEST_HOST=host)
+dest = os.path.join(d, "ws")
+def run(*a):
+    r = subprocess.run([os.environ.get("SMOKE_BASH") or "bash", "fetch_task_report.sh", "--dest", dest, *a],
+                       capture_output=True, text=True, env=env)
+    out = r.stdout + r.stderr
+    assert "SECRETSIG" not in out, "signature printed:\n" + out
+    return r.returncode, out
+route = lambda: json.load(open(os.path.join(dest, "task_report_route.json"), encoding="utf-8"))
+rc, out = run(f"http://{host}/ok.pdf?{cd}&{sig}", "--staple", "https://app.plangrid.com/projects/u/staple/s")
+saved = os.path.join(dest, "PlanGrid Task Report - Oct 1 2026.pdf")
+assert rc == 0 and os.path.isfile(saved) and open(saved, "rb").read() == pdf, out
+assert route()["status"] == "fetched" and route()["file"] == os.path.basename(saved), route()
+rc, out = run(f"http://{host}/ok.pdf?{cd}&{sig}")  # same file again: no "(2)" copy
+assert rc == 0 and len([f for f in os.listdir(dest) if f.endswith(".pdf")]) == 1, os.listdir(dest)
+rc, out = run(f"http://{host}/old.pdf?{sig}", "--report-name", "PlanGrid Task Report - Oct 2, 2026")
+assert rc == 1 and "expired" in out and route()["status"] == "fallback", out
+rc, out = run(f"http://{host}/cut.pdf?{sig}", "--report-name", "PlanGrid Task Report - Oct 3, 2026")
+assert rc == 1 and "NOT A COMPLETE PDF" in out and not os.path.exists(os.path.join(dest, "PlanGrid Task Report - Oct 3, 2026.pdf")), out
+rc, out = run("https://app.plangrid.com/projects/u/staple/s")
+assert rc == 2 and "REFUSED" in out, out
+env.pop("TASK_REPORT_TEST_HOST")
+rc, out = run(f"http://{host}/ok.pdf?{sig}")  # the test host is only allowed when the test says so
+assert rc == 2 and "REFUSED" in out, out
+rc, out = run("--skipped", "not signed in to PlanGrid", "--report-name", "PlanGrid Task Report - Oct 1, 2026")
+assert rc == 0 and route()["status"] == "skipped", out
+srv.shutdown()
+# run_record.py: the route row, from the record and the PDF the run used
+sys.path.insert(0, os.getcwd())
+from run_record import task_report_route as trr
+assert trr("../PlanGrid Task Report - Oct 1 2026.pdf",
+           {"status": "fetched", "file": "PlanGrid Task Report - Oct 1 2026.pdf", "host": "h"}).startswith("browser export (fetched")
+assert trr("../X Task Report.pdf", {}) == "on disk"
+assert trr(None, {"status": "skipped", "reason": "not signed in"}) == "browser export (skipped: not signed in)"
+assert trr(None, {}) == "none"
+# finish_list.py: a skipped export names where the report waits in PlanGrid
+src = open("finish_list.py", encoding="utf-8").read()
+assert "task_report_route_detail" in src and "Tasks > Reports" in src, "finish list does not use the route record"
+# run_pipeline.sh: both spellings, and the render-only pickup
+rp = open("run_pipeline.sh", encoding="utf-8").read()
+assert "*task_report*.pdf" in rp and "arrived after the data steps" in rp, "run_pipeline.sh lost the late Task Report pickup"
+PYCHECK
+
 # The wording-review preview markup ships with the skill, not the workspace, so
 # only assert it when running from a skill checkout.
 if [ -d ../templates ]; then

@@ -93,7 +93,7 @@ pipeline did not have, and two workers hand-patched the data.
 | Project folder | `scripts/locate_inputs.py "<what the user typed>"` | build and deliver into the session outputs folder; ask for the folder at the end |
 | `client-profile.json` | the project folder | cover facts stay `[MISSING]`; the user's answers create it at delivery |
 | PlanGrid pull | a folder with `tasks.json`, or the `plangrid` MCP (`reference/build-data.md` Step 0b) | the only hard requirement |
-| **PlanGrid Task Report PDF** | the project folder or uploads | **not part of an API pull**; the only source of pin clips. Build without clips; finish list |
+| **PlanGrid Task Report PDF** | the project folder or uploads | **not part of an API pull**; the only source of pin clips. Export it from PlanGrid in the browser while the run carries on (`reference/task-report-export.md`); if it does not arrive, build without clips; finish list |
 | Scope rules | `SCOPE`, `TITLE`, `CREATED_AFTER`, `DROP_PHRASES` from the user's words or the profile | every item in the pull; near misses listed |
 | Walk notes | uploads or the project folder | optional; often two near-identical files |
 
@@ -167,6 +167,7 @@ do not read them all.**
 | If the user asks for / the workspace shows | Read |
 |---|---|
 | **A draft exists and the user supplies a missing piece or answers the finish list** (a cover fact, an issuance date, a Task Report PDF, a folder to deliver to, a reworded item, keep or drop a pin) | **nothing: run `python3 scripts/update_report.py ...` from `_pipeline/`** (examples in `reference/run-order.md`, section 8). No worker, no rebuild |
+| No Task Report PDF attached or found by `locate_inputs.py` (main thread, right after `list_projects`) | `reference/task-report-export.md` (start it, carry on, collect it later) |
 | A fresh start with a raw PlanGrid pull; `data/items.json`, `build/thumbs_uniform/` or `build/sheet_clips_jpg/` missing | `reference/build-data.md` (Steps 1, 2, 6) |
 | `data/items.json` exists but `data/drafted_items.json` does not; the user wants items written up | `reference/drafting.md` (Steps 3, 3.5, 4, 5) |
 | `data/drafted_items.json` exists and the user asks about wording, voice or precedent | `reference/drafting.md` (Step 5 for precedent) |
@@ -203,6 +204,11 @@ bash scripts/pull_mcp.sh '<tasks packet url>#<sha256>' '<sheets packet url>#<sha
 python3 scripts/fetch_photos.py --pull ../plangrid_mcp              # live originals, every run
 python3 scripts/extract_pdf_photos.py "../<Task Report>.pdf" --pull ../plangrid_mcp   # only for photos fetch_photos could not get
 python3 scripts/adapt_mcp_pull.py                                   # ../plangrid_mcp -> ../plangrid_pull
+
+# Step 0c Only when no Task Report PDF was attached or found  -> reference/task-report-export.md
+#         (started in the browser right after list_projects; collected here, or before the render)
+bash scripts/fetch_task_report.sh '<signed link from the staple page>' --staple '<staple link>' --report-name '<title>'
+bash scripts/fetch_task_report.sh --skipped "<reason>"              # signed out, no browser, not ready in time
 
 # Steps 1, 2, 6 in one go (consolidate, photos, clips); stops cleanly before drafting
 bash scripts/run_pipeline.sh

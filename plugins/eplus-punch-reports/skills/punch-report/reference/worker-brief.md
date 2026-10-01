@@ -53,7 +53,9 @@ with the failing command and its output. The main thread files it with
 one workspace is invisible to every other run.
 
 **6. You make no decisions, and you have no contact with the user.** No
-`AskUserQuestion`, no artifacts, no messages meant for a person. Every decision
+`AskUserQuestion`, no artifacts, no messages meant for a person, and no
+browser tools (`mcp__Claude_Browser__*`): the PlanGrid export is the main
+thread's. Every decision
 in this run was either made before you started and is written in this brief,
 or it has not been made yet. When you reach a point that needs a decision the
 brief does not cover (a pin to keep or drop, a wording choice, a conflict

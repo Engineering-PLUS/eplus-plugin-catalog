@@ -116,7 +116,15 @@ def main():
     task_report = (run.get("inputs") or {}).get("task_report")
     in_report = {int(str(m.get("plangrid_ref", "#0")).lstrip("#") or 0) for m in master}
     clip_missing = [n for n in counts.get("clip_missing", []) if n in in_report]
-    if not task_report:
+    tr_route = (run.get("inputs") or {}).get("task_report_route_detail") or {}
+    if not task_report and tr_route.get("status") in ("fallback", "skipped"):
+        where = (f"It is in PlanGrid under Tasks > Reports as '{tr_route['report_name']}'"
+                 if tr_route.get("report_name") else "Export it in PlanGrid (Tasks > Export (All) > PDF)")
+        add(blocking, "Drawing pin clips", f"none: the PlanGrid Task Report export did not reach the workspace "
+            f"({tr_route.get('reason') or 'no reason recorded'}), so all {len(master)} items read '(no pin clip)'. "
+            f"{where}: Save it, then put it in the project folder or upload it",
+            '--task-report "<path to the Task Report PDF>"')
+    elif not task_report:
         add(blocking, "Drawing pin clips", f"none: no PlanGrid Task Report PDF was available, so all "
             f"{len(master)} items read '(no pin clip)'. Export the Task Report from PlanGrid, put it in the "
             "project folder or upload it", '--task-report "<path to the Task Report PDF>"')

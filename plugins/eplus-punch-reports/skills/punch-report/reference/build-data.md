@@ -147,7 +147,11 @@ the rendered document. On the last pull, 34 of 34 photos needed it.
 ### Step 6 — Sheet clips
 
 Per-item annotated clips — the drawing with the pin stamp — come only from the
-**PlanGrid Task Report PDF**.
+**PlanGrid Task Report PDF**. When none was supplied, the main thread exports
+one in the browser (`reference/task-report-export.md`); `run_pipeline.sh` finds
+it beside `_pipeline/` under either spelling (`PlanGrid Task Report - ...` or
+the browser's `PlanGrid_Task_Report_-_...`), and a render-only pass cuts the
+clips itself when the PDF arrived after this step.
 
 ```bash
 python3 scripts/extract_sheet_clips.py "<Task Report>.pdf" build/sheet_clips_jpg \

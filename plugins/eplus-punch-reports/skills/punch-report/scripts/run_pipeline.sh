@@ -50,10 +50,35 @@ if [ -z "$PY" ]; then
     exit 1
 fi
 
+# The newest Task Report PDF beside _pipeline/. Both spellings: a browser saves
+# PlanGrid's download as PlanGrid_Task_Report_-_Oct_1_2026.pdf.
+find_task_report() {
+    find .. -maxdepth 1 \( -iname '*task report*.pdf' -o -iname '*task_report*.pdf' \) -printf '%T@ %p\n' 2>/dev/null \
+        | sort -rn | head -1 | cut -d' ' -f2-
+}
+clips_present() {
+    "$PY" -c "import json,sys; sys.exit(0 if json.load(open(sys.argv[1], encoding='utf-8')) else 1)" \
+        "$BUILD/sheet_clip_dims_jpg.json" 2>/dev/null
+}
+
 if [ -n "${RENDER_ONLY:-}" ]; then
     echo "==> render only (RENDER_ONLY=1): skipping consolidate, photos and sheet clips"
     [ -f data/items.json ] || { echo "ERROR: data/items.json missing; run the full pipeline first." >&2; exit 1; }
     [ -f "$BUILD/sheet_clip_dims_jpg.json" ] || echo '{}' > "$BUILD/sheet_clip_dims_jpg.json"
+    # Which Task Report this render uses: the one on record if it is still there,
+    # else the newest beside _pipeline/, so the run record never loses it.
+    if [ -z "${TASK_REPORT:-}" ]; then
+        TASK_REPORT=$("$PY" -c "import json,sys; print((json.load(open(sys.argv[1], encoding='utf-8')).get('inputs') or {}).get('task_report') or '')" \
+            "$BUILD/run.json" 2>/dev/null || true)
+        [ -n "$TASK_REPORT" ] && [ -f "$TASK_REPORT" ] || TASK_REPORT=$(find_task_report)
+    fi
+    # A Task Report that arrived after the data steps (the browser export finishes
+    # while the items are drafted) is cut here, so the first render has the clips.
+    if ! clips_present && [ -n "${TASK_REPORT:-}" ] && [ -f "$TASK_REPORT" ]; then
+        echo "==> sheet clips: $TASK_REPORT arrived after the data steps; cutting them now"
+        "$PY" scripts/extract_sheet_clips.py "$TASK_REPORT" "$BUILD/sheet_clips_jpg" \
+            --items-from data/items.json --dims-out "$BUILD/sheet_clip_dims_jpg.json"
+    fi
 else
 
 # --- input discovery -------------------------------------------------------
@@ -71,7 +96,7 @@ if [ -z "${PULL:-}" ]; then
            | head -1 | xargs -r dirname)
 fi
 if [ -z "${TASK_REPORT:-}" ]; then
-    TASK_REPORT=$(find .. -maxdepth 1 -iname '*task report*.pdf' 2>/dev/null | head -1)
+    TASK_REPORT=$(find_task_report)
 fi
 
 if [ -z "${PULL:-}" ] || [ ! -d "$PULL" ]; then
