@@ -153,7 +153,10 @@ later with one command (section 8):
 ## 5. Draft, check precedent, render
 
 Draft every item (`reference/drafting.md`; hand it to a worker with
-`reference/worker-brief.md` pasted verbatim), check precedent, then:
+`reference/worker-brief.md` pasted verbatim), check precedent. If a PlanGrid
+Task Report export is pending (or the user was signed out), collect it now,
+before the render (`reference/task-report-export.md`, step 5), so the first
+render carries the clips. Then:
 
 ```bash
 RENDER_ONLY=1 bash scripts/run_pipeline.sh

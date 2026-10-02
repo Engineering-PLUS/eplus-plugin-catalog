@@ -23,7 +23,9 @@ a revision whose package already carries pin clips; the **No match** path
 | If it was not ready then: after drafting, before `RENDER_ONLY=1 bash scripts/run_pipeline.sh` | collect again, up to 5 more minutes |
 | Still nothing | record the skip (step 7) and render without clips |
 
-The draft never waits on the export. `run_pipeline.sh` picks a PDF up beside
+Collect **before** the render, not after it: on 2026-10-01 the model rendered
+first, then started the export, and had to render a second time for the
+clips. The draft never waits on the export. `run_pipeline.sh` picks a PDF up beside
 `_pipeline/` in either pass: the data pass cuts the clips in its sheet-clip
 step, and a render-only pass cuts them first when the report has none yet.
 
@@ -51,7 +53,10 @@ or URL", field result 2026-09-22). `<project uid>` is the uid
 
 **Signed out:** the page URL ends in `/login`, or the text reads "Log in to
 your account". Claude cannot sign in for the user. Post this once, as a
-statement, not a question, and carry on with the run without waiting:
+statement, not a question, and carry on with the run without waiting. It is
+**reply text the user sees**, written before your next tool call, never only
+in your thinking: on 2026-10-01 the model composed it in its thinking, noted
+"I've posted a note", and the user was never told.
 
 > PlanGrid needs you to sign in before I can export the Task Report, which
 > has the drawing clip for each pin. Please sign in in the browser pane; I
