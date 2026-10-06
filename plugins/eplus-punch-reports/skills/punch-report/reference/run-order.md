@@ -102,8 +102,9 @@ an earlier package.
   message names the two files, says the item pages are blank for the
   engineer to fill in (more pages: `--pages N`), and lists the cover fields
   marked `[MISSING]`; no finish-list questions.
-- **No Task Report PDF** (none attached, none found): export one from
-  PlanGrid in the built-in browser, `reference/task-report-export.md`. The
+- **No Task Report PDF** (none attached, none found): **read
+  `reference/task-report-export.md` now**, right after `list_projects`, and
+  export one from PlanGrid in the built-in browser. The
   clips are wanted unless the user says "no clips" in so many words; naming
   the sources to draft from ("only pics and notes") is not that. Open
   PlanGrid and check the sign-in as soon as `list_projects` gives the uid;
@@ -112,7 +113,9 @@ an earlier package.
   It never holds the run up: if the user is signed out, tell them (a task in
   the task list and the first sentence of the next status line) and carry
   on; if the export has not arrived by the render, build without pin clips
-  and it is a finish-list entry, not a question.
+  and it is a finish-list entry, not a question. **Never render while an export is pending:** collect it first
+  (field result 2026-10-06: a run opened PlanGrid only after rendering and had
+  to render a second time for the clips).
 
 ## 2. Build the workspace
 
@@ -150,6 +153,22 @@ pin authors, sets the issuance date to TBD and the file name from the version,
 and records each value's source in `fact_sources`. Whatever no record states
 stays empty and shows as `[MISSING: ...]`. Do not fill those from memory or
 from inference; the finish list asks for them.
+
+**Facts the user put in the request are a record too.** Apply them right after
+the prefill, in one call, and never ask for them again in section 7:
+
+```bash
+python3 scripts/update_report.py --set client_display_name="Stack" --set inspector="Jim McGlynn" \
+    --set issuance_date=TBD --no-render
+```
+
+Only what the request states plainly: a client, building or area, EP number,
+address, inspector, or an issuance date ("Date TBD" means leave it TBD and do
+not ask). **A bare company name in the request is the client** ("..., Stack,
+Date TBD" means client Stack); "by <name> as the field engineer" is the
+inspector. Field results 2026-10-06: three runs on "Stack, Date TBD" asked
+for the client again or asked what "Stack" meant, and one asked for the
+issuance date.
 
 ## 4. The decisions, already made
 
@@ -197,9 +216,17 @@ question with no default and no safe choice stops that one item: it ships as
 `run_record.py` fills the identity fields. Write what only a person can:
 `ISSUES-LIST.md` (the reviewer's open questions, blocking first, below the
 generated finish list), the scope paragraph and precedent pass in
-`PROCESS-LOG.md`, `LESSONS-LEARNED.md` ("nothing broke" is fine),
-`handoff/HANDOFF.md`, and the README scope paragraph. `package.py` refuses to
-deliver while any still carries template text. Nothing is delivered yet.
+`PROCESS-LOG.md`, the **"Scope decision, read this first" section of
+`_pipeline/CLAUDE.md`** (how many items the pull held, which this report
+covers, what was excluded and on whose direction), `LESSONS-LEARNED.md`
+("nothing broke" is fine), `handoff/HANDOFF.md`, and the README scope
+paragraph. `package.py` refuses to deliver while any still carries template
+text; field results 2026-10-06: the CLAUDE.md scope section and the
+PROCESS-LOG precedent bullets were missed and deliveries were refused. The
+render prints **PAPERWORK TO WRITE** with every section still in template
+form (also `build/finish.json` `paperwork`): write them all before section 7,
+replacing each template line whole rather than appending to it. Nothing is
+delivered yet.
 
 ## 7. The draft, the finish list, then the questions
 
@@ -214,9 +241,12 @@ In this order, short:
    Then the review points in one or two lines.
 3. **One `AskUserQuestion`**, at most four questions, for the blocking gaps
    a person can answer on the spot (identity block, issuance date, the
-   project folder to deliver to, deleted pins). Every question offers
-   "Leave it for the reviewer" (the `[MISSING]`/TBD stays). Say that the
-   report is delivered as soon as they answer, whatever the answers.
+   project folder to deliver to, deleted pins), leaving out anything the
+   request already settled (section 3). Every question offers
+   "Leave it for the reviewer" (the `[MISSING]`/TBD stays), so every question
+   has at least two options; a question with one option is rejected and never
+   shown (field result 2026-10-06). Say that the report is delivered as soon
+   as they answer, whatever the answers.
 
 ## 8. Apply the answers, then deliver once
 

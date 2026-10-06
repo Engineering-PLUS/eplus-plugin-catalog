@@ -138,12 +138,15 @@ items = [
    "sheet_name": "T02-01A", "sheet_description": "Plan", "room": "", "status": "open", "created_at": "2025-12-31T18:06:00"},
   {"number": 3, "photos": [], "sheet_name": None, "sheet_description": None, "room": "", "status": "open",
    "created_at": "2026-01-02", "deleted_in_plangrid": True},
+  {"number": 4, "photos": [{"uid": "c", "title": "photo", "captured": None, "path": "/p/c__photo.jpg"}],
+   "sheet_name": "T02-01A", "sheet_description": "Plan", "room": "", "status": "open", "created_at": "2026-01-03"},
 ]
 drafted = {"items": [
   {"number": 1, "title": "Alpha", "description": "Conduit stubbed up.", "corrective_action": "fix it",
    "origin": "photo_inferred", "confidence": "low"},
   {"number": 3, "title": "Gamma", "description": "Approved text, kept verbatim.",
    "corrective_action": "leave as is", "origin": "user_reviewed", "photo_mode": "none"},
+  {"number": 4, "title": "Delta", "description": "Tray installed.", "origin": "authored", "confidence": "medium"},
 ], "merges": [{"into": 1, "from": 2}]}
 json.dump(items, open(os.path.join(d, "items.json"), "w", encoding="utf-8"))
 json.dump(drafted, open(os.path.join(d, "drafted.json"), "w", encoding="utf-8"))
@@ -155,7 +158,8 @@ r = subprocess.run([sys.executable, "build_master.py", "--items", os.path.join(d
                    capture_output=True, text=True)
 assert r.returncode == 0, r.stdout + r.stderr
 m = {x["plangrid_ref"]: x for x in json.load(open(out, encoding="utf-8"))}
-assert set(m) == {"#1", "#3"}, list(m)                      # pin 2 absorbed and omitted
+assert set(m) == {"#1", "#3", "#4"}, list(m)                # pin 2 absorbed and omitted
+assert m["#4"]["photo_date"] is None and m["#4"]["photo_paths"] == ["c.jpg"], m["#4"]   # captured: null
 assert m["#1"]["photo_paths"] == ["b.jpg", "a.jpg"], m["#1"]["photo_paths"]  # chronological
 assert m["#1"]["corrective_action"] == "Fix it"              # capitalised when not protected
 assert m["#3"]["corrective_action"] == "leave as is"         # protected: untouched
@@ -165,7 +169,7 @@ assert "field_note_original" in m["#1"]
 assert m["#1"]["date_recorded"] == "12/31/2025", m["#1"]     # the PIN's date, not the photo's (01/01)
 assert m["#3"]["date_recorded"] == "01/02/2026" and m["#3"]["deleted_in_plangrid"] is True
 assert m["#1"]["deleted_in_plangrid"] is False
-assert "date recorded  : 2 from pin created_at" in r.stdout and "deleted, kept  : ['#3']" in r.stdout, r.stdout
+assert "date recorded  : 3 from pin created_at" in r.stdout and "deleted, kept  : ['#3']" in r.stdout, r.stdout
 # the voice guard bans narration, not the noun: an absence-of-evidence sentence passes,
 # "the photograph shows" does not, and verify_report.py uses the same list
 import importlib.util
@@ -217,14 +221,14 @@ json.dump({}, open(os.path.join(d, "report.config.json"), "w", encoding="utf-8")
 r = subprocess.run([sys.executable, "build_master.py", "--items", os.path.join(d, "items.json"),
                     "--drafted", os.path.join(d, "drafted.json"), "-o", out], capture_output=True, text=True)
 assert r.returncode == 0, r.stdout + r.stderr
-assert [x["plangrid_ref"] for x in json.load(open(out, encoding="utf-8"))] == ["#1"], "deleted pin must drop by default"
+assert [x["plangrid_ref"] for x in json.load(open(out, encoding="utf-8"))] == ["#1", "#4"], "deleted pin must drop by default"
 assert "deleted, dropped: ['#3']" in r.stdout, r.stdout
 json.dump({"deleted_pins": "keep"}, open(os.path.join(d, "report.config.json"), "w", encoding="utf-8"))
 drafted["omit"] = [3]
 json.dump(drafted, open(os.path.join(d, "drafted.json"), "w", encoding="utf-8"))
 r = subprocess.run([sys.executable, "build_master.py", "--items", os.path.join(d, "items.json"),
                     "--drafted", os.path.join(d, "drafted.json"), "-o", out], capture_output=True, text=True)
-assert r.returncode == 0 and [x["plangrid_ref"] for x in json.load(open(out, encoding="utf-8"))] == ["#1"], r.stdout + r.stderr
+assert r.returncode == 0 and [x["plangrid_ref"] for x in json.load(open(out, encoding="utf-8"))] == ["#1", "#4"], r.stdout + r.stderr
 # keeping a deleted pin that has no draft names it plainly
 drafted = {"items": [drafted["items"][0]], "merges": [{"into": 1, "from": 2}]}
 json.dump(drafted, open(os.path.join(d, "drafted.json"), "w", encoding="utf-8"))
@@ -552,6 +556,7 @@ blocking = {e["what"] for e in fin["blocking"]}
 for w in ("Client name", "Site address", "EP project number", "Building or area (cover subtitle)",
           "Inspector (who walked it)", "Issuance date", "Drawing pin clips", "Delivery"):
     assert w in blocking, (w, blocking)
+assert any("CLAUDE.md" in x for x in fin["paperwork"]) and any("PROCESS-LOG.md" in x for x in fin["paperwork"]), fin["paperwork"]
 review = " ".join(e["detail"] + " " + (e["command"] or "") for e in fin["review"])
 assert "#2 left out" in review and "--deleted-pins keep" in review and "--drop 1" in review, review
 il = open(os.path.join(pipe, "ISSUES-LIST.md"), encoding="utf-8").read()
@@ -604,6 +609,7 @@ assert os.path.isfile(os.path.join(mnt, "Proj", "CTX2-Punch-Report-DRAFT-v0.1.do
 assert json.load(open(os.path.join(pipe, "build", "report.config.json"), encoding="utf-8"))["delivery_folder"] == "Proj"
 fin = json.load(open(os.path.join(pipe, "build", "finish.json"), encoding="utf-8"))
 assert "Delivery" not in {e["what"] for e in fin["blocking"]}, fin["blocking"]
+assert fin["paperwork"] == [], fin["paperwork"]
 r = py("scripts/update_report.py", "--set", "issuance_date=2026-10-01", "--deliver", "--mnt-glob", os.path.join(d, "*"))
 assert r.returncode == 0, r.stdout + r.stderr
 got = sorted(os.listdir(os.path.join(mnt, "Proj")))
@@ -872,17 +878,36 @@ rp = open("run_pipeline.sh", encoding="utf-8").read()
 assert "*task_report*.pdf" in rp and "arrived after the data steps" in rp, "run_pipeline.sh lost the late Task Report pickup"
 PYCHECK
 
+# verify_report.py: the verbatim-note guard matches the label the old block carried
+# ("Field engineer's original note:"), not an Editor's Note that mentions "the original note"
+"$PY" - <<'PYCHECK' 2>&1 && ok "verify_report.py: verbatim-note guard matches the label only" \
+    || bad "verify_report.py verbatim-note guard check failed"
+import re
+src = open("verify_report.py", encoding="utf-8").read()
+m = re.search(r're\.search\(r"(engineer[^"]+)", text, re\.I\)', src)
+assert m, "guard not found"
+pat = m.group(1)
+assert re.search(pat, "Field engineer's original note: \"Up\"", re.I)
+assert re.search(pat, "Field engineer\u2019s original note:", re.I)
+assert not re.search(pat, "The original note contains a duplicated word", re.I)
+PYCHECK
+
 # task_report_filter.py: the task-list url that limits the PlanGrid export to the report's
-# pins, from their created_at in local dates (midday UTC stamps: the same date in any US zone)
+# pins, from the date part of their created_at (PlanGrid's own date; 00:36 stays on its day)
 "$PY" - <<'PYCHECK' 2>&1 && ok "task_report_filter.py: created_after/created_before from the scoped items"     || bad "task_report_filter.py behavioural check failed"
 import json, os, subprocess, sys, tempfile
 d = tempfile.mkdtemp(); items = os.path.join(d, "items.json")
-json.dump([{"number": 59, "created_at": "2026-10-05T17:20:40.654265"}, {"number": 94, "created_at": "2026-10-05T18:20:40+00:00"},
+json.dump([{"number": 59, "created_at": "2026-10-05T17:20:40.654265"}, {"number": 94, "created_at": "2026-10-05T00:36:00.175693"},
            {"number": 60, "created_at": "2026-10-04T16:00:00Z"}, {"number": 61}], open(items, "w", encoding="utf-8"))
 r = subprocess.run([sys.executable, "task_report_filter.py", "--project-uid", "u1", "--items", items], capture_output=True, text=True)
 assert r.returncode == 0, r.stdout + r.stderr
 assert "https://app.plangrid.com/projects/u1/issues/?created_after=2026-10-04&created_before=2026-10-05" in r.stdout, r.stdout
 assert "at least 4 filtered tasks" in r.stdout, r.stdout
+# 00:36 stays on its own day, as PlanGrid dates it (no UTC-to-local shift)
+json.dump([{"number": 1, "created_at": "2026-10-06T00:36:00.175693"}, {"number": 2, "created_at": "2026-10-06T10:51:01"}],
+          open(items, "w", encoding="utf-8"))
+r = subprocess.run([sys.executable, "task_report_filter.py", "--project-uid", "u1", "--items", items], capture_output=True, text=True)
+assert "created_after=2026-10-06&created_before=2026-10-06" in r.stdout, r.stdout
 json.dump([{"number": 1}], open(items, "w", encoding="utf-8"))
 r = subprocess.run([sys.executable, "task_report_filter.py", "--project-uid", "u1", "--items", items], capture_output=True, text=True)
 assert r.returncode != 0 and "Export (All)" in r.stdout + r.stderr, r.stdout + r.stderr

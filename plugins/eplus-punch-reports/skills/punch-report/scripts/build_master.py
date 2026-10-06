@@ -315,7 +315,9 @@ def main():
             # what the Date Recorded row prints; photo_date is record only.
             "date_recorded": fmt_date(it.get("created_at")),
             "created_at": it.get("created_at"),
-            "photo_date": (it["photos"][0]["captured"][:8] if it["photos"] else None),
+            # captured can be null: PlanGrid gives no shot time for some photos (field
+            # result 2026-10-06, Project Miner Warehouse: all 11, and this line crashed).
+            "photo_date": ((it["photos"][0].get("captured") or "")[:8] or None) if it["photos"] else None,
             # True when consolidate.py ran with --keep-deleted and PlanGrid had the
             # pin deleted or archived. Rendered as a red banner plus a TOC marker.
             "deleted_in_plangrid": bool(it.get("deleted_in_plangrid")),

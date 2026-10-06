@@ -49,7 +49,11 @@ next, scope decisions) come from records the next engineer can also see: the
 project folder's `client-profile.json`, a delivered package's CLAUDE.md,
 PROCESS-LOG and LESSONS-LEARNED, PlanGrid, and the user. Tooling facts (what is
 reachable, installed or broken today) come from this skill and are re-tested on
-every run. Do not open memory files during a run, main thread or worker. Field
+every run. Do not open or write memory files during a run, main thread or
+worker: a fact worth keeping for the next report goes into
+`client-profile.json` through `update_report.py --set`, where the next engineer
+can see it (field result 2026-10-06: a run saved "Stack is the client" as a
+memory note, which a later run would have read as fact). Field
 result 2026-09-23: a run read a memory note first, filled the cover, the
 deleted-pin decision and the cover mode from it, and labelled them "the earlier
 report record", so neither the reviewer nor the tester could tell where they

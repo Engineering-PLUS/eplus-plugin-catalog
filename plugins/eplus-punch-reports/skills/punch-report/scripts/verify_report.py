@@ -147,7 +147,11 @@ def main():
                 voice_hits.append(f"{m['plangrid_ref']}:{hit.group(0)}")
     checks.append(("no photo narration or third person in descriptions", not voice_hits,
                    f"matched {voice_hits}"))
-    checks.append(("verbatim pin note not rendered", "original note" not in text, "found"))
+    # The block this guards against was labelled "Field engineer's original note:".
+    # Match the label, not the phrase: an Editor's Note may say "the original note
+    # contains a duplicated word" (field result 2026-10-06, a false FAIL).
+    checks.append(("verbatim pin note not rendered",
+                   not re.search(r"engineer\W{0,3}s original note", text, re.I), "found"))
 
     # docx@9.7.1's ImportedXmlComponent.fromXmlString() (used for the TOC field's
     # fldChar/instrText runs) returns a wrapper node with no element name for the

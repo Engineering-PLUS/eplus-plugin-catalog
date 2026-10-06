@@ -97,7 +97,7 @@ python3 scripts/task_report_filter.py --project-uid <project uid>
 ```
 
 It prints a `filter url` (the task list with `created_after` and
-`created_before` set to the scope's first and last pin date, in local time)
+`created_before` set to the scope's first and last pin date, as PlanGrid dates them)
 and the number of in-scope items. Then:
 
 ```
@@ -110,7 +110,9 @@ mcp__Claude_Browser__find       query: "Generate"            -> click its ref
 
 The button reads **Export (Filtered)** only when the filter took; "Export
 (All)" means it did not (signed out, or the page reloaded): navigate to the
-filter url again. N can exceed the scope (another walk on the same day); the
+filter url again. If "filtered tasks" is not found after the click, the panel
+did not open (the list was still loading): wait 3 seconds, `find` the button
+again and click it once more (field result 2026-10-06). N can exceed the scope (another walk on the same day); the
 clip extractor takes only the report's items. N below the scope count means
 the window is wrong: export with "Export (All)" instead. A scope with no pin
 dates (`task_report_filter.py` exits nonzero) also exports all.

@@ -260,6 +260,13 @@ Use the `punch-history` skill's tools. **Two steps, always:**
 Cap `limit` at 25 yourself — the server does not clamp it, and a large limit
 returns tens of thousands of characters.
 
+**"Invalid request parameters" on every call, even `punch_stats` with no
+arguments, is the connection re-initializing, not a bad call.** Wait about 30
+seconds and try once more before writing the precedent pass off. Field result
+2026-10-06: every call failed for three minutes (15:42 to 15:45 UTC) while the
+server itself logged "Received request before initialization was complete";
+the same tools worked before and after, and the run shipped with no precedent.
+
 **On the `trade` filter:** it is exact SQL on every tool, search included, so it
 does not silently break. But **trade labels are single-valued and rule-derived**,
 and cross-trade defects get exactly one label. A search for *"missing conduit
