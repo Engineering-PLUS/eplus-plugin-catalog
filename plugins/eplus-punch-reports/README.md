@@ -18,8 +18,8 @@ connected the report is built and delivered into the session outputs folder.
 Every decision the old intake round asked about has a default (deleted pins
 left out, issuance date TBD, one flat list with pin dates, every item drafted
 and the inferred ones flagged). Cover facts come only from the project folder's
-`client-profile.json` and PlanGrid (`scripts/prefill_config.py`, never from
-memory), and whatever no record states renders on the cover as a red
+`client-profile.json`, PlanGrid (`scripts/prefill_config.py`) and the user's own
+words, never from memory, and whatever no record states renders on the cover as a red
 `[MISSING: ...]` marker. After every render `scripts/finish_list.py` lists what
 the draft still needs, each gap with the one command that supplies it; the
 final message carries that list and asks its questions only then.
@@ -30,6 +30,18 @@ answers are applied in one `update_report.py` call; then `package.py` delivers
 to the project folder once. Nothing reaches the project folder before that.
 Field result 2026-10-06: a run delivered v0.1, then v0.2 for the cover answers
 minutes later, and the user's folder held two versions and two broken zips.
+
+**What the request says is a record too (0.9.10).** Facts in the user's own
+words are applied right after the prefill and never asked again: a bare company
+name is the client ("…, Stack, Date TBD"), "by <name> as the field engineer" is
+the inspector, "Date TBD" leaves the issuance date TBD. Memory is neither read
+nor written during a run; a fact worth keeping goes into `client-profile.json`.
+After every render the pipeline also prints **PAPERWORK TO WRITE** (the
+CLAUDE.md scope section, the PROCESS-LOG scope and precedent sections and the
+rest that still read as the template), so it is written before the questions
+and `package.py` never has to refuse the delivery. A knowledge-hub call that
+fails with "Invalid request parameters" across the board is the client
+reconnecting; the precedent step waits and retries once.
 
 **The Task Report PDF comes from PlanGrid itself.** It is the only source of the
 per-pin drawing clips and is not part of the connector pull. When the user
