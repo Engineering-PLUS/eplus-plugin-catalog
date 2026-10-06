@@ -24,18 +24,30 @@ memory), and whatever no record states renders on the cover as a red
 the draft still needs, each gap with the one command that supplies it; the
 final message carries that list and asks its questions only then.
 
+**One delivery per run, after the questions (0.9.9).** The draft, its finish
+list and the questions are shown from the session's working folder; the
+answers are applied in one `update_report.py` call; then `package.py` delivers
+to the project folder once. Nothing reaches the project folder before that.
+Field result 2026-10-06: a run delivered v0.1, then v0.2 for the cover answers
+minutes later, and the user's folder held two versions and two broken zips.
+
 **The Task Report PDF comes from PlanGrid itself.** It is the only source of the
 per-pin drawing clips and is not part of the connector pull. When the user
 attached none and none is on disk, the main thread opens PlanGrid in the
-built-in browser, starts a Task Report export (Tasks, Export (All), Generate),
-and carries on with the run while it generates (about 100 seconds for 36
-tasks). Before the render it reads the signed download link from the report's
+built-in browser (sign-in checked right after `list_projects`), and after the
+data pass starts a Task Report export **filtered to the report's pins**:
+`scripts/task_report_filter.py` turns the scoped items' creation dates into
+the task-list url (`?created_after=...&created_before=...`), the button then
+reads Export (Filtered), and Generate runs while the items are drafted. On
+Project Miner Building A that cut a 36-item export from 94 tasks, 6.5 minutes
+and 12.4 MB to exactly the 36 tasks, under 4 minutes and 6.2 MB. The clips are
+wanted unless the user says "no clips" in those words. Before the render it reads the signed download link from the report's
 page and `scripts/fetch_task_report.sh` pulls the PDF into the workspace
 (the sandbox needs egress to
 `plangrid-reports-prod-reportsresults-19fdmf8y8pfpb.s3.amazonaws.com`); a
 render-only pass cuts the clips itself when the PDF arrived after the data
-steps. A signed-out user gets one sign-in message (Claude cannot sign in for
-them) and the run does not wait; an export that does not arrive in time
+steps. A signed-out user is told in the task list and in the next status
+line (Claude cannot sign in for them) and the run does not wait; an export that does not arrive in time
 leaves the report without clips and the finish list names where it waits in
 PlanGrid. `PROCESS-LOG.md` records the route (`browser export (fetched)`,
 `on disk`, or the skip and its reason). Steps: `reference/task-report-export.md`.
@@ -50,11 +62,21 @@ rebuilt from the delivered package in three commands.
 
 **The project folder stays tidy (0.9.2).** It holds the current version (body,
 cover, review sheet, package), `client-profile.json` and the user's own inputs,
-nothing else. Each delivery writes the earlier versions into the new package
-under `previous-versions/` and removes them from the folder only after the
-copies are verified; the first time in a folder, Cowork asks the user once to
-allow deletes there (`package.py` prints `CLEANUP PENDING` and the follow-up
-`--prune` command).
+nothing else. Each delivery writes the earlier versions' body, cover and review
+sheet into the new package under `previous-versions/`, replaces the earlier
+package (0.9.9: never packed inside, so sizes do not compound; field result
+2026-10-06, v0.2 tried to carry v0.1's 130 MB zip), and removes them from the
+folder only after the new zip is verified; the first time in a folder, Cowork
+asks the user once to allow deletes there (`package.py` prints `CLEANUP
+PENDING` and the follow-up `--prune` command).
+
+**Packages are small and land whole (0.9.9).** The pull is limited to the
+named visit (`get_tasks` with `numbers=[...]`), the package carries only the
+photos of the report's pins, photos and Office files are stored rather than
+recompressed, and the zip is built and checked in the workspace before one
+copy into the project folder, so a cut-short delivery never leaves a broken
+file there. Long steps run in the foreground with `timeout_ms: 600000`:
+Cowork's shell kills what a call leaves running in the background.
 
 The pipeline itself: `scripts/init_workspace.sh` stamps it into the session
 workspace (the one supported way to lay a workspace out; it refuses to finish

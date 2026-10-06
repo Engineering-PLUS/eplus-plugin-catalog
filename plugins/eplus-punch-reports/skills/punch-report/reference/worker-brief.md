@@ -71,6 +71,8 @@ the user) and starts a new worker with the decision written into its brief.
 You cannot be resumed, so do not wait for one.
 
 **7. Read one reference file: the one this prompt names.** Not the others.
+Run every pipeline command in the foreground with `timeout_ms: 600000`: the
+shell kills whatever a call leaves running in the background when it returns.
 
 **8. Stop where the brief says.** If it says "stop after verification", you
 stop after verification even if delivery looks like one more command.

@@ -49,15 +49,33 @@ and worker probe files. Excluded now, and each exclusion is printed:
     exists (adapt_mcp_pull.py already copied them; the MCP json stays)
   - every .docx and .xlsx except the three delivered (earlier renders are
     reproducible from the data and clutter the reviewer's view)
+  - photos in plangrid_pull/photos/ that no item in data/items.json uses (a
+    project-wide pull carries every visit's photos; field result 2026-10-06:
+    a 36-item report packaged all 163 photos of a 94-task project, 127 MB)
+
+How it is written. The zip is built in _pipeline/build/_scratch/ and checked
+there (every entry counted, every CRC read back), and only a finished, checked
+zip is copied into the destination, so a run cut short never leaves a
+half-written file in the user's folder. Photos, PDFs and Office files are
+stored, not recompressed: they are already compressed, and deflating them only
+costs time. Field result 2026-10-06: deflating a 130 MB package straight into
+a mounted project folder took five minutes, the next delivery was cut off at
+the shell's time limit, and two truncated zips (183 MB, 35 MB) were left in
+the folder.
 
 Re-delivery: a render under a NEW output_filename (v0.1 -> v0.2) has a new
 stem and never collides. Earlier versions of the same report already in the
-destination (their body, cover, review sheet and package) are written INTO the
-new package under previous-versions/ and then removed from the folder, so the
+destination (their body, cover and review sheet) are written INTO the new
+package under previous-versions/ and then removed from the folder, so the
 folder shows the current version and the inputs (the Task Report PDF,
 client-profile.json) only; field result 2026-09-23: a v0.2 delivery left ten
 files. A file is removed only after the new zip is verified to hold an
-identical copy (size and CRC). Cowork allows deletes in a connected folder only
+identical copy (size and CRC). An earlier PACKAGE (.zip) is never put inside
+the new one: each package would carry every earlier package and the size
+compounds (field result 2026-10-06: v0.2 had to carry v0.1's 130 MB zip). The
+new package is the current workspace, so an earlier package is superseded:
+its name is listed in previous-versions/SUPERSEDED.txt and it is removed from
+the folder with the earlier body, cover and review sheet. Cowork allows deletes in a connected folder only
 after the user grants it once per folder; until then the script prints
 CLEANUP PENDING with the files and the follow-up command,
 `package.py --prune <destination>`, which removes exactly the files the newest
@@ -94,6 +112,9 @@ EXCLUDE_DIRS = {"node_modules", "__pycache__", "_scratch"}
 EXCLUDE_SUFFIXES = (".bak.json",)
 EXCLUDE_NAMES = {".DS_Store", "Thumbs.db"}
 BUILD_KEEP_DIRS = {"assets", "thumbs_uniform", "sheet_clips_jpg"}
+# Already compressed: stored as is. Deflating them is slow and saves nothing.
+STORED_SUFFIXES = (".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".pdf", ".zip",
+                   ".docx", ".xlsx", ".pptx", ".gz")
 STRAY_PIPELINE_DIRS = {"template", "templates"}
 
 
@@ -131,6 +152,8 @@ def collect(ws, keep_files):
     pipe = os.path.join(ws, "_pipeline")
     live_photos = os.path.isdir(os.path.join(ws, "plangrid_pull", "photos"))
     keep_abs = {os.path.abspath(p) for p in keep_files if p}
+    pull_photos = os.path.abspath(os.path.join(ws, "plangrid_pull", "photos"))
+    used = scope_photos(ws)
 
     def rel(p):
         return os.path.relpath(p, ws).replace(os.sep, "/")
@@ -168,11 +191,27 @@ def collect(ws, keep_files):
                 reason = "name starts with _ (worker scratch)"
             elif low.endswith((".docx", ".xlsx")) and os.path.abspath(full) not in keep_abs:
                 reason = "earlier render, not the delivered file"
+            elif used and os.path.abspath(dirpath) == pull_photos and f not in used:
+                reason = "photo of a pin outside this report's scope"
             if reason:
                 skipped.append((reason, rel(full)))
             else:
                 files.append(full)
     return files, skipped
+
+
+def scope_photos(ws):
+    """File names of the photos the report's items use (data/items.json), or an
+    empty set when there is no items.json yet (then every photo is kept)."""
+    try:
+        import json
+        with open(os.path.join(ws, "_pipeline", "data", "items.json"), encoding="utf-8") as f:
+            items = json.load(f)
+    except (OSError, ValueError):
+        return set()
+    items = items.get("items", items) if isinstance(items, dict) else items
+    return {os.path.basename(str(ph.get("path") or "")) for it in items if isinstance(it, dict)
+            for ph in (it.get("photos") or []) if isinstance(ph, dict) and ph.get("path")}
 
 
 def unfilled_paperwork(ws):
@@ -206,7 +245,9 @@ DRAFT_STEM_RE = re.compile(r"^(?P<base>.+?)-DRAFT-v(?P<a>\d+)\.(?P<b>\d+)$", re.
 
 
 def superseded(dest, stem, keep_names):
-    """Earlier deliveries of the same report in dest: every version up to this one.
+    """Earlier deliveries of the same report in dest: every version up to this one,
+    as (files to carry under previous-versions/, earlier packages to retire).
+    Earlier .zip packages are never carried: see the module docstring.
 
     Field result 2026-09-23: after a v0.2 delivery the project folder held ten
     files, v0.1's body, cover, review sheet and package beside v0.2's. The
@@ -215,22 +256,33 @@ def superseded(dest, stem, keep_names):
     """
     m = DRAFT_STEM_RE.match(stem)
     if not m or not os.path.isdir(dest):
-        return []
+        return [], []
     base, cur = m.group("base"), (int(m.group("a")), int(m.group("b")))
     b = re.escape(base)
     versioned = re.compile(rf"^{b}-DRAFT-v(\d+)\.(\d+)(?:-\d+)?(?:-Cover|-Review)?\.(?:docx|zip|xlsx)$", re.I)
     sheet = re.compile(rf"^{b}-Review(?:-\d+)?\.xlsx$", re.I)
-    out = []
+    out, zips = [], []
     for f in sorted(os.listdir(dest)):
         if f in keep_names or f.startswith("~$"):
             continue
         mv = versioned.match(f)
         if mv:
             if (int(mv.group(1)), int(mv.group(2))) <= cur:
-                out.append(os.path.join(dest, f))
+                (zips if f.lower().endswith(".zip") else out).append(os.path.join(dest, f))
         elif sheet.match(f):
             out.append(os.path.join(dest, f))
-    return out
+    return out, zips
+
+
+SUPERSEDED = PREV + "SUPERSEDED.txt"
+
+
+def superseded_names(zf):
+    """Earlier package names the new package lists as retired by it."""
+    try:
+        return [n.strip() for n in zf.read(SUPERSEDED).decode("utf-8").splitlines() if n.strip()]
+    except KeyError:
+        return []
 
 
 def crc_of(path):
@@ -263,8 +315,18 @@ def prune(dest, zip_path=None):
         return [], []
     removed, blocked = [], []
     with zipfile.ZipFile(zip_path) as zf:
+        for name in superseded_names(zf):
+            p = os.path.join(dest, name)
+            if "/" in name or os.path.abspath(p) == os.path.abspath(zip_path) or not os.path.isfile(p):
+                continue
+            try:
+                os.remove(p)
+                removed.append(name)
+            except OSError:
+                blocked.append(name)
         for info in zf.infolist():
-            if not info.filename.startswith(PREV) or info.filename.endswith("/"):
+            if not info.filename.startswith(PREV) or info.filename.endswith("/") \
+                    or info.filename == SUPERSEDED:
                 continue
             name = info.filename[len(PREV):]
             p = os.path.join(dest, name)
@@ -283,7 +345,10 @@ def prune(dest, zip_path=None):
 def report_cleanup(dest, zip_path, removed, blocked):
     zname = os.path.basename(zip_path)
     for n in removed:
-        print(f"moved       : {n} -> {zname}:{PREV}{n}")
+        if n.lower().endswith(".zip"):
+            print(f"replaced    : {n} (an earlier package; {zname} holds the current working files)")
+        else:
+            print(f"moved       : {n} -> {zname}:{PREV}{n}")
     if blocked:
         folder = os.path.basename(os.path.normpath(dest))
         print(f"CLEANUP PENDING: {len(blocked)} earlier file(s) are safely inside {zname} under {PREV} "
@@ -298,10 +363,14 @@ def report_cleanup(dest, zip_path, removed, blocked):
               f"what I will delete, and why:")
         for n in blocked:
             print(f"  - {n}")
-        print(f"  These are the previous version of the report. Identical copies are already saved inside "
-              f"{zname}, in its {PREV} folder, so nothing is lost. I delete only these {len(blocked)} file(s); "
-              f"nothing else in the folder is touched (your Task Report and client-profile.json stay). "
-              f"If you decline, they simply stay in the folder.")
+        pkgs = [n for n in blocked if n.lower().endswith(".zip")]
+        print(f"  These are the previous version of the report. The report files have identical copies "
+              f"inside {zname}, in its {PREV} folder, so nothing is lost."
+              + (f" The earlier package{'s' if len(pkgs) > 1 else ''} ({', '.join(pkgs)}) "
+                 f"{'are' if len(pkgs) > 1 else 'is'} replaced by {zname}, which holds the current working "
+                 f"files." if pkgs else "")
+              + f" I delete only these {len(blocked)} file(s); nothing else in the folder is touched (your "
+              f"Task Report and client-profile.json stay). If you decline, they simply stay in the folder.")
         print("  ----")
         print("  STEP 2. Ask for delete permission once (Cowork: allow_cowork_file_delete with the path of "
               f"{os.path.join(dest, blocked[0])}).")
@@ -336,7 +405,8 @@ def main():
         dest = os.path.abspath(a.prune)
         removed, blocked = prune(dest)
         for n in removed:
-            print(f"removed     : {n} (a copy is inside the newest package, {PREV})")
+            print(f"removed     : {n} " + ("(an earlier package, replaced by the newest one)" if n.lower().endswith(".zip")
+                                           else f"(a copy is inside the newest package, {PREV})"))
         if blocked:
             print(f"ERROR: still not allowed to delete in {dest}: {', '.join(blocked)}")
             return 1
@@ -457,25 +527,45 @@ def main():
     # current version and the inputs only. They are removed only once the new zip
     # is verified to hold an identical copy of each.
     keep_names = {n for _, n in beside} | {os.path.basename(zip_path), "client-profile.json"}
-    old = [] if args.keep_previous else superseded(dest, stem, keep_names)
+    old, old_zips = ([], []) if args.keep_previous else superseded(dest, stem, keep_names)
     if old:
         print(f"earlier     : {len(old)} file(s) of earlier versions go inside the new package under {PREV}: "
               + ", ".join(os.path.basename(p) for p in old))
+    if old_zips:
+        print(f"superseded  : {len(old_zips)} earlier package(s), replaced by this one and never packed into it: "
+              + ", ".join(os.path.basename(p) for p in old_zips))
     if args.dry_run:
         for f in files:
             print("  ", os.path.relpath(f, ws))
         return 0
 
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+    # Built and checked in the workspace; only a finished zip reaches the destination.
+    staging = os.path.join(ws, "_pipeline", "build", "_scratch")
+    os.makedirs(staging, exist_ok=True)
+    staged = os.path.join(staging, os.path.basename(zip_path))
+    expected = len(files) + len(old) + (1 if old_zips else 0)
+
+    def method(path):
+        return zipfile.ZIP_STORED if path.lower().endswith(STORED_SUFFIXES) else zipfile.ZIP_DEFLATED
+
+    with zipfile.ZipFile(staged, "w", zipfile.ZIP_DEFLATED) as zf:
         for f in files:
-            zf.write(f, os.path.relpath(f, ws))
+            zf.write(f, os.path.relpath(f, ws), compress_type=method(f))
         for p in old:
-            zf.write(p, PREV + os.path.basename(p))
-    with zipfile.ZipFile(zip_path) as zf:
+            zf.write(p, PREV + os.path.basename(p), compress_type=method(p))
+        if old_zips:
+            zf.writestr(SUPERSEDED, "\n".join(os.path.basename(p) for p in old_zips) + "\n")
+    with zipfile.ZipFile(staged) as zf:
         n = len(zf.namelist())
-        if n != len(files) + len(old):
-            sys.exit(f"ERROR: zip holds {n} entries but {len(files) + len(old)} were counted; "
-                     f"delivery at {zip_path} is incomplete, deliver again under a new --name")
+        bad = zf.testzip()
+    if n != expected or bad:
+        sys.exit(f"ERROR: the package built in {staging} holds {n} entries of {expected} counted"
+                 + (f" and {bad} fails its CRC" if bad else "")
+                 + "; nothing was written to the destination. Deliver again.")
+    shutil.copyfile(staged, zip_path)
+    if os.path.getsize(zip_path) != os.path.getsize(staged):
+        sys.exit(f"ERROR: the copy of {os.path.basename(zip_path)} in the destination is incomplete; deliver again")
+    print(f"package size: {os.path.getsize(zip_path) / 1048576:.1f} MB, checked before the copy")
 
     for src, name in beside:
         target = os.path.join(dest, name)
@@ -495,7 +585,7 @@ def main():
     if os.path.isfile(profile):
         shutil.copy2(profile, os.path.join(dest, "client-profile.json"))
         print("delivered   : client-profile.json (updated in place)")
-    if old:
+    if old or old_zips:
         removed, blocked = prune(dest, zip_path)
         report_cleanup(dest, zip_path, removed, blocked)
     return 0

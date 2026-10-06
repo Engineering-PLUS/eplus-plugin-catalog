@@ -77,8 +77,10 @@ folder picker opened with no explanation and was cancelled. So every decision
 the old intake asked about has a default (the table in
 `reference/run-order.md`, section 4), anything unknown shows on the draft as `[MISSING: ...]` or in the finish
 list, and the questions come once, at the end, with the draft already
-delivered. A user who never answers still has a complete draft; one who does
-gets each answer applied by `update_report.py` in seconds.
+built. The answers are applied by `update_report.py` in seconds, and then the
+report is delivered to the project folder **once** (run order, sections 7 and
+8); nothing reaches that folder before. A user who never answers still has a
+complete draft in the session's working folder.
 
 **Every default maps to a switch that exists, and so does every change.**
 Deleted pins: dropped (default) or kept and bannered (`deleted_pins` in
@@ -93,7 +95,7 @@ pipeline did not have, and two workers hand-patched the data.
 | Project folder | `scripts/locate_inputs.py "<what the user typed>"` | build and deliver into the session outputs folder; ask for the folder at the end |
 | `client-profile.json` | the project folder | cover facts stay `[MISSING]`; the user's answers create it at delivery |
 | PlanGrid pull | a folder with `tasks.json`, or the `plangrid` MCP (`reference/build-data.md` Step 0b) | the only hard requirement |
-| **PlanGrid Task Report PDF** | the project folder or uploads | **not part of an API pull**; the only source of pin clips. Export it from PlanGrid in the browser while the run carries on (`reference/task-report-export.md`); if it does not arrive, build without clips; finish list |
+| **PlanGrid Task Report PDF** | the project folder or uploads | **not part of an API pull**; the only source of pin clips. Export it from PlanGrid in the browser, filtered to the scope, while the run carries on (`reference/task-report-export.md`); wanted unless the user says "no clips" in those words; if it does not arrive, build without clips; finish list |
 | Scope rules | `SCOPE`, `TITLE`, `CREATED_AFTER`, `DROP_PHRASES` from the user's words or the profile | every item in the pull; near misses listed |
 | Walk notes | uploads or the project folder | optional; often two near-identical files |
 
@@ -166,7 +168,7 @@ do not read them all.**
 
 | If the user asks for / the workspace shows | Read |
 |---|---|
-| **A draft exists and the user supplies a missing piece or answers the finish list** (a cover fact, an issuance date, a Task Report PDF, a folder to deliver to, a reworded item, keep or drop a pin) | **nothing: run `python3 scripts/update_report.py ...` from `_pipeline/`** (examples in `reference/run-order.md`, section 8). No worker, no rebuild |
+| **A draft exists and the user supplies a missing piece or answers the finish list** (a cover fact, an issuance date, a Task Report PDF, a folder to deliver to, a reworded item, keep or drop a pin) | **nothing: run `python3 scripts/update_report.py ...` from `_pipeline/`** (examples in `reference/run-order.md`, sections 8 and 9: before the run's one delivery without `--deliver`, after it with). No worker, no rebuild |
 | No Task Report PDF attached or found by `locate_inputs.py` (main thread, right after `list_projects`) | `reference/task-report-export.md` (start it, carry on, collect it later) |
 | A fresh start with a raw PlanGrid pull; `data/items.json`, `build/thumbs_uniform/` or `build/sheet_clips_jpg/` missing | `reference/build-data.md` (Steps 1, 2, 6) |
 | `data/items.json` exists but `data/drafted_items.json` does not; the user wants items written up | `reference/drafting.md` (Steps 3, 3.5, 4, 5) |
@@ -189,7 +191,10 @@ Commands are written `python3 …` because the pipeline runs in the Linux
 sandbox; on a Windows host the same commands are `python …`. Run from
 `_pipeline/`. `bash scripts/run_pipeline.sh` runs Steps 1, 2, 6, 7 and the
 verification in one go once `data/drafted_items.json` exists; `SCOPE=11-30`
-in front of it sets the scope.
+in front of it sets the scope. **Pass `timeout_ms: 600000` on the data pass,
+the render, `update_report.py` and `package.py`, and never run a step in the
+background**: Cowork stops a call at its timeout (177 s by default) and kills
+whatever it left running when it returns (`run-order.md`, the rule).
 
 ```bash
 # Step 0  Find the inputs and the project folder, no questions (run from the plugin path S)
@@ -199,19 +204,22 @@ bash "$S/scripts/init_workspace.sh" <workspace> && cd <workspace>/_pipeline \
 
 # Step 0b Only when the pull comes from the plangrid MCP  -> reference/build-data.md
 #         (get_tasks and list_sheets return summaries plus a packet url; never retype a
-#          result into a file: pull_mcp.sh fetches the packets and checks their sha256)
+#          result into a file: pull_mcp.sh fetches the packets and checks their sha256;
+#          a named visit, date or engineer: get_tasks again with numbers=[...], fetch that packet)
 bash scripts/pull_mcp.sh '<tasks packet url>#<sha256>' '<sheets packet url>#<sha256>'
 python3 scripts/fetch_photos.py --pull ../plangrid_mcp              # live originals, every run
 python3 scripts/extract_pdf_photos.py "../<Task Report>.pdf" --pull ../plangrid_mcp   # only for photos fetch_photos could not get
 python3 scripts/adapt_mcp_pull.py                                   # ../plangrid_mcp -> ../plangrid_pull
 
-# Step 0c Only when no Task Report PDF was attached or found  -> reference/task-report-export.md
-#         (started in the browser right after list_projects; collected here, or before the render)
-bash scripts/fetch_task_report.sh '<signed link from the staple page>' --staple '<staple link>' --report-name '<title>'
-bash scripts/fetch_task_report.sh --skipped "<reason>"              # signed out, no browser, not ready in time
-
 # Steps 1, 2, 6 in one go (consolidate, photos, clips); stops cleanly before drafting
 bash scripts/run_pipeline.sh
+
+# Step 0c Only when no Task Report PDF was attached or found  -> reference/task-report-export.md
+#         (sign-in checked right after list_projects; the export starts HERE, after the data
+#          pass, filtered to the scope, and is collected after drafting, before the render)
+python3 scripts/task_report_filter.py --project-uid <uid>          # the filtered task-list url
+bash scripts/fetch_task_report.sh '<signed link from the staple page>' --staple '<staple link>' --report-name '<title>'
+bash scripts/fetch_task_report.sh --skipped "<reason>"              # signed out, no browser, not ready in time
 # Step 1  Consolidate                         -> reference/build-data.md
 #         (run_pipeline.sh always passes --keep-deleted; build master applies deleted_pins)
 python3 scripts/consolidate.py <pull_dir> -o data/items.json [--only 11-30] --keep-deleted
@@ -249,12 +257,12 @@ python3 scripts/read_comments.py <reviewed>.docx --json -o comments.json
 python3 scripts/review_sheet.py import build build/<report>-Review.xlsx
 RENDER_ONLY=1 bash scripts/run_pipeline.sh
 
-# Step 10 Deliver, once, through package.py   -> reference/verify-and-deliver.md
+# Step 10 The draft (links in the workspace), the finish list, one AskUserQuestion; then the
+#         answers in ONE call without --deliver, then deliver ONCE  -> reference/run-order.md 7-8
+python3 scripts/update_report.py --set issuance_date=2026-09-30 --set ep_project_no=27625
 python3 scripts/package.py <workspace> "<deliver to>"              # --replace only when the user said so
-#         then the final message: what was built and where, the finish list, one AskUserQuestion
 
-# Step 11 Every answer or missing piece afterwards: one surgical command, seconds, no worker
-python3 scripts/update_report.py --set issuance_date=2026-09-30 --set ep_project_no=27625 --deliver
+# Step 11 A change asked for AFTER the delivery: one surgical command, seconds, no worker
 python3 scripts/update_report.py --task-report "<Task Report>.pdf" --deliver
 python3 scripts/update_report.py --item 12 --description "..." --deleted-pins keep --deliver
 ```
@@ -297,9 +305,10 @@ the workspace or the project folder while the run is in progress, by anyone.
 Scratch goes under `_pipeline/build/_scratch/` (never packaged) or `/tmp`.
 Re-deliveries get a new version name, never an overwrite. The one exception is
 the project folder's own tidy-up at delivery: `package.py` writes the earlier
-versions of the report into the new package (`previous-versions/`) and removes
-them from the folder only after verifying the copies, so the folder holds the
-current version and the inputs. When Cowork has not yet allowed deletes there,
+versions' body, cover and review sheet into the new package
+(`previous-versions/`), replaces an earlier package (never packing it inside),
+and removes them from the folder only after verifying the new zip, so the
+folder holds the current version and the inputs. When Cowork has not yet allowed deletes there,
 it prints `CLEANUP PENDING` with a message for the user that names every file
 to be deleted and why: post that message as written, **before** the one
 `allow_cowork_file_delete` call (the approval covers the folder; the prompt

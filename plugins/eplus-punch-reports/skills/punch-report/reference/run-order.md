@@ -20,9 +20,22 @@ explanation and the user cancelled it. So:
 - **Anything unknown goes on the draft, visibly.** A missing cover fact
   renders as a red `[MISSING: ...]` marker; everything else the draft still
   needs lands in the finish list with the one command that supplies it.
-- **Questions come once, at the end**, after the draft is delivered, together
-  with the finish list (section 7). A user who never answers still has a
-  complete draft.
+- **Questions come once, at the end**, after the draft is built and before it
+  is delivered, together with the finish list (section 7). The answers are
+  applied, then the report is delivered **once** (section 8). A user who never
+  answers still has a complete draft in the session's working folder.
+- **Nothing reaches the project folder until the run is done.** One delivery
+  per run, after the answers: field result 2026-10-06, a run delivered v0.1,
+  then v0.2 for the cover answers a few minutes later, and the user's folder
+  held two versions and two broken zips from one request.
+- **Every command finishes inside one call.** Cowork's shell stops a call at
+  its timeout (177 s by default) and stops anything the call left running in
+  the background when it returns, `nohup` and `setsid` included. So pass
+  `timeout_ms: 600000` on the data pass, the render, `update_report.py` and
+  `package.py`, never background a step, and never test for a running script
+  with `pgrep -f <name>`: it matches the shell that is asking. Field result
+  2026-10-06: a backgrounded delivery was killed mid-write, `pgrep -f` reported
+  it still running, and a second packager was started on top of it.
 - **Facts come from records, never from memory.** Client, address, EP number,
   inspector, scope decisions and the version come from the project folder's
   `client-profile.json`, PlanGrid, the user, or the project folder's own
@@ -55,9 +68,13 @@ an earlier package.
   whose name matches the argument or the project folder's name. When the user
   typed nothing and nothing matches, take the most recently updated project,
   and say which one you took in the finish list and the final message. Then
-  one `get_tasks` and one `list_sheets`; `scripts/pull_mcp.sh` fetches their
+  `get_tasks` and one `list_sheets`; `scripts/pull_mcp.sh` fetches their
   packets (`reference/build-data.md`, Step 0b). Never retype a result into a
-  file.
+  file. **Pull the scope, not the project:** when the user names a visit, a
+  walk date, an engineer or a range, the second `get_tasks` call carries
+  `numbers=[...]` (or `since`), so the photos, the Task Report and the package
+  hold that walk only (Step 0b). Field result 2026-10-06: a 36-item visit
+  pulled all 94 tasks and 163 photos and the data pass timed out.
 - **No match: the one question before a draft.** The user named a project,
   `list_projects` finds nothing for it (search again with
   `active_only: false`), and there is no pull or Task Report PDF on disk.
@@ -86,14 +103,16 @@ an earlier package.
   engineer to fill in (more pages: `--pages N`), and lists the cover fields
   marked `[MISSING]`; no finish-list questions.
 - **No Task Report PDF** (none attached, none found): export one from
-  PlanGrid in the built-in browser, `reference/task-report-export.md`. Start
-  it as soon as `list_projects` gives the uid; it generates (about 100
-  seconds for 36 tasks) while the run carries on, and is fetched into the
-  workspace before the data pass or, failing that, before the render. It
-  never holds the run up: if the user is signed out of PlanGrid, post the
-  sign-in message once and carry on; if the export has not arrived by the
-  render, build without pin clips and it is a finish-list entry, not a
-  question.
+  PlanGrid in the built-in browser, `reference/task-report-export.md`. The
+  clips are wanted unless the user says "no clips" in so many words; naming
+  the sources to draft from ("only pics and notes") is not that. Open
+  PlanGrid and check the sign-in as soon as `list_projects` gives the uid;
+  start the export, **filtered to the scope**, right after the data pass; it
+  generates while the items are drafted and is collected before the render.
+  It never holds the run up: if the user is signed out, tell them (a task in
+  the task list and the first sentence of the next status line) and carry
+  on; if the export has not arrived by the render, build without pin clips
+  and it is a finish-list entry, not a question.
 
 ## 2. Build the workspace
 
@@ -135,7 +154,7 @@ from inference; the finish list asks for them.
 ## 4. The decisions, already made
 
 These used to be intake questions. They are defaults now, each reversible
-later with one command (section 8):
+later with one command (sections 8 and 9):
 
 | Decision | Default in the draft | Changed later with `update_report.py` |
 |---|---|---|
@@ -173,24 +192,54 @@ the question and the choice made into `ISSUES-LIST.md`, and carries on. Only a
 question with no default and no safe choice stops that one item: it ships as
 `undetermined` with an Editor's Note, and the question joins the finish list.
 
-## 6. Paperwork, then deliver once
+## 6. Paperwork
 
 `run_record.py` fills the identity fields. Write what only a person can:
 `ISSUES-LIST.md` (the reviewer's open questions, blocking first, below the
 generated finish list), the scope paragraph and precedent pass in
 `PROCESS-LOG.md`, `LESSONS-LEARNED.md` ("nothing broke" is fine),
 `handoff/HANDOFF.md`, and the README scope paragraph. `package.py` refuses to
-deliver while any still carries template text.
+deliver while any still carries template text. Nothing is delivered yet.
+
+## 7. The draft, the finish list, then the questions
+
+In this order, short:
+
+1. **What was built.** The body `.docx`, its `-Cover.docx` and the review
+   `.xlsx`, as links **in the workspace** (`_pipeline/build/`), and one line:
+   it goes to `<project folder>` (or, with none connected, stays in the
+   session's working folder) once the questions below are answered.
+2. **The finish list**, from the pipeline's output, the blocking entries
+   first: missing cover facts, issuance date, pin clips, delivery folder.
+   Then the review points in one or two lines.
+3. **One `AskUserQuestion`**, at most four questions, for the blocking gaps
+   a person can answer on the spot (identity block, issuance date, the
+   project folder to deliver to, deleted pins). Every question offers
+   "Leave it for the reviewer" (the `[MISSING]`/TBD stays). Say that the
+   report is delivered as soon as they answer, whatever the answers.
+
+## 8. Apply the answers, then deliver once
+
+All the answers in **one** `update_report.py` call, from `_pipeline/`, with
+no `--deliver`: it edits the config or the drafts, re-renders (seconds, no
+worker), verifies and logs the change in `PROCESS-LOG.md`. Skip it when every
+answer was "leave it". Then the one delivery, with `timeout_ms: 600000`:
 
 ```bash
-python3 scripts/package.py <workspace> "<deliver to, from locate_inputs.py>"
+python3 scripts/update_report.py --set client_display_name="ServerFarm CTX2" --set ep_project_no=27625 \
+    --set issuance_date=2026-09-30
+python3 scripts/package.py <workspace> "<deliver to>"
 ```
 
-The one write to the project folder in the run. It never overwrites. **The
+The one write to the project folder in the run, and it lands as v0.1 with the
+answers in it. The package is built and checked in the workspace and copied
+over only when complete, so a cut-short delivery never leaves a broken file
+in the folder; just run the same command again. It never overwrites. **The
 folder keeps only the current version and the inputs**: earlier versions of
-the report already there (body, cover, review sheet, package) are written into
-the new package under `previous-versions/` and then removed from the folder,
-each only after the new zip is verified to hold an identical copy. If Cowork
+the report already there (body, cover, review sheet) are written into the new
+package under `previous-versions/`, an earlier package is replaced (never put
+inside the new one), and both leave the folder only after the new zip is
+verified. If Cowork
 has not allowed deletes in that folder yet, the packager prints `CLEANUP
 PENDING` and three steps. **Step 1: post the message it prints, as written,
 before asking for anything.** It names every file that will be deleted, says
@@ -204,33 +253,23 @@ call `allow_cowork_file_delete` once with the path it names (one approval
 covers the folder). Step 3: if allowed, run
 `python3 scripts/package.py --prune "<folder>"`. Read the whole packager
 output, never a `tail` of it, so the message is not cut. That is the only delete in a
-run, and it removes nothing the new package does not hold. The Task Report
+run, and it removes only the earlier version: its report files have copies in
+the new package, and its package is replaced by the new one. The Task Report
 PDF and `client-profile.json` always stay.
 
-## 7. The final message: what is done, what is missing, then the questions
+**The delivery message** closes the run: the four files as links **in the
+folder they were delivered to** (if that is the session outputs folder, say
+so first: connecting a project folder and `update_report.py --deliver
+"<folder>"` moves it), what is still `[MISSING]` or TBD, and, if the PlanGrid
+export did not arrive, where it waits.
 
-In this order, short:
+## 9. Changes after the delivery: surgical edits, never a rebuild
 
-1. **What was built and where.** The body `.docx`, its `-Cover.docx`, the
-   review `.xlsx` and the package, as links **in the folder they were
-   delivered to**. If that is the session outputs folder, say so in the first
-   sentence: the report is not in a project folder yet, and connecting one
-   takes one command.
-2. **The finish list**, from the pipeline's output, the blocking entries
-   first: missing cover facts, issuance date, pin clips, delivery folder.
-   Then the review points in one or two lines.
-3. **One `AskUserQuestion`**, at most four questions, for the blocking gaps
-   a person can answer on the spot (identity block, issuance date, the
-   project folder to deliver to, deleted pins). Say the draft is complete
-   either way and they can answer later in this session.
-
-## 8. When the answers arrive: surgical edits, never a rebuild
-
-Each answer is one `update_report.py` call, from `_pipeline/`; several can
-ride in one call. It edits the config or the drafts, re-renders (seconds, no
-worker, no reference reading), verifies, logs the change in
-`PROCESS-LOG.md`, and with `--deliver` packages the next version (v0.1 to
-v0.2) beside the earlier one:
+A change the user asks for **after** the delivery (a later reply in the same
+session, or a new session on a delivered report) is one `update_report.py`
+call, from `_pipeline/`; several can ride in one call. It edits the config or
+the drafts, re-renders, verifies, logs the change in `PROCESS-LOG.md`, and with
+`--deliver` packages the next version (v0.1 to v0.2):
 
 ```bash
 python3 scripts/update_report.py --set client_display_name="ServerFarm CTX2" --set ep_project_no=27625 \
@@ -245,7 +284,7 @@ one per answer (field result 2026-09-23: a date, then a folder, then a Task
 Report gave three renders and two deliveries a minute apart). A delivery to a
 folder that holds a Task Report PDF uses it automatically when the report has
 no pin clips yet, in the same call. Every `--deliver` tidies the folder as in
-section 6, including `CLEANUP PENDING`.
+section 8, including `CLEANUP PENDING`.
 
 Do not start a worker, re-read references, re-run the data steps or re-draft
 items for any of these. A scope change (`--scope`, `--created-after`) re-runs
@@ -254,14 +293,14 @@ its error and are the only ones to draft. In a new session the workspace is
 gone: rebuild it from the delivered package (`reference/revising.md`, three
 commands), then the same calls.
 
-## 9. What the project folder holds when the run is done
+## 10. What the project folder holds when the run is done
 
 | File | What it is |
 |---|---|
 | `<Project>-Punch-Report-DRAFT-vN.N.docx` | the report body, the file of record; page 1 is blank for the cover |
 | `<Project>-Punch-Report-DRAFT-vN.N-Cover.docx` | the cover, a separate Word file (cover mode `template`) |
 | `<Project>-Punch-Report[-DRAFT-vN.N]-Review.xlsx` | the review spreadsheet: bulk edits in the yellow columns, imported back |
-| `<Project>-Punch-Report-DRAFT-vN.N.zip` | the package: the whole workspace (data, drafts, photos, clips, paperwork, scripts) to revise from, plus every earlier version under `previous-versions/` |
+| `<Project>-Punch-Report-DRAFT-vN.N.zip` | the package: the workspace for this report's pins (data, drafts, their photos, clips, paperwork, scripts) to revise from, plus the earlier versions' body, cover and review sheet under `previous-versions/` (never an earlier package) |
 | `client-profile.json` | client-level facts for the next report for this client |
 | `PlanGrid Task Report ... .pdf` | the user's own input, the source of the pin clips; never moved |
 

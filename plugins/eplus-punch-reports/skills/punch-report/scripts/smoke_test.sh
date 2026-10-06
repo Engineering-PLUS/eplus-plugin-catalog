@@ -53,7 +53,7 @@ for s in consolidate.py normalize_photos.py extract_sheet_clips.py \
          package.py fix_bookmark_ids.py render_preview.py \
          import_reviewed_docx.py fetch_photos.py adapt_mcp_pull.py \
          extract_pdf_photos.py export_pdf.py run_record.py staple_pdf.py \
-         locate_inputs.py prefill_config.py finish_list.py update_report.py; do
+         locate_inputs.py prefill_config.py finish_list.py update_report.py          task_report_filter.py; do
     if [ ! -f "$s" ]; then bad "$s is missing"; continue; fi
     out=$("$PY" "$s" --help 2>&1)
     case "$?:$out" in
@@ -607,13 +607,16 @@ assert "Delivery" not in {e["what"] for e in fin["blocking"]}, fin["blocking"]
 r = py("scripts/update_report.py", "--set", "issuance_date=2026-10-01", "--deliver", "--mnt-glob", os.path.join(d, "*"))
 assert r.returncode == 0, r.stdout + r.stderr
 got = sorted(os.listdir(os.path.join(mnt, "Proj")))
-# the folder holds the current version only; v0.1 (body, cover, review sheet, package) is inside
-# the v0.2 package under previous-versions/
+# the folder holds the current version only; v0.1's body, cover and review sheet are inside
+# the v0.2 package under previous-versions/, and v0.1's package is replaced, never packed inside
 assert got == ["CTX2-Punch-Report-DRAFT-v0.2-Cover.docx", "CTX2-Punch-Report-DRAFT-v0.2-Review.xlsx",
                "CTX2-Punch-Report-DRAFT-v0.2.docx", "CTX2-Punch-Report-DRAFT-v0.2.zip", "client-profile.json"], got
 inner = set(zipfile.ZipFile(os.path.join(mnt, "Proj", "CTX2-Punch-Report-DRAFT-v0.2.zip")).namelist())
-assert {"previous-versions/CTX2-Punch-Report-DRAFT-v0.1.zip", "previous-versions/CTX2-Punch-Report-DRAFT-v0.1.docx",
+assert {"previous-versions/CTX2-Punch-Report-DRAFT-v0.1.docx", "previous-versions/SUPERSEDED.txt",
         "previous-versions/CTX2-Punch-Report-DRAFT-v0.1-Cover.docx", "previous-versions/CTX2-Punch-Report-Review.xlsx"} <= inner, inner
+assert not any(n.endswith(".zip") for n in inner), "an earlier package was packed inside the new one"
+assert "CTX2-Punch-Report-DRAFT-v0.1.zip" in zipfile.ZipFile(os.path.join(mnt, "Proj", "CTX2-Punch-Report-DRAFT-v0.2.zip")).read(
+    "previous-versions/SUPERSEDED.txt").decode()
 assert "moved       : CTX2-Punch-Report-DRAFT-v0.1.docx" in r.stdout, r.stdout
 assert "version CTX2-Punch-Report-DRAFT-v0.1.docx -> CTX2-Punch-Report-DRAFT-v0.2.docx" in r.stdout, r.stdout
 # an unconnected folder is refused with the list of what is connected, never a picker
@@ -636,7 +639,8 @@ def w(rel, data=b"x"):
     p = os.path.join(ws, rel); os.makedirs(os.path.dirname(p), exist_ok=True)
     open(p, "wb").write(data); return p
 w("_pipeline/CLAUDE.md"); w("_pipeline/PROCESS-LOG.md"); w("client-profile.json", b"{}")
-w("_pipeline/data/items.json"); w("_pipeline/data/_write_probe.json")
+w("_pipeline/data/items.json", b'[{"number": 1, "photos": [{"path": "/sessions/s/mnt/outputs/ws/plangrid_pull/photos/p.jpg"}]}]')
+w("_pipeline/data/_write_probe.json"); w("plangrid_pull/photos/other_visit.jpg")
 w("_pipeline/scripts/build_master.py"); w("_pipeline/scripts/_write_probe.py"); w("_pipeline/scripts/node_modules/docx/x.js")
 w("_pipeline/template/_pipeline/CLAUDE.md"); w("_pipeline/templates/item-preview.html")
 w("_pipeline/build/master_report_items.json"); w("_pipeline/build/master_report_items.json.20260914.bak.json")
@@ -666,19 +670,26 @@ for bad_name in ("_pipeline/data/_write_probe.json", "_pipeline/scripts/_write_p
                  "_pipeline/template/_pipeline/CLAUDE.md", "_pipeline/templates/item-preview.html",
                  "_pipeline/build/master_report_items.json.20260914.bak.json", "_pipeline/build/_scratch/preview.pdf",
                  "_pipeline/build/v0.2/X-DRAFT-v0.2.docx", "plangrid_mcp/photos/p.jpg",
-                 "_pipeline/build/X-DRAFT-v0.1.docx", "_pipeline/build/X-DRAFT-v0.1-Cover.docx", "_pipeline/build/X-Review-old.xlsx"):
+                 "_pipeline/build/X-DRAFT-v0.1.docx", "_pipeline/build/X-DRAFT-v0.1-Cover.docx", "_pipeline/build/X-Review-old.xlsx",
+                 "plangrid_pull/photos/other_visit.jpg"):
     assert bad_name not in names, f"{bad_name} should not be packaged"
-assert "not packaged:" in r.stdout, r.stdout
+assert "not packaged:" in r.stdout and "outside this report's scope" in r.stdout, r.stdout
+# photos and Office files are stored, text is deflated; the zip was built and checked before the copy
+info = {i.filename: i.compress_type for i in zipfile.ZipFile(os.path.join(dest, "X-DRAFT-v0.2.zip")).infolist()}
+assert info["plangrid_pull/photos/p.jpg"] == zipfile.ZIP_STORED and info["_pipeline/build/X-DRAFT-v0.2.docx"] == zipfile.ZIP_STORED, info
+assert info["_pipeline/CLAUDE.md"] == zipfile.ZIP_DEFLATED, info
+assert "checked before the copy" in r.stdout, r.stdout
 assert sorted(os.listdir(dest)) == ["X-DRAFT-v0.2-Cover.docx", "X-DRAFT-v0.2.docx", "X-DRAFT-v0.2.zip", "X-Review.xlsx", "client-profile.json"], os.listdir(dest)
-# second delivery: suffixed together, and the earlier delivery moves INSIDE the new
-# package (previous-versions/) instead of staying beside it
+# second delivery: suffixed together; the earlier body, cover and sheet move INSIDE the new
+# package (previous-versions/), the earlier package is replaced and never packed inside
 r = subprocess.run([sys.executable, "package.py", ws, dest], capture_output=True, text=True)
 assert r.returncode == 0 and "'-2' suffix" in r.stdout, r.stdout + r.stderr
 assert sorted(os.listdir(dest)) == ["X-DRAFT-v0.2-2-Cover.docx", "X-DRAFT-v0.2-2.docx", "X-DRAFT-v0.2-2.zip",
                                     "X-Review-2.xlsx", "client-profile.json"], os.listdir(dest)
 prev = set(zipfile.ZipFile(os.path.join(dest, "X-DRAFT-v0.2-2.zip")).namelist())
-assert {"previous-versions/X-DRAFT-v0.2.zip", "previous-versions/X-DRAFT-v0.2.docx",
+assert {"previous-versions/SUPERSEDED.txt", "previous-versions/X-DRAFT-v0.2.docx",
         "previous-versions/X-DRAFT-v0.2-Cover.docx", "previous-versions/X-Review.xlsx"} <= prev, sorted(prev)
+assert "previous-versions/X-DRAFT-v0.2.zip" not in prev, "an earlier package was packed inside the new one"
 # --replace (with --keep-previous): same names overwritten in place, nothing else touched, no third set
 open(new, "wb").write(b"newer body")
 for _ in range(2):
@@ -717,7 +728,8 @@ for p in os.listdir(dest):
 assert sorted(os.listdir(dest)) == ["X-DRAFT-v0.3-Cover.docx", "X-DRAFT-v0.3-Review.xlsx", "X-DRAFT-v0.3.docx",
                                     "X-DRAFT-v0.3.zip", "client-profile.json"], os.listdir(dest)
 inner = set(zipfile.ZipFile(os.path.join(dest, "X-DRAFT-v0.3.zip")).namelist())
-assert {"previous-versions/X-DRAFT-v0.2.docx", "previous-versions/X-DRAFT-v0.2-2.zip"} <= inner, sorted(inner)
+assert "previous-versions/X-DRAFT-v0.2.docx" in inner and not any(n.endswith(".zip") for n in inner), sorted(inner)
+assert "X-DRAFT-v0.2-2.zip" in zipfile.ZipFile(os.path.join(dest, "X-DRAFT-v0.3.zip")).read("previous-versions/SUPERSEDED.txt").decode()
 PYCHECK
 
 # MCP route: a get_tasks packet as pull_mcp.sh fetches it (photos and sheets inline, native
@@ -858,6 +870,22 @@ assert "task_report_route_detail" in src and "Tasks > Reports" in src, "finish l
 # run_pipeline.sh: both spellings, and the render-only pickup
 rp = open("run_pipeline.sh", encoding="utf-8").read()
 assert "*task_report*.pdf" in rp and "arrived after the data steps" in rp, "run_pipeline.sh lost the late Task Report pickup"
+PYCHECK
+
+# task_report_filter.py: the task-list url that limits the PlanGrid export to the report's
+# pins, from their created_at in local dates (midday UTC stamps: the same date in any US zone)
+"$PY" - <<'PYCHECK' 2>&1 && ok "task_report_filter.py: created_after/created_before from the scoped items"     || bad "task_report_filter.py behavioural check failed"
+import json, os, subprocess, sys, tempfile
+d = tempfile.mkdtemp(); items = os.path.join(d, "items.json")
+json.dump([{"number": 59, "created_at": "2026-10-05T17:20:40.654265"}, {"number": 94, "created_at": "2026-10-05T18:20:40+00:00"},
+           {"number": 60, "created_at": "2026-10-04T16:00:00Z"}, {"number": 61}], open(items, "w", encoding="utf-8"))
+r = subprocess.run([sys.executable, "task_report_filter.py", "--project-uid", "u1", "--items", items], capture_output=True, text=True)
+assert r.returncode == 0, r.stdout + r.stderr
+assert "https://app.plangrid.com/projects/u1/issues/?created_after=2026-10-04&created_before=2026-10-05" in r.stdout, r.stdout
+assert "at least 4 filtered tasks" in r.stdout, r.stdout
+json.dump([{"number": 1}], open(items, "w", encoding="utf-8"))
+r = subprocess.run([sys.executable, "task_report_filter.py", "--project-uid", "u1", "--items", items], capture_output=True, text=True)
+assert r.returncode != 0 and "Export (All)" in r.stdout + r.stderr, r.stdout + r.stderr
 PYCHECK
 
 # The wording-review preview markup ships with the skill, not the workspace, so

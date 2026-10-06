@@ -3,31 +3,42 @@
 The Task Report PDF is the only source of the per-pin sheet clips, and it is
 not part of the `plangrid` connector pull. When the user attached none and
 `locate_inputs.py` found none, the main thread exports one from PlanGrid in
-the built-in browser while the rest of the run carries on, and fetches it
-into the workspace before the render. Walked end to end on 2026-10-01 (CTX2,
-36 tasks: about 100 seconds to generate, 3 MB, 24 pages).
+the built-in browser, **filtered to this report's pins**, while the rest of
+the run carries on, and fetches it into the workspace before the render.
+Walked end to end on 2026-10-01 (CTX2, 36 tasks: about 100 seconds, 3 MB) and
+2026-10-06 (Project Miner Building A, a 36-item report: unfiltered, all 94
+tasks, about 6.5 minutes and 12.4 MB; filtered to the walk date, exactly the 36
+tasks #59 to #94, under 4 minutes and 6.2 MB).
 
-**Main thread only.** A worker never opens the browser: the sign-in message is
+**Main thread only.** A worker never opens the browser: the sign-in notice is
 for the user, and workers have no contact with the user.
+
+**The clips are always wanted unless the user says so in those words** ("no
+drawing clips", "skip the Task Report", "don't use PlanGrid in the browser").
+A request that names the sources to draft from ("only pics and description
+notes", "from the photos") is about the wording, not the clips. Field result
+2026-10-06: "only pics and description notes for visit 6" was read as "no
+clips", the export was recorded as skipped, and the user had to stop the run.
 
 **When it does not apply:** a Task Report PDF is already on disk or uploaded;
 a revision whose package already carries pin clips; the **No match** path
-(empty template); the user said not to use PlanGrid in the browser.
+(empty template); the user said in so many words not to export the clips.
 
-## The shape: start early, collect late, never wait on it
+## The shape: sign in early, export after the data pass, collect before the render
 
 | When | What |
 |---|---|
-| Right after `list_projects` gives the project uid (run order, section 1) | open the browser, check the sign-in, start the export (steps 1 to 4) |
-| After `adapt_mcp_pull.py`, before `bash scripts/run_pipeline.sh` | collect (step 5), up to 3 minutes of polling |
-| If it was not ready then: after drafting, before `RENDER_ONLY=1 bash scripts/run_pipeline.sh` | collect again, up to 5 more minutes |
+| Right after `list_projects` gives the project uid (run order, section 1) | load the browser tools, open the task list, check the sign-in (steps 1 and 2) |
+| Right after the data pass (`bash scripts/run_pipeline.sh`, so `data/items.json` holds the scope) | start the export, filtered to the scope (steps 3 and 4); then hand drafting to the worker |
+| After drafting, before `RENDER_ONLY=1 bash scripts/run_pipeline.sh` | collect (step 5), up to 5 minutes of polling |
 | Still nothing | record the skip (step 7) and render without clips |
 
+The export starts after the data pass because the filter comes from the
+scoped items; it generates while the items are drafted (two to five minutes).
 Collect **before** the render, not after it: on 2026-10-01 the model rendered
 first, then started the export, and had to render a second time for the
-clips. The draft never waits on the export. `run_pipeline.sh` picks a PDF up beside
-`_pipeline/` in either pass: the data pass cuts the clips in its sheet-clip
-step, and a render-only pass cuts them first when the report has none yet.
+clips. The draft never waits on the export. A render-only pass cuts the clips
+of a PDF beside `_pipeline/` when the report has none yet.
 
 ## 1. Load the browser tools
 
@@ -52,33 +63,57 @@ or URL", field result 2026-09-22). `<project uid>` is the uid
 `list_projects` returned.
 
 **Signed out:** the page URL ends in `/login`, or the text reads "Log in to
-your account". Claude cannot sign in for the user. Post this once, as a
-statement, not a question, and carry on with the run without waiting. It is
-**reply text the user sees**, written before your next tool call, never only
-in your thinking: on 2026-10-01 the model composed it in its thinking, noted
-"I've posted a note", and the user was never told.
+your account". Claude cannot sign in for the user, and a sign-in does not last
+forever (a pane signed in on 2026-10-01 was signed out again by 2026-10-06).
+Tell the user, without waiting for a reply, in two places that show:
 
-> PlanGrid needs you to sign in before I can export the Task Report, which
-> has the drawing clip for each pin. Please sign in in the browser pane; I
-> can't do that part for you. Your sign-in should be remembered next time. I'm
-> carrying on with the draft meanwhile and will pick up the export once
-> you're in.
+1. A task in the task list, created right away:
+   `TaskCreate  subject: "Sign in to PlanGrid in the browser pane"`,
+   description: "Needed for the drawing clip on each pin. Claude can't sign in
+   for you; the draft carries on meanwhile." Mark it completed once the task
+   list loads signed in.
+2. The **first sentence of your next status line**, for example: "PlanGrid
+   needs you to sign in in the browser pane (I can't do that for you) so I can
+   export the drawing clips; I'm carrying on with the draft meanwhile."
 
-At each collect point (the table above), `navigate` to the same url and check
-again. Signed in now: do steps 3 and 4, then collect. Still signed out at the
-last collect point: record the skip, reason `not signed in to PlanGrid`.
+Never only in your thinking: on 2026-10-01, 2026-10-02 and 2026-10-06 the
+model composed the notice in its thinking, a separate message was never
+written, and the users found the login page in the pane on their own.
+
+At step 3 and at the collect point, `navigate` to the task list again and
+check. Still signed out at the collect point: record the skip, reason
+`not signed in to PlanGrid`, and say it again in the final message.
 
 **Signed in:** the page lists the project's tasks ("Export (All)" is on it).
 A PlanGrid error page instead (no access to the project): skip, reason
 `no access to the project in PlanGrid`.
 
-## 3. Start the export
+## 3. Start the export, filtered to this report's pins
+
+From `_pipeline/`, after the data pass:
+
+```bash
+python3 scripts/task_report_filter.py --project-uid <project uid>
+```
+
+It prints a `filter url` (the task list with `created_after` and
+`created_before` set to the scope's first and last pin date, in local time)
+and the number of in-scope items. Then:
 
 ```
-mcp__Claude_Browser__find       query: "Export (All)"     -> click its ref with mcp__Claude_Browser__computer left_click
+mcp__Claude_Browser__navigate   url: "<filter url>"
+mcp__Claude_Browser__find       query: "Export (Filtered)"   -> click its ref with mcp__Claude_Browser__computer left_click
 mcp__Claude_Browser__computer   action: wait, duration: 2
-mcp__Claude_Browser__find       query: "Generate"         -> click its ref
+mcp__Claude_Browser__find       query: "filtered tasks"      -> "<N> filtered tasks"; N must be at least the in-scope count
+mcp__Claude_Browser__find       query: "Generate"            -> click its ref
 ```
+
+The button reads **Export (Filtered)** only when the filter took; "Export
+(All)" means it did not (signed out, or the page reloaded): navigate to the
+filter url again. N can exceed the scope (another walk on the same day); the
+clip extractor takes only the report's items. N below the scope count means
+the window is wrong: export with "Export (All)" instead. A scope with no pin
+dates (`task_report_filter.py` exits nonzero) also exports all.
 
 **Leave every option in the panel at its default and click by `ref` only.**
 The defaults (PDF, sorted by ID, photos included, every task detail) are what
@@ -86,7 +121,8 @@ the pipeline reads. Page size starts blank and comes out US Letter;
 `extract_sheet_clips.py` reads A4 as well, so never touch it. **Never fill
 "Email to"**: it emails the report to whoever is named. Never click inside the
 panel by coordinate: it is a scrolling panel, and on 2026-10-01 a coordinate
-click meant for the page size unticked a task-detail box instead.
+click meant for the page size unticked a task-detail box instead. Never type
+into the Filters panel either: the filter url sets it.
 
 One export per run. If this run already started one, reuse its staple link.
 
@@ -144,6 +180,8 @@ await (async () => {
 - `generating`: `mcp__Claude_Browser__computer` `wait` 10 seconds (the
   longest one wait allows), three waits per round, then run it again. The
   page updates itself; no reload. Stop at the budget in the table above.
+  (Tasks > Reports shows the same export as "Generating: N%" if you want a
+  progress figure for the status line.)
 - `ready`: `link` is a signed download link to
   `plangrid-reports-prod-reportsresults-19fdmf8y8pfpb.s3.amazonaws.com`, good
   for 30 days. Go to step 6.

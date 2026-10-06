@@ -116,44 +116,54 @@ replaces the body PDF's blank page 1 with the cover PDF once the user has both
 and has said yes.
 
 ```bash
-python3 scripts/package.py <workspace> "<deliver to>"
+python3 scripts/package.py <workspace> "<deliver to>"      # timeout_ms: 600000, never in the background
 ```
 
-`<deliver to>` is the project folder `locate_inputs.py` found, or, when no
-folder is connected, the session outputs folder; the run never stops to ask
-for one first. That zips the workspace (pipeline, sources, data, build,
-handoff) into the destination and places the `.docx`, the `-Cover.docx` and
-the review `.xlsx` beside it. It leaves out what the run superseded and prints each
+**Once per run, after the final questions are answered and applied**
+(`run-order.md`, sections 7 and 8), never before them. `<deliver to>` is the
+project folder `locate_inputs.py` found, or, when no folder is connected, the
+session outputs folder; the run never stops to ask for one first. It builds
+the zip of the workspace (pipeline, sources, data, build, handoff) in
+`_pipeline/build/_scratch/`, checks every entry, and only then copies it into
+the destination, with the `.docx`, the `-Cover.docx` and the review `.xlsx`
+beside it; photos, PDFs and Office files are stored, not recompressed. It leaves out what the run superseded and prints each
 exclusion: caches and `_scratch/`, anything named with a leading underscore
 (worker probe files), a template stamped into `_pipeline/`, `build/`
 subfolders other than `assets`, `thumbs_uniform` and `sheet_clips_jpg`, raw
 MCP photos already copied into `plangrid_pull/`, `.bak.json` backups, and
 every `.docx` or `.xlsx` that is not one of the three delivered (earlier
-renders are reproducible from the data). Field result 2026-09-14: without
-these rules a package was 26.6 MB and 252 files for a 38-item report. It is
-the only write to the project folder in the entire run. It moves earlier
-versions of the report into the new package under `previous-versions/` and
-removes them from the folder once the copies are verified, so the folder holds
-the current version and the inputs. When Cowork has not allowed deletes there
+renders are reproducible from the data), and photos of pins outside the
+report's scope. Field results: 2026-09-14, 26.6 MB and 252 files for a
+38-item report without these rules; 2026-10-06, 127 MB for a 36-item report
+that carried a 94-task project's photos. It is the only write to the project
+folder in the entire run. It moves the earlier versions' body, cover and
+review sheet into the new package under `previous-versions/`, replaces an
+earlier package (never packing it inside: on 2026-10-06 v0.2 tried to carry
+v0.1's 130 MB zip and was cut off at the shell's time limit), and removes them
+from the folder once the new zip is verified, so the folder holds the current
+version and the inputs. When Cowork has not allowed deletes there
 yet it prints `CLEANUP PENDING` with a message naming every file to be deleted
 and why; post it as written before asking for the permission, then `--prune`
-(`run-order.md`, section 6). It refuses to
+(`run-order.md`, section 8). It refuses to
 overwrite a delivery of the same name unless `--replace` is passed (and that only
 when the user has said the earlier copy should be replaced), and `--dry-run`
 shows the manifest first. Do not copy files across by hand before or after it.
 
-**Every later delivery goes through `update_report.py --deliver`.** It re-renders
+**Every later delivery goes through `update_report.py --deliver`**, for a
+change asked for after the run's one delivery. It re-renders
 what changed, steps the version up (v0.1 to v0.2) when the current name is
 already in the destination, and packages beside the earlier delivery, which
 is never overwritten. `--deliver "<folder>"` also moves a report built into
 the session outputs folder to a project folder the user connects afterwards.
 
-**The final message** after the first delivery, in this order: what was built
-and where (links into the folder it was delivered to; if that is the session
-outputs folder, say so in the first sentence), the finish list the pipeline
-printed (blocking entries first), then one `AskUserQuestion` of at most four
-questions for the blocking gaps a person can answer on the spot. The draft is
-complete whether or not they answer.
+**The questions come before the delivery** (`run-order.md`, section 7): what
+was built, as links in the workspace, the finish list the pipeline printed
+(blocking entries first), then one `AskUserQuestion` of at most four questions
+for the blocking gaps a person can answer on the spot, each with a "leave it
+for the reviewer" option. The answers go in one `update_report.py` call
+without `--deliver`, then `package.py` delivers once. **The delivery
+message** gives the links in the folder it was delivered to; if that is the
+session outputs folder, say so in the first sentence.
 
 **The issues list** (`_pipeline/ISSUES-LIST.md`) is first-class. Its top block,
 between `<!-- finish-list:start -->` and `<!-- finish-list:end -->`, is written

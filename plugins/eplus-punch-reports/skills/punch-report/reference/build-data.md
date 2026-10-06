@@ -24,7 +24,15 @@ Do not ask for `detail="full"` in a report run.
    `get_tasks(project_uid, since="<walk date>")` (or `numbers=[...]`): read
    `coverage` (selected_count, not_found, failed, photo counts) and the
    `index` (one line per task: number, sheet, photos, status, title) to settle
-   scope; note `packet.url` and `packet.sha256`. Then `list_sheets(project_uid)`:
+   scope; note `packet.url` and `packet.sha256`. **Pull the scope, not the
+   project.** When the user named a visit, a title, an engineer, a date or a
+   range, and the first call was not already limited to it, call `get_tasks`
+   once more with `numbers=[...]` (the index rows that match: the title column
+   carries markers like "Visit 6") and fetch only that second packet. Field
+   result 2026-10-06: an unscoped pull of a 94-task project for a 36-item
+   visit downloaded 163 photos, the data pass hit the shell's time limit, and
+   the package carried every visit's photos. The consolidate rules (`SCOPE`,
+   `TITLE`, `CREATED_AFTER`) still settle the final scope. Then `list_sheets(project_uid)`:
    note `untitled` and its packet. Do not call `get_task` per item: the client
    sends tool calls one at a time, so N calls cost N round trips (thirty-three
    took 52 seconds on 2026-09-09). `get_task` remains for one item;
