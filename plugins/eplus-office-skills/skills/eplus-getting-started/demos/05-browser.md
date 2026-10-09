@@ -52,18 +52,20 @@ in this demo.
    one line.
 4. The section cut, in this order, each as its own action so they see it
    happen:
-   - Click the middle of the scene, press `1`. Say: "Top view. The overhead
-     cable trays cover everything."
+   - Say: "First the top view." Click the middle of the scene, press `1`,
+     then wait 5 seconds (a browser wait action) so they take it in. Say:
+     "The overhead cable trays cover everything, so next I'll cut the model
+     in half horizontally."
    - Press `x`. Use `find` for "Cut from the bottom and top" and click it, then
      `find` "Cut from the top" and set it to **500** with `form_input` (half
-     the building height). Say: "Now I've cut the model in half horizontally:
-     the trays are gone and you're looking at the rack rows like a floor
-     plan."
+     the building height). Wait 8 seconds. Say: "The trays are gone and
+     you're looking at the rack rows like a floor plan."
    - Take one screenshot for yourself to confirm the rows are visible (do not
      describe the screenshot; they are watching the pane).
-   - `find` "Remove every cut", click it, press `0`. Say: "And back to the
-     start view."
-   Never drag the slider by pixels: a small drag cuts almost nothing.
+   - Say: "And back to the start view." `find` "Remove every cut", click it,
+     press `0`, wait 3 seconds.
+   Never drag the slider by pixels: a small drag cuts almost nothing. The
+   whole sequence should take about half a minute, not five seconds.
 5. Tell them the tab is theirs: they can rotate, zoom and walk through the hall
    with W/A/S/D, and you can read any website the same way, fill in forms,
    and pull information out of pages.

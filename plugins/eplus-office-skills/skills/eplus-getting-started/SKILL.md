@@ -34,12 +34,22 @@ What the user typed: $ARGUMENTS
    browser", not "I'll call navigate".
 6. **Read only the demo file you are about to run** (`demos/`), never all of
    them.
-7. **End every demo the same way**: two lines, "What you just saw: ..." and
-   "Try saying: ..." with one or two prompts they can reuse, then append the
-   demo's card to `cheatsheet-cards.json` (demo 1 explains), then go straight
-   into the next demo they picked, with no question in between. Stop only when
-   their list is done or they say stop. The user should never have to type
-   something just to keep the tour moving.
+7. **End every demo the same way, out loud.** Two lines in the chat, "What
+   you just saw: ..." and "Try saying: ..." with one or two prompts they can
+   reuse. They are never skipped, even when the next demo follows at once.
+   Then append the demo's card to `cheatsheet-cards.json` (demo 1 explains)
+   and start the next demo they picked in the same reply, with no question in
+   between. Stop only when their list is done or they say stop. The user never
+   has to type something just to keep the tour moving.
+8. **Pace it for someone watching, not reading a log.** Before each thing they
+   will see, one short sentence saying what is about to happen; then do it;
+   then leave it on screen. In the browser that means a wait of about five
+   seconds after every visible change, and never undoing a change they were
+   meant to see sooner than eight seconds after making it. Between demos,
+   the closing lines are the pause.
+9. **Fix your own mistakes silently.** A tool error caused by a missing or
+   wrong argument is yours: retry with it and say nothing about it. The user
+   only hears about a problem when it changes what they get.
 
 ## Start
 
@@ -72,8 +82,11 @@ stop any time and pick it up later by asking "show me what you can do".
 ## Finish
 
 After the last demo, rebuild the cheat sheet with the same
-`build_cheatsheet.py` command as demo 1 (it now carries every card), update the
-artifact with the new file (`update_artifact`), and present the file again so
-they can print it. Then say in three lines what they now have (the page, the
+`build_cheatsheet.py` command as demo 1 (it now carries every card), say that
+the app may ask them to approve updating the page and that it only swaps in
+the version with the new cards, update the artifact with the new file
+(`update_artifact` with the same `id`, the `html_path`, and an
+`update_summary`, one line saying what was added; it is required), and present
+the file again so they can print it. Then say in three lines what they now have (the page, the
 skill, the document, anything they created), and close with: "Whenever you
 want to see what else I can do, just ask me to show you."
