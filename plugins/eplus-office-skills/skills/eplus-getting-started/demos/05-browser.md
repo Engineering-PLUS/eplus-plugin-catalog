@@ -1,7 +1,12 @@
-# Demo 5: use the browser
+# Demo 5: use the browser (runs on its own, in a fresh chat)
 
 **What it shows:** Claude can open websites in the built-in browser, read
 them, click through them, and hand the tab back to the user.
+
+**Before anything:** if a page (artifact) has been built in this chat, do not
+open the browser. Say: "The browser needs the side panel to itself. Start a
+new chat and say: show me the browser." and stop. This demo is never part of
+the tour (SKILL.md explains).
 
 The demo site is the EPLUS model viewer (BIM model review). This is the only
 address the tour opens, exactly as written, including the `?k=` part, which is
@@ -50,28 +55,31 @@ in this demo.
    them to confirm.
 3. Read the page text. Tell them the model name, element count and extent in
    one line.
-4. The section cut, in this order, each as its own action so they see it
-   happen:
-   - Say: "First the top view." Click the middle of the scene, press `1`,
-     then wait 5 seconds (a browser wait action) so they take it in. Say:
-     "The overhead cable trays cover everything, so next I'll cut the model
-     in half horizontally."
-   - Press `x`. Use `find` for "Cut from the bottom and top" and click it, then
-     `find` "Cut from the top" and set it to **500** with `form_input` (half
-     the building height). Wait 8 seconds. Say: "The trays are gone and
-     you're looking at the rack rows like a floor plan."
-   - Take one screenshot for yourself to confirm the rows are visible (do not
+4. The section cut: a vertical plane across the hall, never the top-down
+   cut. In this order, each as its own action so they see it happen:
+   - Say: "I'll cut the hall in half, straight across the rack rows." Click
+     the middle of the scene once (keys need the canvas focused), press `x`.
+   - Use `find` for "Cut from the back and front" and click it, then `find`
+     "Cut from the front" and set it to **500** with `form_input` (the middle
+     of the hall; the sliders run 0 to 1000). Wait 8 seconds. Say: "Half the
+     hall is gone, so you're looking straight into the cut racks and the
+     trays above them."
+   - Say: "Same cut from the side." Click the scene, press `3` (right view),
+     wait 6 seconds.
+   - Take one screenshot for yourself to confirm the cut is visible (do not
      describe the screenshot; they are watching the pane).
-   - Say: "And back to the start view." `find` "Remove every cut", click it,
-     press `0`, wait 3 seconds.
+   - Say: "And back to the start view with the cut removed." `find` "Remove
+     every cut", click it, click the scene, press `0`, wait 3 seconds.
    Never drag the slider by pixels: a small drag cuts almost nothing. The
    whole sequence should take about half a minute, not five seconds.
 5. Tell them the tab is theirs: they can rotate, zoom and walk through the hall
    with W/A/S/D, and you can read any website the same way, fill in forms,
    and pull information out of pages.
-6. Add the card to the cheat sheet: title "Websites", what "I can open a site
-   in the browser, read it, click through it and pull out what you need.",
-   try "Open ... and find ..." / "Compare these two pages."
+6. If `cheatsheet-cards.json` exists in the outputs folder (it will not in a
+   fresh chat), add the card: title "Websites", what "I can open a site in
+   the browser, read it, click through it and pull out what you need.", try
+   "Open ... and find ..." / "Compare these two pages." Otherwise skip the
+   card; there is no page to rebuild in this chat.
 
 ## Close
 
