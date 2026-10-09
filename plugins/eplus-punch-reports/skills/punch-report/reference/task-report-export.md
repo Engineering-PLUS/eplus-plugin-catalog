@@ -42,7 +42,7 @@ of a PDF beside `_pipeline/` when the report has none yet.
 
 ## 1. Load the browser tools
 
-They are deferred in Cowork. One call:
+They are deferred in the desktop app. One call:
 
 ```
 ToolSearch  query: "select:mcp__Claude_Browser__preview_start,mcp__Claude_Browser__navigate,mcp__Claude_Browser__get_page_text,mcp__Claude_Browser__find,mcp__Claude_Browser__computer,mcp__Claude_Browser__javascript_tool"

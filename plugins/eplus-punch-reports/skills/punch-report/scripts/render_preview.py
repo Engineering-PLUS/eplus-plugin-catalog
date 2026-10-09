@@ -15,7 +15,7 @@ The reviewer issues the report from Word; a PDF the user asks for comes from
 scripts/export_pdf.py and is labelled a convenience copy.
 
 Requirements: pymupdf and Pillow (requirements.txt) plus a `soffice` binary on
-PATH (the Cowork sandbox ships one; a Windows host may not). Without it this
+PATH (the desktop app's sandbox ships one; a Windows host may not). Without it this
 script fails at the conversion step and says so, and the OOXML checks in
 verify_report.py remain the only verification.
 

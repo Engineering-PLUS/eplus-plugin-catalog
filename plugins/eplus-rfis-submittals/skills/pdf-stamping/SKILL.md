@@ -1,7 +1,7 @@
 ---
 name: pdf-stamping
 description: Stamp submittal PDFs with the EPLUS Bluebeam review stamps and comment block, editable in Bluebeam.
-when_to_use: Use whenever the user asks to stamp a submittal, add a DRAFT or FOR REFERENCE ONLY watermark, apply "Exceptions As Noted" / "No Exception" / "Rejected (Resubmit)" / "Review Required" / "For Record" / "For Information Only", add the ENGINEERING PLUS COMMENTS box to a drawing, change the comment colour or add a general note on already-stamped copies, stamp a batch of submittals, or mark a submittal reviewed. Produces an "EPLUS RESPONSE - " copy with live, Bluebeam-editable annotations. Cowork-only — it needs PyMuPDF and a real filesystem. Handles Bluebeam annotation stamps, which a plain PDF merge silently fails to render.
+when_to_use: Use whenever the user asks to stamp a submittal, add a DRAFT or FOR REFERENCE ONLY watermark, apply "Exceptions As Noted" / "No Exception" / "Rejected (Resubmit)" / "Review Required" / "For Record" / "For Information Only", add the ENGINEERING PLUS COMMENTS box to a drawing, change the comment colour or add a general note on already-stamped copies, stamp a batch of submittals, or mark a submittal reviewed. Produces an "EPLUS RESPONSE - " copy with live, Bluebeam-editable annotations. Desktop app only — it needs PyMuPDF and a real filesystem. Handles Bluebeam annotation stamps, which a plain PDF merge silently fails to render.
 ---
 
 # EPLUS submittal stamping
@@ -12,7 +12,7 @@ another colour), and optionally a DRAFT watermark on every page.
 
 ## Scope and status
 
-- **Cowork only.** The script needs PyMuPDF and local file access. In a chat
+- **Desktop app only.** The script needs PyMuPDF and local file access. In a chat
   session with no filesystem, say so and stop — do not describe the stamp in
   prose as a substitute.
 - **The output is a reference copy, not an issued document.** The reviewer
@@ -23,7 +23,7 @@ another colour), and optionally a DRAFT watermark on every page.
 
 ## Setup
 
-The Cowork VM runs **Python 3.10** at `/usr/bin/python3` and needs the
+The desktop app's VM runs **Python 3.10** at `/usr/bin/python3` and needs the
 `--break-system-packages` flag:
 
 ```bash

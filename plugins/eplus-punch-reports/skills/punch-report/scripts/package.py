@@ -75,7 +75,7 @@ the new one: each package would carry every earlier package and the size
 compounds (field result 2026-10-06: v0.2 had to carry v0.1's 130 MB zip). The
 new package is the current workspace, so an earlier package is superseded:
 its name is listed in previous-versions/SUPERSEDED.txt and it is removed from
-the folder with the earlier body, cover and review sheet. Cowork allows deletes in a connected folder only
+the folder with the earlier body, cover and review sheet. The desktop app allows deletes in a connected folder only
 after the user grants it once per folder; until then the script prints
 CLEANUP PENDING with the files and the follow-up command,
 `package.py --prune <destination>`, which removes exactly the files the newest
@@ -353,13 +353,13 @@ def report_cleanup(dest, zip_path, removed, blocked):
         folder = os.path.basename(os.path.normpath(dest))
         print(f"CLEANUP PENDING: {len(blocked)} earlier file(s) are safely inside {zname} under {PREV} "
               f"but this folder does not allow deletes yet: {', '.join(blocked)}")
-        # The permission prompt Cowork shows names one file and says nothing about
+        # The permission prompt the app shows names one file and says nothing about
         # why. Field result 2026-09-23: the model asked with "I'll tidy them out of
         # the folder", and a user could not tell what was about to be deleted. So
         # the exact message is written here and posted BEFORE the permission call.
         print("  STEP 1. Post this message to the user, as written, before asking for permission:")
         print("  ----")
-        print(f"  Cowork is about to ask you to allow file deletion in the \"{folder}\" folder. Here is exactly "
+        print(f"  Claude is about to ask you to allow file deletion in the \"{folder}\" folder. Here is exactly "
               f"what I will delete, and why:")
         for n in blocked:
             print(f"  - {n}")
@@ -372,7 +372,7 @@ def report_cleanup(dest, zip_path, removed, blocked):
               + f" I delete only these {len(blocked)} file(s); nothing else in the folder is touched (your "
               f"Task Report and client-profile.json stay). If you decline, they simply stay in the folder.")
         print("  ----")
-        print("  STEP 2. Ask for delete permission once (Cowork: allow_cowork_file_delete with the path of "
+        print("  STEP 2. Ask for delete permission once (the allow_cowork_file_delete tool with the path of "
               f"{os.path.join(dest, blocked[0])}).")
         print("  STEP 3. If it was allowed, run:")
         print(f"  python3 scripts/package.py --prune \"{dest}\"")

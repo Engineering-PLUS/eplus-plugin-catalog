@@ -10,7 +10,7 @@ conversations, so they do not have to repeat themselves.
    - Your role and trade (e.g. telecom, security, electrical, project management)
    - What you are working on right now (projects or sites)
    - How you like answers (short and direct / detailed / step by step)
-2. Save what they told you with Cowork's memory, in their words, as a few short
+2. Save what they told you with Claude's memory, in their words, as a few short
    facts ("Works as a telecom engineer on the NVA05A project", "Prefers short,
    direct answers"). Tell them exactly what you saved.
 3. **If there is no memory tool in your tool list, memory is turned off for

@@ -67,17 +67,19 @@ don't respond to it, drop it for the rest of the conversation.
 5. Save it. Which way depends on whether it has files besides SKILL.md:
    - **SKILL.md only** (the references are short enough to go inside
      it): call `mcp__cowork__save_skill` (load it first with ToolSearch
-     `select:mcp__cowork__save_skill`) with `name` (kebab-case),
+     `select:mcp__cowork__save_skill`; if that name is not found, ToolSearch
+     `save skill` and use what comes back) with `name` (kebab-case),
      `description` (one line saying when to use it; it becomes the
      trigger) and `content` (the SKILL.md body in Markdown, self-contained,
-     no reference to this conversation). Cowork asks the user to approve
+     no reference to this conversation). The app asks the user to approve
      the save. This tool cannot attach any other file.
    - **With a `references/` or `scripts/` folder:** build the folder in
      the sandbox with SKILL.md carrying `name` and `description`
      frontmatter, zip it with the folder at the top level as
      `<skill-name>.skill` (`cd /tmp && zip -r <skill-name>.skill
      <skill-name>`), copy it into the session outputs folder, and call
-     `mcp__cowork__present_files` with its path there. The user gets a
+     `mcp__cowork__present_files` (if that name is not found, the present-files
+     tool ToolSearch returns) with its path there. The user gets a
      card with a **Save skill** button that installs the whole folder.
    Either way the skill is saved to the user's own account, available in
    all their conversations; it is not shared with the team. Tell them how

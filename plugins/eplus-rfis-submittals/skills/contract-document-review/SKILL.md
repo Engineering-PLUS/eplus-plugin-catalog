@@ -1,7 +1,7 @@
 ---
 name: contract-document-review
 description: Review a folder of submittals and RFIs against the project's own drawings, bulletins and specs, and return stamped PDFs with a review summary.
-when_to_use: Use when RFIs or submittals must be reviewed against a project's own Contract Documents sitting in a connected folder (IFC drawing sets, drawing bulletins, a specification set) instead of being looked up one question at a time in the EPLUS knowledge base. Triggers include "review these submittals against the drawings", "review against the contract documents / IFC set / latest bulletins", a folder of submittal packages and drawing sets organized by building, batch review with stamped PDFs and a review summary, and follow-ups on such a review ("you missed the bulletin", "re-review against rev 1", "add this note to every security submittal"). Encodes the review rules, the governing-sheet register built before any analysis, delegation by building, the citation cross-check that runs before packaging, and packaging through the pdf-stamping skill. Cowork only.
+when_to_use: Use when RFIs or submittals must be reviewed against a project's own Contract Documents sitting in a connected folder (IFC drawing sets, drawing bulletins, a specification set) instead of being looked up one question at a time in the EPLUS knowledge base. Triggers include "review these submittals against the drawings", "review against the contract documents / IFC set / latest bulletins", a folder of submittal packages and drawing sets organized by building, batch review with stamped PDFs and a review summary, and follow-ups on such a review ("you missed the bulletin", "re-review against rev 1", "add this note to every security submittal"). Encodes the review rules, the governing-sheet register built before any analysis, delegation by building, the citation cross-check that runs before packaging, and packaging through the pdf-stamping skill. Desktop app only.
 argument-hint: <folder or scope, e.g. "review every submittal and RFI in Miner RFI and Submittals">
 ---
 
@@ -172,7 +172,7 @@ of retrying.
 - **Each prompt names its governing documents** from the register ("Building B
   IFC set; T00-30 governed by Bulletin 02, 09.03.2026"), the packages by
   folder, and the specification sections that apply.
-- **Paths in Cowork:** bash runs in the VM and sees `/sessions/<id>/mnt/...`;
+- **Paths in the desktop app:** bash runs in the VM and sees `/sessions/<id>/mnt/...`;
   Read, Write, Edit and Grep run on the Windows host and need the `C:\...`
   path. Tell workers to do corpus work in bash, or give them both forms.
 - **Return format**, per item: findings, each with its citation (sheet +

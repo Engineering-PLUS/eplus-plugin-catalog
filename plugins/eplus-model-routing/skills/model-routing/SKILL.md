@@ -36,7 +36,7 @@ Prices are approximate list rates; the ratios are what matter.
 ## The two things that actually cost money
 
 1. **Every tool call from the main thread re-reads the whole context.** A
-   measured Cowork session carried about 43k tokens of fixed context before
+   measured desktop-app session carried about 43k tokens of fixed context before
    the task added anything and paid it again on every call. A run with 150
    tool calls on Opus pays that block 150 times at the Opus rate. So: batch
    shell commands into one call, never read large files in this thread, never

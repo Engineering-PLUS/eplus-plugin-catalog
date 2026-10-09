@@ -33,9 +33,16 @@ Datahall**, 1,638 elements, 37.5 x 59.4 x 7.1 m.
 
 1. Say: "I'll open one of our 3D models in the browser and walk through it with
    you. You can take over the tab at any time."
-2. Open the address above in the browser pane. Read the model name, element
-   count and extent, and tell them in one line.
-3. Show two controls: press `1` for the top view, then turn on **Section**
+2. Open the address above in the browser pane. Then make sure they can see
+   it: the pane opens hidden when the cheat sheet or another artifact already
+   holds the side panel, and the app shows no button to switch. Call the
+   browser's tab list (`tabs_context`), which says whether the pane is
+   displayed or hidden. If hidden, front the tab (`tabs_select`) and check
+   again. If it is still hidden, say: "The browser opened behind your cheat
+   sheet. Press Ctrl+Shift+B, or the browser button, to watch." Wait until
+   they say they see it. Then read the model name, element count and extent,
+   and tell them in one line.
+3. Show two controls (the screenshot is for you; they watch the pane): press `1` for the top view, then turn on **Section**
    (X) and cut along one axis. Take one screenshot so they see what you did.
    Reset the section afterwards.
 4. Tell them the tab is theirs: they can rotate, zoom and walk through the hall

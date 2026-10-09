@@ -20,9 +20,10 @@ up in their `/` menu.
    description saying when to use it, and short step-by-step instructions
    (under 40 lines) that use what you know about them (their trade, how they
    like answers). Show it to them in a few lines before saving.
-4. Say: "Cowork will now ask your permission to save a skill to your account.
-   That's this one; saying no is fine." Then load and call Cowork's
-   `save_skill` (ToolSearch `select:mcp__cowork__save_skill` first) with
+4. Say: "Claude will now ask your permission to save a skill to your account.
+   That's this one; saying no is fine." Then load and call the app's
+   `save_skill` (ToolSearch `select:mcp__cowork__save_skill` first; if that
+   name is not found, ToolSearch `save skill` and use what comes back) with
    `name`, `description` and `content`.
 5. Show them where it lives: "Type `/` and you'll see it in your menu, or just
    describe the task and I'll pick it up." Mention that a skill can also carry

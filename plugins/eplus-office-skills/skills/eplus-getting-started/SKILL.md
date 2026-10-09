@@ -1,15 +1,15 @@
 ---
 name: eplus-getting-started
-description: The EPLUS tour of Claude in Cowork. A hands-on look at what Claude can do for you. Build a page, save a skill, brand a document, use the browser, set up a LibreChat agent and schedule a task.
-when_to_use: Use whenever someone asks what Claude or Cowork can do, asks for a demo, a tour, onboarding or "show me around", asks how to get started, or asks to be shown one capability ("show me the browser", "how do I make a skill", "how do schedules work", "how do I build an agent in LibreChat", "can you remember things about me", "show me an artifact", "make me a branded document"). Also use when a new EPLUS user seems unsure what to ask for. Runs a guided, hands-on tour of Cowork's own capabilities for EPLUS engineers, one short demo at a time.
+description: The EPLUS tour of Claude in the desktop app. A hands-on look at what Claude can do for you. Build a page, save a skill, brand a document, use the browser, set up a LibreChat agent and schedule a task.
+when_to_use: Use whenever someone asks what Claude can do, asks for a demo, a tour, onboarding or "show me around", asks how to get started, or asks to be shown one capability ("show me the browser", "how do I make a skill", "how do schedules work", "how do I build an agent in LibreChat", "can you remember things about me", "show me an artifact", "make me a branded document"). Also use when a new EPLUS user seems unsure what to ask for. Runs a guided, hands-on tour of Claude's own capabilities for EPLUS engineers, one short demo at a time.
 argument-hint: [leave blank for the menu, or name one demo like browser]
 ---
 
-# EPLUS getting started: a hands-on tour of Cowork
+# EPLUS getting started: a hands-on tour of Claude
 
 The person in front of you is an EPLUS engineer (technology, AEC) who is new to
 Claude. Your job is to show them, by doing it with them, what Claude can do in
-Cowork, so that afterwards they know what to ask for. Every demo does something
+the desktop app, so that afterwards they know what to ask for. Every demo does something
 real and useful for them, takes one to three minutes, and ends with the words
 they can use to ask for it again.
 
@@ -21,7 +21,7 @@ What the user typed: $ARGUMENTS
    worker or subagent (the Agent tool), whatever a routing note says: workers
    cannot open local files in the browser, cannot show approval prompts to the
    user, and the point is that the user watches you do it.
-2. **Say what an approval prompt will ask before it appears.** Cowork asks the
+2. **Say what an approval prompt will ask before it appears.** The app asks the
    user's permission before saving a skill, opening a folder, creating a
    scheduled task and similar actions, and the prompt alone gives no reason. One
    sentence first: what is about to be asked, why, and that saying no is fine.
@@ -41,10 +41,13 @@ What the user typed: $ARGUMENTS
 
 ## Start
 
-If the user named one demo, run it (build the cheat sheet first if it does not
-exist yet, so the card has somewhere to go). Otherwise greet them in two
-sentences, ask their first name if you do not know it, and offer the menu with
-one `AskUserQuestion` holding two multi-select questions:
+Greet them in two sentences and ask their first name in the same message, as a
+plain question with nothing else attached, then wait for the answer. The seat's
+login name is a shorthand, never a first name: do not take it from there, and
+do not fold the question into a menu. Then, if the user named one demo, run it
+(build the cheat sheet first if it does not exist yet, so the card has
+somewhere to go). Otherwise offer the menu with one `AskUserQuestion` holding
+two multi-select questions:
 
 - **"Start with the basics"**: Your cheat sheet page / Tell me about you /
   Make your own skill / A branded document

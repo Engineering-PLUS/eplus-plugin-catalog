@@ -58,13 +58,13 @@ except ImportError:  # pragma: no cover
     raise SystemExit(
         "PyMuPDF is not installed.\n"
         "  pip install pymupdf\n"
-        "  (cloud container / Cowork: add --break-system-packages)")
+        "  (cloud container / desktop app: add --break-system-packages)")
 
 
 def check_environment() -> None:
     """Fail loudly and early on an environment that cannot do the job.
 
-    Capability checks, not a version number: the Cowork VM runs Python 3.10
+    Capability checks, not a version number: the desktop app's VM runs Python 3.10
     with whatever PyMuPDF pip resolves that day, and a missing feature here
     otherwise surfaces as a black border or a TypeError deep in a call stack.
     """
@@ -86,7 +86,7 @@ def check_environment() -> None:
     if problems:
         raise SystemExit("PyMuPDF %s is too old:\n  - %s\n\nUpgrade:\n"
                          "  pip install --upgrade pymupdf\n"
-                         "  (Cowork: add --break-system-packages)"
+                         "  (desktop app: add --break-system-packages)"
                          % (getattr(pymupdf, "__version__", "?"),
                             "\n  - ".join(problems)))
 

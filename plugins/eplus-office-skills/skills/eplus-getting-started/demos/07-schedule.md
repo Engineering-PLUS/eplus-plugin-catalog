@@ -13,8 +13,8 @@ every week) without being asked each time.
    - **A weekly Monday check-in at 8 AM**: a short start-of-week note built
      from what they told you in demo 2 (their projects and how they like
      answers).
-3. Say: "Cowork will ask your permission to create a scheduled task. That's
-   this one; you can delete it any time." Then create it with Cowork's
+3. Say: "Claude will ask your permission to create a scheduled task. That's
+   this one; you can delete it any time." Then create it with the app's
    scheduled task tool (`create_scheduled_task`), with a clear name
    ("Getting started test" or "Monday check-in") and a prompt that is
    self-contained (it runs later with no memory of this chat).

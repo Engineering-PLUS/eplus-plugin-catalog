@@ -181,7 +181,7 @@ def main():
         add(blocking, "Verification", "the last render did not pass verify_report.py; see build/verify_output.txt")
     if not cfg.get("delivery_folder"):
         add(blocking, "Delivery", "the report is in the session outputs folder, not a project folder. "
-            "Connect the project folder in Cowork", '--deliver "<connected folder name>"')
+            "Connect the project folder in the Claude desktop app", '--deliver "<connected folder name>"')
 
     # --- paperwork the model still has to write (never shown to the reviewer) ------
     try:

@@ -323,7 +323,7 @@ def main():
             conn = [os.path.basename(p) for m in glob.glob(args.mnt_glob) for p in glob.glob(os.path.join(m, "*"))
                     if os.path.isdir(p) and not os.path.basename(p).startswith(".")]
             sys.exit(f"ERROR: folder {name!r} is not connected to this session. Connected: "
-                     f"{', '.join(conn) or 'none'}. Ask the user to connect it in Cowork, then --deliver <name>.")
+                     f"{', '.join(conn) or 'none'}. Ask the user to connect it in the Claude desktop app, then --deliver <name>.")
         if os.path.basename(os.path.normpath(dest)) != "outputs":
             cfg["delivery_folder"] = os.path.basename(os.path.normpath(dest))
             # A Task Report PDF waiting in the project folder is used in the same

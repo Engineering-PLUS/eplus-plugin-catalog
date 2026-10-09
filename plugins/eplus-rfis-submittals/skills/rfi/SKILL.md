@@ -370,7 +370,7 @@ the user asks to stamp the submittal, mark it reviewed, or produce an
 follow it. The approved response text becomes the ENGINEERING PLUS COMMENTS
 block; the disposition stamp is the user's call, never inferred from the
 comments (in a `contract-document-review` run, the decision basis the user
-stated is that call). Stamping is Cowork-only.
+stated is that call). Stamping is desktop-app only.
 
 ## Logging a finalized RFI response (return path)
 

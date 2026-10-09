@@ -22,7 +22,7 @@ and retyping them would be slow and error-prone.
    [{"title": "Pages like this one", "what": "I can build live pages, dashboards and calculators that open beside our chat.", "try": "Make me a page that tracks ..."}]
    EOF
    python3 "$S/scripts/build_cheatsheet.py" --name "<first name>" \
-       --out "Cowork-Cheat-Sheet-<FirstName>.html" --cards cheatsheet-cards.json \
+       --out "Claude-Cheat-Sheet-<FirstName>.html" --cards cheatsheet-cards.json \
        --skill "<name>=<one-line description>" ...
    ```
 
@@ -32,7 +32,9 @@ and retyping them would be slow and error-prone.
    workflow-packager, plangrid-extraction, error-reporting). Include
    `eplus-getting-started` itself. The built-in Anthropic skills are already on
    the page; do not pass them.
-3. Show it with Cowork's artifact tool (`create_artifact`), titled
+3. Show it with the artifact tool (`create_artifact`; load it with ToolSearch
+   `select:mcp__cowork__create_artifact`, and if that name is not found,
+   ToolSearch `artifact` and use what comes back), titled
    "<first name>'s Claude cheat sheet", using that file: if the tool takes a
    file path, give it the path; if it takes the HTML text, read the file and
    pass it unchanged. Then also show the file itself with `present_files`, and

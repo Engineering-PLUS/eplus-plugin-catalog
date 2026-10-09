@@ -44,7 +44,7 @@ python3 scripts/render_preview.py build/<output>.docx --pages <photo item>,<no-p
 Look at them and write one line each. Widen only when a layout constant in
 the renderer changed. It rasterises to PNG via a scratch-dir PDF which it deletes. A full PDF for
 your own reading is also fine, under `build/_scratch/` so the packager skips
-it. It needs a `soffice` binary on PATH; the Cowork sandbox ships one (field
+it. It needs a `soffice` binary on PATH; the desktop app's sandbox ships one (field
 result 2026-09-09). If the user wants a PDF delivered, that is
 `scripts/export_pdf.py` plus `package.py --pdf`, and it is described as a
 convenience copy. Rule: **layout and appearance may be checked in the
@@ -141,7 +141,7 @@ review sheet into the new package under `previous-versions/`, replaces an
 earlier package (never packing it inside: on 2026-10-06 v0.2 tried to carry
 v0.1's 130 MB zip and was cut off at the shell's time limit), and removes them
 from the folder once the new zip is verified, so the folder holds the current
-version and the inputs. When Cowork has not allowed deletes there
+version and the inputs. When the app has not allowed deletes there
 yet it prints `CLEANUP PENDING` with a message naming every file to be deleted
 and why; post it as written before asking for the permission, then `--prune`
 (`run-order.md`, section 8). It refuses to

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-build_cheatsheet.py -- build the printable Cowork cheat sheet as one HTML file.
+build_cheatsheet.py -- build the printable Claude cheat sheet as one HTML file.
 
 Fills assets/cheatsheet.html from assets/cheatsheet-content.json (the fixed
 reference: what to ask for, slash commands, what to do when something goes
@@ -10,7 +10,7 @@ so the page is one self-contained file that opens anywhere and prints as it
 looks. The model never retypes the page or the logos: it runs this script and
 publishes or presents the file it writes.
 
-    python3 build_cheatsheet.py --name "Victor" --out <outputs>/Cowork-Cheat-Sheet-Victor.html \
+    python3 build_cheatsheet.py --name "Victor" --out <outputs>/Claude-Cheat-Sheet-Victor.html \
         [--cards <outputs>/cheatsheet-cards.json] \
         [--skill "punch-report=Build a draft punch report from a PlanGrid project" ...]
 
@@ -99,7 +99,7 @@ def main():
         "{{LOGO}}": data_uri("EPlus-Logo.png"),
         "{{ICON}}": data_uri("EPlus-Icon.png"),
         "{{TITLE}}": esc(f"{name}'s Claude cheat sheet" if name else "Claude cheat sheet"),
-        "{{SUBTITLE}}": esc(f"Claude in Cowork, {date}"),
+        "{{SUBTITLE}}": esc(f"Claude at EPLUS, {date}"),
         "{{TRIED}}": tried,
         "{{CAPABILITIES}}": "".join(card(c["title"], c["what"], c["try"]) for c in content["capabilities"]),
         "{{SKILLS}}": skills,

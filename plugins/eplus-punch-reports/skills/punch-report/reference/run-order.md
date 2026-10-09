@@ -28,7 +28,7 @@ explanation and the user cancelled it. So:
   per run, after the answers: field result 2026-10-06, a run delivered v0.1,
   then v0.2 for the cover answers a few minutes later, and the user's folder
   held two versions and two broken zips from one request.
-- **Every command finishes inside one call.** Cowork's shell stops a call at
+- **Every command finishes inside one call.** The shell tool stops a call at
   its timeout (177 s by default) and stops anything the call left running in
   the background when it returns, `nohup` and `setsid` included. So pass
   `timeout_ms: 600000` on the data pass, the render, `update_report.py` and
@@ -269,17 +269,19 @@ folder keeps only the current version and the inputs**: earlier versions of
 the report already there (body, cover, review sheet) are written into the new
 package under `previous-versions/`, an earlier package is replaced (never put
 inside the new one), and both leave the folder only after the new zip is
-verified. If Cowork
+verified. If the app
 has not allowed deletes in that folder yet, the packager prints `CLEANUP
 PENDING` and three steps. **Step 1: post the message it prints, as written,
 before asking for anything.** It names every file that will be deleted, says
 they are the previous version, that identical copies are inside the new
 package, that nothing else in the folder is touched, and that declining just
-leaves them there. Cowork's permission prompt names one file and gives no
+leaves them there. The app's permission prompt names one file and gives no
 reason, so without this message people cannot tell what they are approving
 (field result 2026-09-23: "I'll tidy them out of the folder" was all the user
 got). Never shorten it to a summary and never ask before posting it. Step 2:
-call `allow_cowork_file_delete` once with the path it names (one approval
+call `allow_cowork_file_delete` (ToolSearch
+`select:mcp__cowork__allow_cowork_file_delete`; if that name is not found,
+ToolSearch `file delete`) once with the path it names (one approval
 covers the folder). Step 3: if allowed, run
 `python3 scripts/package.py --prune "<folder>"`. Read the whole packager
 output, never a `tail` of it, so the message is not cut. That is the only delete in a

@@ -4,7 +4,7 @@ pymupdf>=1.25
 # which the comment box needs; Document.bake() needs >= 1.22. stamp_pdf.py
 # checks both capabilities at startup rather than trusting a version string.
 #
-# Target environment: the Cowork VM, Python 3.10 at /usr/bin/python3.
+# Target environment: the desktop app's VM, Python 3.10 at /usr/bin/python3.
 #   pip install pymupdf --break-system-packages
 #
 # Nothing else. The stamper deliberately avoids numpy so it runs on a bare

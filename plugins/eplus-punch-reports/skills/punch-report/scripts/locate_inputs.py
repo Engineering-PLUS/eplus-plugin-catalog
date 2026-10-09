@@ -7,7 +7,7 @@ Run FIRST in a punch report run, from the plugin (no workspace exists yet):
     python3 <plugin skill>/scripts/locate_inputs.py [<hint>] [--mnt <dir>] [--json]
 
 <hint> is whatever the user typed after /punch-report ("ctx2", "Miner Ops"),
-matched loosely against the names of the folders connected to this Cowork
+matched loosely against the names of the folders connected to this desktop app
 session. Nothing here opens the folder picker or asks a question: field result
 2026-09-23, the model opened the picker with no explanation because the
 argument named a folder that was not connected, and the user cancelled it.

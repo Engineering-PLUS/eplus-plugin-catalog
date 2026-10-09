@@ -197,7 +197,7 @@ sandbox; on a Windows host the same commands are `python …`. Run from
 verification in one go once `data/drafted_items.json` exists; `SCOPE=11-30`
 in front of it sets the scope. **Pass `timeout_ms: 600000` on the data pass,
 the render, `update_report.py` and `package.py`, and never run a step in the
-background**: Cowork stops a call at its timeout (177 s by default) and kills
+background**: The shell tool stops a call at its timeout (177 s by default) and kills
 whatever it left running when it returns (`run-order.md`, the rule).
 
 ```bash
@@ -312,7 +312,7 @@ the project folder's own tidy-up at delivery: `package.py` writes the earlier
 versions' body, cover and review sheet into the new package
 (`previous-versions/`), replaces an earlier package (never packing it inside),
 and removes them from the folder only after verifying the new zip, so the
-folder holds the current version and the inputs. When Cowork has not yet allowed deletes there,
+folder holds the current version and the inputs. When the app has not yet allowed deletes there,
 it prints `CLEANUP PENDING` with a message for the user that names every file
 to be deleted and why: post that message as written, **before** the one
 `allow_cowork_file_delete` call (the approval covers the folder; the prompt
