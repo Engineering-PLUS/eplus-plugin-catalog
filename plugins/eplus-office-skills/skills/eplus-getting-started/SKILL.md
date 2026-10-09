@@ -1,7 +1,7 @@
 ---
 name: eplus-getting-started
-description: The EPLUS tour of Claude in the desktop app. A hands-on look at what Claude can do for you. Build a page, save a skill, brand a document, set up a LibreChat agent and schedule a task; the browser demo runs on its own in a fresh chat.
-when_to_use: Use whenever someone asks what Claude can do, asks for a demo, a tour, onboarding or "show me around", asks how to get started, or asks to be shown one capability ("show me the browser", "how do I make a skill", "how do schedules work", "how do I build an agent in LibreChat", "can you remember things about me", "show me an artifact", "make me a branded document"). Also use when a new EPLUS user seems unsure what to ask for. Runs a guided, hands-on tour of Claude's own capabilities for EPLUS engineers, one short demo at a time.
+description: The EPLUS tour of Claude in the desktop app. A hands-on look at what Claude can do for you. Build a page, save a skill, brand a document, set up a LibreChat agent, schedule a task and find a training video; the browser demo runs on its own in a fresh chat.
+when_to_use: Use whenever someone asks what Claude can do, asks for a demo, a tour, onboarding or "show me around", asks how to get started, or asks to be shown one capability ("show me the browser", "how do I make a skill", "how do schedules work", "how do I build an agent in LibreChat", "find me a training video", "can you remember things about me", "show me an artifact", "make me a branded document"). Also use when a new EPLUS user seems unsure what to ask for. Runs a guided, hands-on tour of Claude's own capabilities for EPLUS engineers, one short demo at a time.
 argument-hint: [leave blank for the menu, or name one demo like browser]
 ---
 
@@ -63,7 +63,8 @@ two multi-select questions:
 
 - **"Start with the basics"**: Your cheat sheet page / Tell me about you /
   Make your own skill / A branded document
-- **"Then the tools"**: Build an agent in LibreChat / Schedule a task
+- **"Then the tools"**: Build an agent in LibreChat / Schedule a task /
+  Find a training video
 
 Nothing selected means the full tour, in the order below (the browser demo is
 not in it, see below). Tell them they can stop any time and pick it up later
@@ -77,6 +78,7 @@ by asking "show me what you can do".
 | 4 | A branded document | `demos/04-branded-document.md` |
 | 6 | Build an agent in LibreChat | `demos/06-librechat-agent.md` |
 | 7 | Schedule a task | `demos/07-schedule.md` |
+| 8 | Find a training video | `demos/08-video-library.md` |
 | on its own | Use the browser | `demos/05-browser.md` |
 
 ## The browser demo runs on its own
