@@ -35,9 +35,13 @@ how-tos, two to ten minutes: CAD, Engineering, Operations, Revit). Its tools:
    everything: the courses on the left, the short how-to videos below."
    Leave it on screen for a few seconds.
 5. Play the video from the moment you found (`start_seconds` is the moment's
-   `start_ms` divided by 1000). Say: "Playing from the moment they say it;
-   the transcript runs beside the video." Let it play; do nothing for ten
-   seconds. They can pause it, scrub it or close it themselves.
+   `start_ms` divided by 1000). The player appears right here in the chat,
+   under your message, with the transcript below it (checked 2026-10-09; it
+   never touches the side panel, so the cheat sheet stays put). Say:
+   "Playing from the moment they say it, right here in the chat; the
+   transcript runs under the video, and you can search inside it." Let it
+   play; do nothing for ten seconds. They can pause it, scrub it or collapse
+   it themselves.
 6. Add the card to the cheat sheet: title "Training videos", what "I can find
    the EPLUS University video that covers something, even by what's said in
    it, and play it from that moment.", try "Find the video about ..." /
