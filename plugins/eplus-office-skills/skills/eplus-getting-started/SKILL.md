@@ -36,8 +36,10 @@ What the user typed: $ARGUMENTS
    them.
 7. **End every demo the same way**: two lines, "What you just saw: ..." and
    "Try saying: ..." with one or two prompts they can reuse, then append the
-   demo's card to `cheatsheet-cards.json` (demo 1 explains) and offer the next
-   demo.
+   demo's card to `cheatsheet-cards.json` (demo 1 explains), then go straight
+   into the next demo they picked, with no question in between. Stop only when
+   their list is done or they say stop. The user should never have to type
+   something just to keep the tour moving.
 
 ## Start
 
