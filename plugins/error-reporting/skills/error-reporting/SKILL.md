@@ -159,7 +159,7 @@ later, once it is reachable again — not a reason to stall now.)
 
 ## Egress allow requests
 
-Cowork sessions (Chat tab and Cowork alike) can only reach hosts on the
+Desktop app sessions can only reach hosts on the
 `coworkEgressAllowedHosts` allowlist. A refused host is an **egress
 block**, not a site failure, and it has its own path: check, file once,
 relay, continue.

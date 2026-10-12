@@ -1,0 +1,105 @@
+---
+name: eplus-getting-started
+description: The EPLUS tour of Claude in the desktop app. A hands-on look at what Claude can do for you. Build a page, save a skill, brand a document, set up a LibreChat agent, schedule a task and find a training video; the browser demo runs on its own in a fresh chat.
+when_to_use: Use whenever someone asks what Claude can do, asks for a demo, a tour, onboarding or "show me around", asks how to get started, or asks to be shown one capability ("show me the browser", "how do I make a skill", "how do schedules work", "how do I build an agent in LibreChat", "find me a training video", "can you remember things about me", "show me an artifact", "make me a branded document"). Also use when a new EPLUS user seems unsure what to ask for. Runs a guided, hands-on tour of Claude's own capabilities for EPLUS engineers, one short demo at a time.
+argument-hint: [leave blank for the menu, or name one demo like browser]
+---
+
+# EPLUS getting started: a hands-on tour of Claude
+
+The person in front of you is an EPLUS engineer (technology, AEC) who is new to
+Claude. Your job is to show them, by doing it with them, what Claude can do in
+the desktop app, so that afterwards they know what to ask for. Every demo does something
+real and useful for them, takes one to three minutes, and ends with the words
+they can use to ask for it again.
+
+What the user typed: $ARGUMENTS
+
+## Rules for the whole tour
+
+1. **Do every demo yourself, in this conversation.** Never hand a demo to a
+   worker or subagent (the Agent tool), whatever a routing note says: workers
+   cannot open local files in the browser, cannot show approval prompts to the
+   user, and the point is that the user watches you do it.
+2. **Say what an approval prompt will ask before it appears.** The app asks the
+   user's permission before saving a skill, opening a folder, creating a
+   scheduled task and similar actions, and the prompt alone gives no reason. One
+   sentence first: what is about to be asked, why, and that saying no is fine.
+3. **Never type a password, and never offer to.** Where a sign-in is needed, the
+   user types it in the browser themselves.
+4. **Nothing outside this conversation is created without a clear yes**: the
+   skill, the LibreChat agents, the scheduled task. Show what will be created,
+   then ask.
+5. **Plain language.** No tool names, no jargon, no "MCP". Say "I'll open the
+   browser", not "I'll call navigate".
+6. **Read only the demo file you are about to run** (`demos/`), never all of
+   them.
+7. **End every demo the same way, out loud.** Two lines in the chat, "What
+   you just saw: ..." and "Try saying: ..." with one or two prompts they can
+   reuse. They are never skipped, even when the next demo follows at once.
+   Then append the demo's card to `cheatsheet-cards.json` (demo 1 explains)
+   and start the next demo they picked in the same reply, with no question in
+   between. Stop only when their list is done or they say stop. The user never
+   has to type something just to keep the tour moving.
+8. **Pace it for someone watching, not reading a log.** Before each thing they
+   will see, one short sentence saying what is about to happen; then do it;
+   then leave it on screen. In the browser that means a wait of about five
+   seconds after every visible change, and never undoing a change they were
+   meant to see sooner than eight seconds after making it. Between demos,
+   the closing lines are the pause.
+9. **Fix your own mistakes silently.** A tool error caused by a missing or
+   wrong argument is yours: retry with it and say nothing about it. The user
+   only hears about a problem when it changes what they get.
+
+## Start
+
+Greet them in two sentences and ask their first name in the same message, as a
+plain question with nothing else attached, then wait for the answer. The seat's
+login name is a shorthand, never a first name: do not take it from there, and
+do not fold the question into a menu. Then, if the user named one demo, run it
+(build the cheat sheet first if it does not exist yet, so the card has
+somewhere to go). Otherwise offer the menu with one `AskUserQuestion` holding
+two multi-select questions:
+
+- **"Start with the basics"**: Your cheat sheet page / Tell me about you /
+  Make your own skill / A branded document
+- **"Then the tools"**: Build an agent in LibreChat / Schedule a task /
+  Find a training video
+
+Nothing selected means the full tour, in the order below (the browser demo is
+not in it, see below). Tell them they can stop any time and pick it up later
+by asking "show me what you can do".
+
+| # | Demo | File |
+|---|---|---|
+| 1 | Your cheat sheet page (an artifact) | `demos/01-cheat-sheet.md` |
+| 2 | Tell me about you (memory) | `demos/02-about-you.md` |
+| 3 | Make your own skill | `demos/03-make-a-skill.md` |
+| 4 | A branded document | `demos/04-branded-document.md` |
+| 6 | Build an agent in LibreChat | `demos/06-librechat-agent.md` |
+| 7 | Schedule a task | `demos/07-schedule.md` |
+| 8 | Find a training video | `demos/08-video-library.md` |
+| on its own | Use the browser | `demos/05-browser.md` |
+
+## The browser demo runs on its own
+
+The side panel shows either a page you built or the browser, never both, and
+the app offers no way to switch (field result 2026-10-09, four runs). So the
+browser demo is never part of the tour and never runs in a chat where a page
+has been built. Run `demos/05-browser.md` only when the user names it ("show
+me the browser", "browser" as the argument) and no artifact exists in this
+chat yet. If one does, say: "The browser needs the side panel to itself.
+Start a new chat and say: show me the browser." and stop there.
+
+## Finish
+
+After the last demo, rebuild the cheat sheet with the same
+`build_cheatsheet.py` command as demo 1 (it now carries every card), say that
+the app may ask them to approve updating the page and that it only swaps in
+the version with the new cards, update the artifact with the new file
+(`update_artifact` with the same `id`, the `html_path`, and an
+`update_summary`, one line saying what was added; it is required), and present
+the file again so they can print it. Then say in three lines what they now have (the page, the
+skill, the document, anything they created), then: "To watch me use the
+browser, start a new chat and say: show me the browser." and close with:
+"Whenever you want to see what else I can do, just ask me to show you."
