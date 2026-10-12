@@ -21,6 +21,48 @@
       ]
     },
     {
+      "name": "eplus-rfis-submittals",
+      "displayName": "EPLUS RFI & Submittal engine",
+      "description": "Draft spec-backed RFI responses, stamp submittals with the firm's Bluebeam review stamps and comment block, and log approved responses to the EPLUS knowledge base — nothing is saved without your sign-off.",
+      "source": "./plugins/eplus-rfis-submittals",
+      "category": "Documents & Productivity",
+      "tags": [
+        "rfi",
+        "rfis",
+        "submittals",
+        "specifications",
+        "specs",
+        "csi",
+        "knowledge-base",
+        "aec",
+        "stamps",
+        "stamping",
+        "bluebeam",
+        "review-stamp",
+        "markup"
+      ]
+    },
+    {
+      "name": "eplus-punch-reports",
+      "displayName": "EPLUS Punch Reports",
+      "description": "Draft punch reports end to end from a PlanGrid pull with /punch-report, and search four years of EPLUS punch walks for precedent, recurring deficiencies, and the evidence photos behind them.",
+      "source": "./plugins/eplus-punch-reports",
+      "category": "Documents & Productivity",
+      "tags": [
+        "punch",
+        "punchlist",
+        "plangrid",
+        "field",
+        "site-inspection",
+        "deficiencies",
+        "qaqc",
+        "commissioning",
+        "photos",
+        "reports",
+        "aec"
+      ]
+    },
+    {
       "name": "error-reporting",
       "displayName": "EPLUS Error Reporting",
       "description": "Fire-and-forget issue logging — when an EPLUS tool fails or you ask for an EPLUS-side change, the model files a report to the central log for the team to review.",

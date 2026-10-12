@@ -1,0 +1,24 @@
+{
+  "master_file": "master_report_items.json",
+  "output_filename": "<PROJECT>-Punch-Report-DRAFT-v0.1.docx",
+
+  "cover_mode": "template",
+  "_cover_mode": "template = write <output>-Cover.docx and leave body page 1 blank; supplied = reviewer has a cover, body page 1 blank; blank = body page 1 blank only; none = no cover page, TOC is page 1",
+
+  "cover_eyebrow": "Technology Site Inspection",
+  "cover_subtitle": "<Building / area as it reads on the cover, e.g. Building A>",
+  "client_display_name": "<Client and project as it reads on the cover, e.g. Example Client Project>",
+  "site_address": [
+    "<street address,>",
+    "<city, state>"
+  ],
+  "ep_project_no": "<EP project number; rendered on the cover only>",
+  "inspection_date": "<YYYY-MM-DD; a LIST of YYYY-MM-DD strings when the walk spanned several days, every pin date in the pull must be here>",
+  "issuance_date": "<YYYY-MM-DD; ASK the reviewer at intake, never infer>",
+  "inspector": "<Name of the engineer who walked the site>",
+
+  "cover_title": "<PlanGrid project name, internal; falls back as the client display name if that is blank>",
+  "_footer": "The footer is derived: Engineering PLUS  •  <client_display_name> <cover_subtitle> Technology System Punch List  •  Page N of M. Set footer_text only to override it.",
+
+  "_visit_sections": "Optional, from intake. \"by_date\" puts a 'Site Visit N, MM/DD/YYYY' heading on the first item of each pin date (only when the pull spans more than one date). Or set visit_breaks: [{\"before\": <PlanGrid number>, \"title\": \"...\"}, ...] to name them yourself. Leave both out for a flat list; Date Recorded carries the dates either way."
+}

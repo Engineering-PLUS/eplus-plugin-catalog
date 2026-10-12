@@ -1,0 +1,217 @@
+# Verify, keep editable, deliver: Steps 8, 9 and 10
+
+Covers OOXML and visual verification, the two human-edit paths (Word comments, review
+spreadsheet), and the single delivery to the project folder. Assumes a rendered `.docx`
+exists in `build/`; the issues list and handoff files may still need filling in.
+
+### Step 8 — Verify against the OOXML
+
+`verify_report.py` reads the .docx XML directly — no LibreOffice dependency —
+because verification must read the artifact the reader actually opens. It checks
+em/en dashes, the voice rules (**scoped to descriptions only**, since Editor's
+Notes legitimately discuss photographs), that Date Recorded is populated from
+the pin date on every item that has one, one DELETED IN PLANGRID banner per
+retained deleted pin and none elsewhere, every configured visit section title,
+PAGEREF/bookmark integrity including **unique bookmark ids**, a single
+**canonical TOC field** that opens and closes around a cached entry list
+matching the item count plus the visit sections, absence of baked page
+numbers, `w:updateFields`, page breaks per item, embedded photo count, the
+internal EP project number being absent, and that the letterhead is native: a
+header part holding the two-column table, both letterhead images, the
+"Technology System / Punch List" text and the shaded divider, with no header
+consisting of a lone drawing. The letterhead check does **not** measure image
+widths or placement against the margins; that is what the visual check below is
+for.
+
+**When writing OOXML text assertions, normalise whitespace first.** Joining
+`<w:t>` runs doubles spaces, which produces phantom failures on exact matches.
+
+Anything genuinely pagination-dependent is not asserted; it is delegated to Word
+by using fields.
+
+**Visual verification closes the gap OOXML checks can't.** An element existing
+in the XML does not mean the page looks right — the empty photo grid once
+shipped verified only by a `<w:tc>` cell count, which cannot distinguish a
+visible paste target from a collapsed hairline row. The standard check is
+**three pages and no more**: the cover (page 1 of `-Cover.docx`, or the TOC
+when there is no cover), one item with photos, one item without.
+
+```bash
+python3 scripts/render_preview.py build/<output>-Cover.docx --pages 1
+python3 scripts/render_preview.py build/<output>.docx --pages <photo item>,<no-photo item>
+```
+
+Look at them and write one line each. Widen only when a layout constant in
+the renderer changed. It rasterises to PNG via a scratch-dir PDF which it deletes. A full PDF for
+your own reading is also fine, under `build/_scratch/` so the packager skips
+it. It needs a `soffice` binary on PATH; the desktop app's sandbox ships one (field
+result 2026-09-09). If the user wants a PDF delivered, that is
+`scripts/export_pdf.py` plus `package.py --pdf`, and it is described as a
+convenience copy. Rule: **layout and appearance may be checked in the
+preview; anything numeric must be checked in the OOXML** — the preview's
+pagination is LibreOffice's, not Word's, so never quote a page number from it.
+The one thing neither can prove is Word's own F9 behavior; after any
+template-level TOC change, do the manual acceptance test once: delete an item
+in Word, Ctrl+A F9, confirm the TOC loses the entry and renumbers.
+
+### Step 9 — Keep the report editable by a human
+
+A rendered .docx is a compiled artifact. Without care the only thing that can
+revise it is another model run — a trap, because reports get edited by whoever is
+holding them at 5pm. Two escape hatches, both must keep working.
+
+**Small edits: directly in Word.** Item headings use **Word's own numbering**, not
+text like `Item #7`. Delete an item and the rest renumber. Do not "fix" this by
+writing the number into the heading text.
+
+The PlanGrid ID is deliberately **not** in the heading, and as of v0.7 it is **not
+rendered anywhere the contractor sees** — that meta row was removed. It is retained
+in `master_report_items.json` as `plangrid_ref` and shown in the review
+spreadsheet, which is where anyone reconciling against PlanGrid reads it. The
+printed number is presentational and will change; the PlanGrid ref is the
+permanent link back to source and is never renumbered.
+
+**Reviewer comments in Word: read them back.** Reviewers comment directly in the
+.docx, and a comment the model cannot see is a comment that gets ignored.
+
+```bash
+python3 scripts/read_comments.py <reviewed>.docx            # readable
+python3 scripts/read_comments.py <reviewed>.docx --json -o comments.json
+```
+
+Each comment comes back **with the text it is anchored to and the item heading it
+falls under**, because "reword this" is meaningless without the span it points at.
+Resolved comments are hidden unless you pass `--include-resolved`. Replies are
+linked to their parent.
+
+Work the comments before re-rendering, and treat a comment that says "see comment
+above" as applying to every instance of the same pattern, not just its own item.
+
+**Bulk edits: the review spreadsheet.** `run_pipeline.sh` writes it after every
+verified render as `build/<report>-Review.xlsx` (the report stem without its
+`-DRAFT-vN.N`), which is the file `package.py` delivers; nothing has to be
+exported by hand.
+
+```bash
+#   reviewer edits the yellow columns of build/<report>-Review.xlsx
+python3 scripts/review_sheet.py import build build/<report>-Review.xlsx
+RENDER_ONLY=1 bash scripts/run_pipeline.sh
+```
+
+Yellow cells editable, grey generated and ignored on import, so photo paths and
+sheet clips cannot be corrupted by editing the sheet. `Include? = N` drops an
+item, `Order` (spaced by 10) reorders, a row with no PlanGrid ref inserts one.
+Date Recorded and the deleted-in-PlanGrid flag are shown as grey columns. A
+timestamped `.bak.json` is written before anything changes.
+
+### Step 10 — Deliver the draft, the issues list, and the handoff
+
+Four deliverables, not one, and they leave the workspace together in one
+package: the body `.docx` (page 1 blank), the `-Cover.docx` when
+`cover_mode` is `template`, the review `.xlsx`, and the issues list. The
+verifier already checked the cover file beside the body (EP number present,
+building present, dates MM/DD/YYYY, no draft warning, no header, no Word-only
+defects). A stapled PDF is offered, never assumed: `scripts/staple_pdf.py`
+replaces the body PDF's blank page 1 with the cover PDF once the user has both
+and has said yes.
+
+```bash
+python3 scripts/package.py <workspace> "<deliver to>"      # timeout_ms: 600000, never in the background
+```
+
+**Once per run, after the final questions are answered and applied**
+(`run-order.md`, sections 7 and 8), never before them. `<deliver to>` is the
+project folder `locate_inputs.py` found, or, when no folder is connected, the
+session outputs folder; the run never stops to ask for one first. It builds
+the zip of the workspace (pipeline, sources, data, build, handoff) in
+`_pipeline/build/_scratch/`, checks every entry, and only then copies it into
+the destination, with the `.docx`, the `-Cover.docx` and the review `.xlsx`
+beside it; photos, PDFs and Office files are stored, not recompressed. It leaves out what the run superseded and prints each
+exclusion: caches and `_scratch/`, anything named with a leading underscore
+(worker probe files), a template stamped into `_pipeline/`, `build/`
+subfolders other than `assets`, `thumbs_uniform` and `sheet_clips_jpg`, raw
+MCP photos already copied into `plangrid_pull/`, `.bak.json` backups, and
+every `.docx` or `.xlsx` that is not one of the three delivered (earlier
+renders are reproducible from the data), and photos of pins outside the
+report's scope. Field results: 2026-09-14, 26.6 MB and 252 files for a
+38-item report without these rules; 2026-10-06, 127 MB for a 36-item report
+that carried a 94-task project's photos. It is the only write to the project
+folder in the entire run. It moves the earlier versions' body, cover and
+review sheet into the new package under `previous-versions/`, replaces an
+earlier package (never packing it inside: on 2026-10-06 v0.2 tried to carry
+v0.1's 130 MB zip and was cut off at the shell's time limit), and removes them
+from the folder once the new zip is verified, so the folder holds the current
+version and the inputs. When the app has not allowed deletes there
+yet it prints `CLEANUP PENDING` with a message naming every file to be deleted
+and why; post it as written before asking for the permission, then `--prune`
+(`run-order.md`, section 8). It refuses to
+overwrite a delivery of the same name unless `--replace` is passed (and that only
+when the user has said the earlier copy should be replaced), and `--dry-run`
+shows the manifest first. Do not copy files across by hand before or after it.
+
+**Every later delivery goes through `update_report.py --deliver`**, for a
+change asked for after the run's one delivery. It re-renders
+what changed, steps the version up (v0.1 to v0.2) when the current name is
+already in the destination, and packages beside the earlier delivery, which
+is never overwritten. `--deliver "<folder>"` also moves a report built into
+the session outputs folder to a project folder the user connects afterwards.
+
+**The questions come before the delivery** (`run-order.md`, section 7): what
+was built, as links in the workspace, the finish list the pipeline printed
+(blocking entries first), then one `AskUserQuestion` of at most four questions
+for the blocking gaps a person can answer on the spot, each with a "leave it
+for the reviewer" option. The answers go in one `update_report.py` call
+without `--deliver`, then `package.py` delivers once. **The delivery
+message** gives the links in the folder it was delivered to; if that is the
+session outputs folder, say so in the first sentence.
+
+**The issues list** (`_pipeline/ISSUES-LIST.md`) is first-class. Its top block,
+between `<!-- finish-list:start -->` and `<!-- finish-list:end -->`, is written
+by `finish_list.py` on every render: what blocks issuing and the review points,
+each with its `update_report.py` command. Below it, by hand, it carries source
+conflicts (report both, never silently pick one), items referencing documents you
+were not given, suspected misfires as questions, items where the photo contradicts
+the description, multi-condition pins for a split/keep decision, everything
+drafted from photos rather than authored, authored-but-photoless items, and any
+pattern that belongs above item level. Call out the few that genuinely block
+issuance. A "possible duplicate" entry is allowed only when the run record
+lists the pair under shared photo or near-identical clips; similar-looking
+photos alone never put a duplicate question in front of the reviewer
+(`reference/drafting.md`, "Duplicates are established by data").
+
+**The handoff** (`_pipeline/PROCESS-LOG.md`, `LESSONS-LEARNED.md`,
+`handoff/HANDOFF.md`) is how the next run gets better than this one. The
+numbers are not yours to type: `run_pipeline.sh` ends by running
+`scripts/run_record.py`, which writes `build/run.json`, the generated block in
+`PROCESS-LOG.md` (inputs, scope rules, counts, drafting tally, verifier output,
+script versions) and the current-output line and data-quality block in
+`CLAUDE.md`. Hand-write only what the record cannot see: the scope decision
+and its reasoning, review rounds, limitations, the precedent split between
+verified citations and documented gaps, lessons learned. Field result
+2026-09-10: a worker spent seven minutes renumbering these figures by hand
+after a scope change; now a scope change is a re-run and the numbers follow.
+Write down what broke, the root cause rather than the symptom, and whether the
+fix is enforced in code or only written down — a rule that is only written
+down will be broken again.
+
+**Write the process log from what the code does, not what it should do.** The
+previous package documented four behaviours its code did not have, and each cost
+real time later.
+
+**The packager checks the paperwork.** `run_record.py` fills the identity
+placeholders (project name, version, file names, walk dates, counts) in
+README, ISSUES-LIST, PROCESS-LOG, LESSONS-LEARNED and CLAUDE.md on every run.
+The judgment sections are yours, and `package.py` refuses to deliver while the
+PROCESS-LOG scope decision or precedent pass, the ISSUES-LIST item template,
+the README scope paragraph or the CLAUDE.md scope decision still read as the
+template. `--allow-placeholders` exists for tests, not for deliveries.
+
+
+**Handing Steps 8 and 9 to a worker:** paste `reference/worker-brief.md`, then
+name this file, the paths, and "stop before Step 10". Delivery (Step 10) is
+never delegated: it is the one write to the project folder, the main thread
+runs it, and if a delivery already exists there `package.py` suffixes the new
+files rather than replacing anything. Anything a worker thinks should be
+removed comes back under Files to remove and waits for the end of the run.
+
+Next: `reference/revising.md` when the reviewer returns the document or a further round is asked for.

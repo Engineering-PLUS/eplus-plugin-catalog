@@ -1,0 +1,215 @@
+#!/usr/bin/env bash
+#
+# run_pipeline.sh -- build a punch report end to end, from a PlanGrid pull to a
+# rendered .docx. Run from the project's _pipeline directory:
+#
+#     bash scripts/run_pipeline.sh
+#
+# Inputs are auto-detected from the parent folder and can be overridden:
+#
+#     PULL=../Some_Pull_dir TASK_REPORT="../Task Report.pdf" SCOPE=11-30 \
+#         bash scripts/run_pipeline.sh
+#
+# SCOPE is the ONLY place report scope lives. Unset means every item in the pull.
+#
+# RENDER_ONLY=1 skips the data steps (consolidate, photos, sheet clips) and runs
+# build master, render, bookmark repair and verify only. Use it after editing
+# data/drafted_items.json or importing a review sheet; it is the one supported
+# way to re-render, so the verifier always runs after gen_report.js.
+#
+# Produces the .docx, which is the file of record:
+#   - The reviewer issues the report from Word, which recalculates the TOC page
+#     number fields on open and on PDF export. LibreOffice does not, and it
+#     paginates differently, so a plain conversion here would carry page numbers
+#     that do not match the document. That was the original bug.
+#   - A PDF is made only when the user asks, by scripts/export_pdf.py (two
+#     LibreOffice passes so its numbers match its own pagination), and is
+#     labelled a convenience copy. Do not add a conversion step to this script.
+#
+set -euo pipefail
+
+BUILD="${BUILD:-build}"
+
+# Force UTF-8 for every Python step. Without this, Windows Python reads the
+# model-written UTF-8 JSON as the ANSI code page: an em dash becomes mojibake
+# that the dash check no longer catches, and it renders into the report.
+export PYTHONUTF8=1
+
+# The pipeline normally runs on the Linux side, where the interpreter is
+# python3; a Windows host usually only has `python`. Resolve rather than assume,
+# so a wrong interpreter name cannot masquerade as a missing dependency.
+# Probe by RUNNING the candidate, not with `command -v`: on Windows, a
+# Microsoft Store alias stub named python3 sits on PATH and fails when invoked,
+# so an existence check picks an interpreter that cannot run anything.
+PY=""
+for cand in python3 python; do
+    if "$cand" -c 'import sys; sys.exit(0)' >/dev/null 2>&1; then PY="$cand"; break; fi
+done
+if [ -z "$PY" ]; then
+    echo "ERROR: no working python interpreter on PATH (tried python3, then python)." >&2
+    exit 1
+fi
+
+# The newest Task Report PDF beside _pipeline/. Both spellings: a browser saves
+# PlanGrid's download as PlanGrid_Task_Report_-_Oct_1_2026.pdf.
+find_task_report() {
+    find .. -maxdepth 1 \( -iname '*task report*.pdf' -o -iname '*task_report*.pdf' \) -printf '%T@ %p\n' 2>/dev/null \
+        | sort -rn | head -1 | cut -d' ' -f2-
+}
+clips_present() {
+    "$PY" -c "import json,sys; sys.exit(0 if json.load(open(sys.argv[1], encoding='utf-8')) else 1)" \
+        "$BUILD/sheet_clip_dims_jpg.json" 2>/dev/null
+}
+
+if [ -n "${RENDER_ONLY:-}" ]; then
+    echo "==> render only (RENDER_ONLY=1): skipping consolidate, photos and sheet clips"
+    [ -f data/items.json ] || { echo "ERROR: data/items.json missing; run the full pipeline first." >&2; exit 1; }
+    [ -f "$BUILD/sheet_clip_dims_jpg.json" ] || echo '{}' > "$BUILD/sheet_clip_dims_jpg.json"
+    # Which Task Report this render uses: the one on record if it is still there,
+    # else the newest beside _pipeline/, so the run record never loses it.
+    if [ -z "${TASK_REPORT:-}" ]; then
+        TASK_REPORT=$("$PY" -c "import json,sys; print((json.load(open(sys.argv[1], encoding='utf-8')).get('inputs') or {}).get('task_report') or '')" \
+            "$BUILD/run.json" 2>/dev/null || true)
+        [ -n "$TASK_REPORT" ] && [ -f "$TASK_REPORT" ] || TASK_REPORT=$(find_task_report)
+    fi
+    # A Task Report that arrived after the data steps (the browser export finishes
+    # while the items are drafted) is cut here, so the first render has the clips.
+    if ! clips_present && [ -n "${TASK_REPORT:-}" ] && [ -f "$TASK_REPORT" ]; then
+        echo "==> sheet clips: $TASK_REPORT arrived after the data steps; cutting them now"
+        "$PY" scripts/extract_sheet_clips.py "$TASK_REPORT" "$BUILD/sheet_clips_jpg" \
+            --items-from data/items.json --dims-out "$BUILD/sheet_clip_dims_jpg.json"
+    fi
+else
+
+# --- input discovery -------------------------------------------------------
+# A PlanGrid pull is a directory holding tasks.json. A Task Report is a PDF
+# exported separately from PlanGrid; it is NOT part of an API pull, and it is
+# the only source of the per-item annotated sheet clips.
+# ../plangrid_pull is the canonical location (a pre-exported pull copied in, or
+# the output of scripts/adapt_mcp_pull.py). Prefer it so the raw MCP material in
+# ../plangrid_mcp, which also holds a tasks.json, is never picked up by mistake.
+if [ -z "${PULL:-}" ] && [ -f ../plangrid_pull/tasks.json ]; then
+    PULL=../plangrid_pull
+fi
+if [ -z "${PULL:-}" ]; then
+    PULL=$(find .. -maxdepth 2 -name tasks.json -not -path '*/delta_*' -not -path '*/plangrid_mcp/*' 2>/dev/null \
+           | head -1 | xargs -r dirname)
+fi
+if [ -z "${TASK_REPORT:-}" ]; then
+    TASK_REPORT=$(find_task_report)
+fi
+
+if [ -z "${PULL:-}" ] || [ ! -d "$PULL" ]; then
+    echo "ERROR: no PlanGrid pull found. Set PULL=<dir containing tasks.json>." >&2
+    exit 1
+fi
+
+echo "==> inputs"
+echo "    pull        : $PULL"
+echo "    task report : ${TASK_REPORT:-(none, items will render '(no pin clip)')}"
+echo "    scope       : ${SCOPE:-(all items in the pull)}"
+echo
+
+# --- 1. consolidate --------------------------------------------------------
+echo "==> 1/5 consolidate"
+# Scope rules, all optional, from the user's words or the client profile:
+#   SCOPE=11-30                       item numbers
+#   TITLE="Visit 2"                   keep only this title (the walk marker)
+#   CREATED_AFTER=2026-08-31          keep only items created after this date
+#   DROP_PHRASES="a; b"               record-only descriptions to drop (semicolon separated);
+#                                     near misses are reported, never dropped
+#
+# Deleted/archived pins are ALWAYS kept here, flagged deleted_in_plangrid, since
+# 0.9.0. Whether they appear in the report is decided at build master from
+# report.config.json "deleted_pins" ("drop", the default, or "keep";
+# KEEP_DELETED=1 still means keep), so changing that decision is a re-render
+# (update_report.py --deleted-pins keep), not a re-run of these data steps.
+CONS_ARGS=(--keep-deleted)
+[ -n "${SCOPE:-}" ] && CONS_ARGS+=(--only "$SCOPE")
+[ -n "${TITLE:-}" ] && CONS_ARGS+=(--title "$TITLE")
+[ -n "${CREATED_AFTER:-}" ] && CONS_ARGS+=(--created-after "$CREATED_AFTER")
+if [ -n "${DROP_PHRASES:-}" ]; then
+    IFS=';' read -r -a _phrases <<< "$DROP_PHRASES"
+    for p in "${_phrases[@]}"; do
+        p="${p#"${p%%[![:space:]]*}"}"; p="${p%"${p##*[![:space:]]}"}"
+        [ -n "$p" ] && CONS_ARGS+=(--drop-phrase "$p")
+    done
+fi
+"$PY" scripts/consolidate.py "$PULL" -o data/items.json ${CONS_ARGS[@]+"${CONS_ARGS[@]}"}
+
+# --- 2. photos -------------------------------------------------------------
+# EXIF rotation is applied here. PIL does not apply it on save, and the
+# originals look upright in every normal image viewer, so a missed transpose
+# only shows up as sideways photos in the rendered docx.
+echo "==> 2/5 normalise photos"
+"$PY" scripts/normalize_photos.py --items data/items.json \
+    --dest "$BUILD/thumbs_uniform" --dims-out data/thumb_dims.json
+
+# --- 3. sheet clips --------------------------------------------------------
+echo "==> 3/5 sheet clips"
+if [ -n "${TASK_REPORT:-}" ] && [ -f "$TASK_REPORT" ]; then
+    "$PY" scripts/extract_sheet_clips.py "$TASK_REPORT" "$BUILD/sheet_clips_jpg" \
+        --items-from data/items.json --dims-out "$BUILD/sheet_clip_dims_jpg.json"
+else
+    echo "    No Task Report PDF. Items will render '(no pin clip)'."
+    echo "    Export a Task Report from PlanGrid and re-run to add pin clips."
+    [ -f "$BUILD/sheet_clip_dims_jpg.json" ] || echo '{}' > "$BUILD/sheet_clip_dims_jpg.json"
+fi
+
+fi  # RENDER_ONLY
+
+# --- 4. master -------------------------------------------------------------
+# The data steps above are complete without a draft; the render needs one.
+# Stop cleanly here rather than with a traceback (field result 2026-09-14),
+# so a data-only run before drafting exits 0 with the next step named.
+if [ ! -f data/drafted_items.json ]; then
+    echo
+    echo "==> data built; no data/drafted_items.json yet, so build master and render are skipped."
+    echo "    Draft the items (reference/drafting.md), then: RENDER_ONLY=1 bash scripts/run_pipeline.sh"
+    "$PY" scripts/run_record.py --pull "${PULL:-}" --task-report "${TASK_REPORT:-}" || true
+    exit 0
+fi
+# Fails loudly on an em/en dash or a voice-rule violation.
+echo "==> 4/5 build master"
+"$PY" scripts/build_master.py --items data/items.json \
+    --drafted data/drafted_items.json -o "$BUILD/master_report_items.json"
+
+# --- 5. render -------------------------------------------------------------
+echo "==> 5/5 render"
+node scripts/gen_report.js "$BUILD"
+OUT=$("$PY" -c "import json;print(json.load(open('$BUILD/report.config.json', encoding='utf-8'))['output_filename'])")
+
+# The docx library emits every bookmark with the same numeric id, which makes
+# Word show "Error! Bookmark not defined." for all but the first TOC entry.
+# Renumber in place, then verify (verify_report.py asserts the ids are unique).
+"$PY" scripts/fix_bookmark_ids.py "$BUILD/$OUT"
+
+echo "==> verify"
+# Captured as well as shown, so run_record.py can quote it verbatim.
+set +e
+"$PY" scripts/verify_report.py "$BUILD/$OUT" "$BUILD/master_report_items.json" 2>&1 | tee "$BUILD/verify_output.txt"
+VERIFY_RC=${PIPESTATUS[0]}
+set -e
+
+# The run record: build/run.json plus the generated blocks in PROCESS-LOG.md and
+# CLAUDE.md. Written from the artifacts, never typed by hand, so a scope change
+# is a re-run and the numbers follow.
+echo "==> run record"
+"$PY" scripts/run_record.py --pull "${PULL:-}" --task-report "${TASK_REPORT:-}"
+[ "$VERIFY_RC" -eq 0 ] || exit "$VERIFY_RC"
+
+# The review spreadsheet is part of every verified render, written to
+# build/<report>-Review.xlsx, which is where package.py delivers it from.
+echo "==> review sheet"
+"$PY" scripts/review_sheet.py export "$BUILD"
+
+# What the draft still needs before it can be issued, each with the one command
+# that supplies it (update_report.py). Written to build/finish.json and into the
+# ISSUES-LIST.md finish-list block, and printed so the final message can quote it.
+echo "==> finish list"
+"$PY" scripts/finish_list.py --build "$BUILD" || true
+
+echo
+echo "==> done: $BUILD/$OUT"
+echo "    Open in Word. Page numbers populate on open (Ctrl+A then F9 to force)."
+echo "    Layout spot check (needs soffice): $PY scripts/render_preview.py $BUILD/$OUT --pages 1,4"

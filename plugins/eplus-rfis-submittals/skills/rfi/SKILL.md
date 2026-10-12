@@ -1,0 +1,441 @@
+---
+name: rfi
+description: Draft a spec-backed RFI or submittal response, and save approved responses to the EPLUS knowledge base.
+when_to_use: Use this skill whenever a task involves RFIs (Requests for Information), submittals, submittal review, RFI response drafting, spec clause lookups, CSI division/section questions, logging or committing a finalized/issued RFI response to the knowledge base, or the rfi-knowledge-hub MCP tools (query_hermes_rfi, commit_approved_rfi, list_sources, read_source, grep_corpus). Encodes the EPLUS RFI workflow — settle the memory question up front, deconstruct the request, delegate the lookup to the rfi-researcher agent, draft the response to the house format, then gate the knowledge-base write-back behind an explicit AskUserQuestion approval — plus the return path for logging a final RFI that was edited and issued outside the chat. Always load it before calling any rfi-knowledge-hub tool. When the RFIs or submittals are to be reviewed against the project's own drawings, bulletins, and specifications in a connected folder, load contract-document-review as well; it carries that workflow.
+argument-hint: <RFI text, attached document reference, or instructions — e.g. "review this request and draft a response">
+---
+
+# EPLUS RFI & Submittal workflow (rfi-knowledge-hub)
+
+Rules for processing RFIs and submittals through the `rfi-knowledge-hub`
+server, delivered as a **managed connector** from the desktop bootstrap
+config (this plugin bundles no server definition and no token). Its
+tools appear as `mcp__rfi-knowledge-hub__<tool>`; the bundled form
+`mcp__plugin_eplus-rfis-submittals_rfi-knowledge-hub__<tool>` is
+tolerated wherever it still appears. Same server, same rules.
+
+When invoked as a slash command, process the following request through
+the workflow below:
+
+$ARGUMENTS
+
+When triggered automatically (no slash command), apply the same
+workflow to the RFI/submittal request in the conversation.
+
+## Which workflow
+
+- **Questions answered from the EPLUS knowledge base** (one RFI, a few RFIs,
+  a spec lookup, logging an issued response): this skill, Steps 0–4.
+- **A review against the project's own Contract Documents in a folder** (IFC
+  drawing sets, drawing bulletins, a specification set; often many RFIs and
+  submittals across several buildings, with stamped PDFs and a summary as
+  deliverables): load the `contract-document-review` skill and follow it. Step 0
+  (memory), the house response format, and the user-facing language rules
+  below still apply there; Steps 2 and 4 do not, because the evidence is the
+  folder, not the knowledge base, and a batch of drafts is not approved content.
+
+## User-facing language
+
+In anything the user sees — AskUserQuestion text, draft documents,
+status messages, reminders — say "the EPLUS knowledge base" or "the
+spec database," never "Hermes," "Graph-RAG," "MCP," "stub," or raw
+tool names. Backend terminology is for reasoning and tool calls only.
+When reporting failures, lead with a plain-language explanation;
+include the verbatim error in a clearly-labeled technical details
+section rather than as the message itself.
+
+## Backend: Hermes Knowledge Engine
+
+Hermes is an autonomous agent behind the EPLUS knowledge base connector
+with native file access to 82,000+ pages of extracted AEC technical
+documents — Core & Shell specs, program-specific documentation, product submittals,
+historical RFIs, and TIA/NEC codebooks — indexed via Graphify
+(Graph-RAG). It can traverse graph dependencies across specs, drawings,
+and building codes.
+
+**The graph matcher is LITERAL — it matches query words against node
+labels, with no semantic understanding.** Query quality lives or dies
+on keyword choice: topic nouns that would appear in document titles
+and spec language. Intent phrasing ("spec requirements", "prior RFI
+precedent", "clarification on"), project names, and CSI numbers in the
+query text seed the search on the wrong nodes and poison retrieval.
+
+## Available tools
+
+Five tools on `rfi-knowledge-hub`; exact signatures and parameter rules
+live in [`reference/tools.md`](reference/tools.md). Four are read-only
+— `query_hermes_rfi` (discovery search with a synthesized report),
+`list_sources`, `read_source` (verbatim text, the only citable source),
+`grep_corpus` (exact/regex search) — and **only the `rfi-researcher`
+agent calls them** (Step 2). The fifth,
+`commit_approved_rfi(rfi_id, markdown_content, metadata, project_id="default")`,
+writes a human-approved final response to the knowledge base. **Main
+thread only, and never without explicit user approval through the Step 4
+AskUserQuestion gate (or the return-path confirmation gate).** Required
+metadata minimum: CSI section, subject, and date. Never commit with
+empty metadata. The plugin's PreToolUse hook makes the harness prompt
+before every call as a second line of defense.
+
+## The workflow
+
+### Step 0 — Memory decision (once per session, before anything else)
+
+Before the first lookup — and before writing any memory file — call
+`AskUserQuestion` with exactly one question:
+
+- header: "Memory"
+- question: "Should I save anything from this session to memory?"
+- options:
+  1. label: "Don't save anything"
+     description: "Nothing is written to memory this session. Safest while
+     this workflow is still changing."
+  2. label: "Ask me before each save"
+     description: "I'll show you the exact note before writing it."
+  3. label: "Save freely"
+     description: "I'll save context as it comes up and tell you what I
+     wrote."
+
+Then hold to it for the whole session:
+
+- **Don't save anything** → write no memory files at all, and do not raise it
+  again. Do not offer a summary "just in case."
+- **Ask me before each save** → show the full proposed note and get an explicit
+  yes before each write.
+- **Save freely** → write as you go and report what you wrote.
+
+Ask once. If the question is skipped, dismissed, or answered ambiguously,
+treat it as **Don't save anything**. If the user has already said in this
+session what they want, honour that and skip the question.
+
+**What must never go into memory, under any option:**
+
+- **Project-specific technical values** — mounting heights, note numbers,
+  clause values, dimensions, part numbers, equipment schedules. These vary
+  between drawing sets on the same program, and a remembered value invites a
+  future session to apply one project's number to another. The governing value
+  is read from the project's own sheet or the knowledge base every time.
+- Anything the knowledge base already holds. Committed RFIs are retrievable —
+  memory is not a second copy of them.
+
+**What is worth saving** (subject to the choice above): who the user is and how
+they work, standing feedback on drafting and tone, project identifiers, the
+governing drawing set, open items, and where in the corpus a recurring answer
+lives. Reasoning that travels between projects is fine; the numbers are not.
+
+Every memory file this skill writes ends with a provenance line — the date and
+`eplus-rfis-submittals` version it was written under — so a later session can
+see it predates a workflow change. Memories are advisory context, never a
+citation: nothing recalled from memory may appear in a draft as a technical
+claim without being re-verified against the corpus.
+
+### Step 1 — Request deconstruction & context analysis
+
+Parse the user's prompt or attached RFI document. Identify the key
+engineering attributes:
+
+- Project ID (default to `"default"` only if the user gives none)
+- CSI division/section (e.g., `26 05 00`)
+- Specific equipment/materials involved
+- The core technical question being asked
+
+**Capture the RFI identifier here, not at the commit gate.** If the user hasn't
+given an RFI number and the attached document doesn't carry one, ask for it
+now, while they are already supplying context — discovering at Step 4 that the
+response has nowhere to be filed wastes a turn and tempts a bad guess.
+
+**Never invent an identifier.** Do not offer a synthesized placeholder such as
+`<PROJECT>-<TOPIC>-<DATE>` as an option — a made-up number in the knowledge
+base is indistinguishable from a real one to every future lookup. If the number
+genuinely does not exist yet, that is a reason to defer the commit, not to
+manufacture a key: draft the response, and log it when the number is issued via
+the return path below.
+
+If the RFI is ambiguous or missing critical attributes, ask the user
+before querying.
+
+### Step 2 — Delegate research to rfi-researcher
+
+**Do NOT answer the RFI from general pre-training memory.** All
+substantive technical claims must be grounded in evidence the
+`rfi-researcher` agent brings back from the spec database.
+
+**The four read tools are never called inline in the main thread.** A
+single discovery report can run thousands of tokens and stays in this
+conversation for every later turn; the researcher (this plugin's agent,
+on Sonnet) does the lookups in its own isolated context under a hard
+budget — at most 3 discovery queries, 4 direct reads, 10 local file
+operations — and returns a brief of at most 400 words. Only the brief
+enters this thread.
+
+**Compose the input (200–300 tokens), then spawn the agent** via the
+Agent tool (`eplus-rfis-submittals:rfi-researcher`):
+
+- RFI id and project_id (from Step 1)
+- csi_section, if known
+- the question in one sentence
+- extracted nouns: equipment, materials, systems, standards bodies — the
+  words a spec writer or submittal title would use; no intent phrasing
+  ("spec requirements", "precedent"), no project names, no CSI numbers
+- any named authority: spec section ("27 05 26 part 2.4"), RFI number,
+  device/part number — the agent goes direct on those instead of searching
+- spec_version: `latest` unless the user asks otherwise
+- mode: `determination` | `precedent` | `changed-between-versions`
+
+Example input:
+
+    RFI: RFI-118  project_id: PROJECT_A  csi_section: 26 05 00
+    Question: Does the IDF rack circuit need to be UPS-backed?
+    Nouns: IDF rack dedicated circuit UPS receptacle power
+    Authority: none named  spec_version: latest  mode: determination
+
+**Read the brief's `Status` before drafting:**
+
+- `grounded` → draft (Step 3) from the Findings and Verbatim clauses
+  only. Cite only clauses listed under Verbatim clauses, with the source
+  path and version the brief gives. Nothing the brief did not confirm
+  goes into a citation.
+- `keyword-miss` → the database was reached but nothing matched. If the
+  brief's Next step proposes a query, resume the same agent with it (one
+  more run). If that also misses, tell the user what was searched and
+  ask for a different angle or a named source — do not draft a
+  determination.
+- `degraded` → the database could not be reached or returned no real
+  content (the researcher already tried the direct tools). Relay the
+  plain-language explanation and the technical-details block, then
+  follow the degraded mode section below: PENDING VERIFICATION shell and
+  the degraded-mode gate variant in Step 4. Never fill the gap from
+  memory.
+
+**Resume or spawn anew.** A "Revise draft" that needs new technical
+substance (a different determination, new clauses, changed scope)
+resumes the same researcher with the delta — it already holds the
+sources. A new RFI, a different project, or a changed-between-versions
+question on the same RFI gets a fresh agent with a fresh budget.
+
+**Batches.** N RFIs = one researcher per RFI, at most 3 running at once;
+launch them together, then draft and gate each RFI sequentially in this
+thread, one Step 4 gate per RFI. Never one agent for several RFIs — the
+budget and the brief are per question — and never a second agent for a
+single follow-up lookup on an RFI that already has one: resume it. Each
+spawn costs about 15k tokens before it does anything (measured 2026-09-03),
+so the unit of delegation is the RFI, never the lookup.
+
+**If the spawn fails** (agent not found, model alias blocked, Agent tool
+unavailable), tell the user in one line what failed and STOP. Do not
+research inline and do not draft: the user decides whether to fix the
+session or proceed without the database.
+
+### Step 3 — Synthesis & draft generation
+
+Synthesize the raw context returned by Hermes into a formal, professional
+engineering RFI response following EPLUS standards:
+
+- Restate the question being answered
+- Give a direct, unambiguous determination
+- Cite the relevant specification clauses and/or codebook sections
+  (TIA/NEC) retrieved by Hermes — never cite from memory
+- Note any assumptions, exclusions, or items requiring field verification
+
+**House response format — write to it from the first draft.** These
+responses are not letters. They get typed into an RFI response field, or
+into the red ENGINEERING PLUS COMMENTS box beneath the review stamp on a
+submittal, where they render as 6pt text in a box about 286 pt wide. That
+box is the real constraint on length.
+
+- **Two to four sentences per response.** Determination first, then the
+  reason, then any action required of the contractor.
+- No letterhead, salutation, or closing paragraph. No restated preamble
+  before the answer.
+- Multiple questions get numbered responses, each self-contained.
+- Where a response will be stamped onto a drawing, keep the whole comment
+  block to roughly 25 lines at that width — beyond that it stops fitting
+  next to the stamp.
+- Citations stay in their own section beneath the responses, not woven into
+  the sentences.
+
+Writing long and cutting back wastes a review cycle. Write short first; the
+user can always ask for more.
+
+**The markdown draft is always the source of truth.** Compose the full
+response in markdown first, regardless of output format. If a docx is
+produced, it is built FROM this markdown. On approval, the commit
+payload is this markdown — never a re-extraction or reconstruction from
+a generated document.
+
+**Output format — decide before drafting:**
+
+a. **User explicitly requested a file** (said "Word doc", "docx",
+   "send me a file", "something I can attach/issue", or attached a
+   docx template to match): FIRST load the docx skill if one is
+   available in this environment and follow it to produce the
+   response as a .docx file built from the markdown draft. Apply EPLUS
+   branding per the `eplus-branding` skill (portable
+   fonts — RFI responses get issued as PDFs and reopened in Bluebeam).
+   Present the file when done (`present_files` where that tool exists,
+   otherwise by path). If no docx skill or file-creation tools are
+   available, say so explicitly and fall back to path (b).
+
+b. **No file requested** (the default): do NOT load the docx skill and
+   do NOT create any file. Render the draft as a clean HTML artifact
+   styled for readability (or markdown if the response is plain prose
+   with no layout needs). The artifact is a review surface, not a
+   deliverable: the user approves or finalizes it at the Step 4 gate,
+   and can request a docx export afterward if approved.
+
+Never do both in the same pass. If ambiguous, treat it as (b) and note
+once that a Word version is available on request — do not ask a
+clarifying question just for output format.
+
+In both formats the response must contain: RFI ID and project header,
+the restated question, the formal determination, and a numbered
+citations section referencing the exact Hermes-returned spec clauses
+and codebook sections.
+
+### Step 4 — Human-in-the-loop (HITL) write-back gate
+
+**Hard rule: `commit_approved_rfi` may only ever carry a human-approved
+final response. Never commit a Claude-generated draft on Claude's own
+judgment — a draft becomes committable only when the user explicitly
+approves it through this gate or hands back their own finalized version
+(see return path).**
+
+Present the full draft response in the conversation first, so the user
+can read it. Then you MUST call the `AskUserQuestion` tool to get the
+approval decision. Do NOT ask for approval as a plain-text message —
+the tool call is the gate, and the workflow does not proceed until the
+user answers it.
+
+Call `AskUserQuestion` with exactly one question:
+
+- header: "RFI Approval"
+- question: "Approve this RFI response for logging to the EPLUS
+  knowledge base?"
+- options:
+  1. label: "Approve & commit"
+     description: "Log this response as-is so future RFIs can
+     reference it."
+  2. label: "Revise draft"
+     description: "I'll give feedback; revise and re-present the
+     draft, then ask again."
+  3. label: "Finalizing outside chat"
+     description: "I'll edit and issue the final version myself.
+     Don't log anything now."
+
+Act on the selection:
+
+- **Approve & commit** → call `commit_approved_rfi(...)` with the
+  markdown draft (the source of truth from Step 3), the RFI ID, the
+  project ID, and metadata (minimum: CSI section, subject, date).
+  Confirm the commit succeeded and echo the RFI ID.
+- **Revise draft** → collect the feedback and revise. If the requested
+  change requires new technical substance (a different determination,
+  new clauses, changed scope), return to Step 2 and re-query Hermes —
+  never patch the technical content from memory. Re-present the
+  revised draft and repeat this gate (call AskUserQuestion again).
+  Never commit without a fresh "Approve & commit" selection on the
+  latest draft.
+- **Finalizing outside chat** → commit NOTHING. Remind the user once
+  that the knowledge base does not have this RFI yet: an unlogged RFI
+  is invisible to future RFI lookups, so they should return with the
+  final issued response so it can be logged (see "Logging a finalized
+  RFI response" below).
+- **Free-text ("Other") answer** → treat as NOT approval unless it
+  unambiguously says to commit. When in doubt, re-present the gate.
+
+If the user simply goes quiet after receiving the draft, commit
+nothing.
+
+**Degraded-mode gate variant:** when any part of the response is marked
+PENDING VERIFICATION (see degraded mode below), do NOT offer a commit
+option. Call `AskUserQuestion` with only:
+
+- label: "Retry lookup" — description: "Try the spec database again
+  now."
+- label: "Keep draft as-is" — description: "I'll finish this manually
+  — don't log anything."
+
+Never include an approve/commit option while any determination is
+marked PENDING VERIFICATION.
+
+**Fallback:** if the `AskUserQuestion` tool is unavailable in this
+environment, state that, ask for approval in prose, and require the
+literal word "Approve" before committing. Silence or anything
+ambiguous is not approval.
+
+## Handing off to the stamp
+
+When the response is going onto a submittal rather than into an RFI field —
+the user asks to stamp the submittal, mark it reviewed, or produce an
+"EPLUS RESPONSE" copy — load the `pdf-stamping` skill in this plugin and
+follow it. The approved response text becomes the ENGINEERING PLUS COMMENTS
+block; the disposition stamp is the user's call, never inferred from the
+comments (in a `contract-document-review` run, the decision basis the user
+stated is that call). Stamping is desktop-app only.
+
+## Logging a finalized RFI response (return path)
+
+Users routinely take the draft, edit it in Word/email, issue it, and
+come back later — often in a brand-new chat — just to log the final
+version. When a user provides a finalized/issued RFI response (pasted
+text or attached document) and asks to log, commit, or save it:
+
+1. Skip Steps 1–3 — do not re-query Hermes or rewrite their content.
+   The user's final wording is authoritative; commit it **verbatim**
+   (converted to clean markdown if it arrives as a document).
+2. Gather the required identifiers if missing: RFI ID, project ID, and
+   metadata (CSI section, subject, date). Ask rather than guess.
+3. Confirm via `AskUserQuestion` — one question:
+   - header: "Confirm commit"
+   - question: "Commit RFI <rfi_id> — <subject> (project <project_id>)
+     to the knowledge base?"
+   - options:
+     1. label: "Commit" — description: "Log this final response to
+        the EPLUS knowledge base now."
+     2. label: "Cancel" — description: "Wrong file or details — do
+        not log."
+   The user supplying the final document *is* the human approval; this
+   confirmation exists only to catch wrong-file mistakes. On "Commit",
+   call `commit_approved_rfi(...)`. On "Cancel" or ambiguous free-text,
+   commit nothing and ask what to correct.
+4. Report the commit result so the user knows the RFI is now in the
+   knowledge base.
+
+## Failure protocol
+
+If the `rfi-knowledge-hub` connector is missing or a tool call errors,
+tell the user in plain language what failed and that no spec lookup
+was performed — never silently skip the query or fabricate spec/code
+citations. Include the verbatim error in a clearly-labeled technical
+details section for troubleshooting. Never substitute pre-training
+knowledge for a failed Hermes query.
+
+## Degraded mode (Hermes down, stubbed, or returning empty context)
+
+**Try the direct corpus tools before declaring degraded mode.** The
+synthesis pipeline and the direct tools fail independently: when
+`query_hermes_rfi` errors or returns empty synthesis, `grep_corpus` +
+`read_source` usually still work, and a draft grounded in verbatim
+`read_source` text is a NORMAL response with real citations — not a
+PENDING VERIFICATION shell. Enter degraded mode only when the direct
+tools are also unavailable or the corpus genuinely lacks the material.
+
+When the backend is truly unreachable, still deliver a consistent
+artifact instead of improvising:
+
+1. Tell the user in plain language that the spec database couldn't be
+   reached, so citations are pending verification. Put the raw error
+   or stub payload in a clearly-labeled technical details section —
+   not in the main message.
+2. Produce a **PENDING VERIFICATION** response shell with the same
+   structure as a normal response:
+   - Restated question and parsed attributes (Step 1 output)
+   - The determination section marked
+     `[PENDING VERIFICATION — spec database unavailable]`
+   - Placeholder citation lines naming what must be verified (e.g.,
+     "Spec section 26 05 00 — clause TBD") — never invented clause or
+     code numbers
+   - The Hermes queries you attempted, listed in the technical details
+     section, so the run can be replayed when the backend is restored
+3. **Never call `commit_approved_rfi` with a PENDING VERIFICATION
+   shell** — degraded-mode output must not enter the knowledge base.
+   Use the degraded-mode gate variant from Step 4 (no commit option).

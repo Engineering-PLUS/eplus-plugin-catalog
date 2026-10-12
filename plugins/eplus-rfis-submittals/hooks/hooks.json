@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "mcp__rfi-knowledge-hub__commit_approved_rfi|mcp__plugin_eplus-rfis-submittals_rfi-knowledge-hub__commit_approved_rfi",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "& \"${CLAUDE_PLUGIN_ROOT}\\scripts\\gate-commit.ps1\"",
+            "shell": "powershell"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "^eplus-rfis-submittals:rfi-researcher$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "& \"${CLAUDE_PLUGIN_ROOT}\\scripts\\show-researcher-final.ps1\"",
+            "shell": "powershell"
+          }
+        ]
+      }
+    ]
+  }
+}
