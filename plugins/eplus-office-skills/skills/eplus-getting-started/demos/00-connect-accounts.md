@@ -14,8 +14,13 @@ Two facts to keep straight:
   update a **Reconnect** button on anything that signed out. That is exactly
   what the video shows (2 min 15 s, recorded 2026-10-14).
 - The video library connector needs a sign-in too, so the video cannot depend
-  on it. It ships inside this skill: `assets/videos/connectors-and-updates.mp4`
-  under this skill's folder (`S` in demo 1).
+  on it. It ships inside this skill at `assets/videos/connectors-and-updates.mp4`.
+  In bash the skill folder is at a fixed path inside the session mount:
+  `/sessions/<session>/mnt/.local-plugins/marketplaces/eplus-claude-plugins/plugins/eplus-office-skills/skills/eplus-getting-started`
+  where `<session>` is the one name `ls /sessions` prints. `.local-plugins`
+  is a hidden folder: a plain `ls` of the mount shows only `outputs` and
+  `uploads`, and that does not mean the skill folder is missing. Never search
+  for the file with `find`; use the path.
 
 ## Steps
 
@@ -39,10 +44,21 @@ Two facts to keep straight:
      `https://220221.sharepoint.com/:v:/s/EPUVideoLibrary/IQATR-UbI3j-R7BTwLCDtElTAbD6rVU6nwD_4FMzE0F6Nuk?e=oVSQt3`.
      If it plays, the player and transcript appear in the chat.
    - If that tool is absent or errors (it needs its own sign-in), use the
-     file: in bash, from the outputs folder, copy
-     `$S/assets/videos/connectors-and-updates.mp4` to
-     `Connectors-and-updates.mp4` here, then show it with `present_files`.
-     Say: "Open the video above; it plays in your video player."
+     file. One bash call, exactly this, with `<session>` from `ls /sessions`:
+
+     ```bash
+     S=/sessions/<session>/mnt/.local-plugins/marketplaces/eplus-claude-plugins/plugins/eplus-office-skills/skills/eplus-getting-started
+     cp "$S/assets/videos/connectors-and-updates.mp4" /sessions/<session>/mnt/outputs/Connectors-and-updates.mp4 && ls -la /sessions/<session>/mnt/outputs/Connectors-and-updates.mp4
+     ```
+
+     Then show it with `present_files`, giving the outputs folder's Windows
+     path from your environment block plus `\Connectors-and-updates.mp4`
+     (the same way demo 1 presents the cheat sheet). Say: "Open the video
+     above; it plays in your video player." Only if the copy itself fails
+     (the `ls` shows nothing), fall back to the written steps: Settings,
+     Connectors, Connect on Microsoft 365 and approve in Authenticator, then
+     Connect on the video library, and tell the user the file sits in the
+     skill folder on their computer; never claim the sandbox cannot reach it.
 4. Say: "Do that now for Microsoft 365 and the video library, then tell me
    you're done. I'll wait." This is the one place in the tour where waiting
    for the user is right: nothing works until they have signed in.
