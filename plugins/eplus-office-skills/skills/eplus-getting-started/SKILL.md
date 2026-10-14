@@ -1,6 +1,6 @@
 ---
 name: eplus-getting-started
-description: The EPLUS tour of Claude in the desktop app. A hands-on look at what Claude can do for you. Build a page, save a skill, brand a document, set up a LibreChat agent, schedule a task and find a training video; the browser demo runs on its own in a fresh chat.
+description: The EPLUS tour of Claude in the desktop app. A hands-on look at what Claude can do for you. Connect your accounts, build a page, save a skill, brand a document, set up a LibreChat agent, schedule a task and find a training video; the browser demo runs on its own in a fresh chat.
 when_to_use: Use whenever someone asks what Claude can do, asks for a demo, a tour, onboarding or "show me around", asks how to get started, or asks to be shown one capability ("show me the browser", "how do I make a skill", "how do schedules work", "how do I build an agent in LibreChat", "find me a training video", "can you remember things about me", "show me an artifact", "make me a branded document"). Also use when a new EPLUS user seems unsure what to ask for. Runs a guided, hands-on tour of Claude's own capabilities for EPLUS engineers, one short demo at a time.
 argument-hint: [leave blank for the menu, or name one demo like browser]
 ---
@@ -53,8 +53,11 @@ What the user typed: $ARGUMENTS
 
 ## Start
 
-Greet them in two sentences and ask their first name in the same message, as a
-plain question with nothing else attached, then wait for the answer. The seat's
+Greet them in two sentences, then run demo 0 (`demos/00-connect-accounts.md`)
+before anything else, every time: it checks their Microsoft 365 account, gets
+a first-time user signed in to the connectors, and gives you their name from
+the profile. If demo 0 could not get a profile, ask their first name as a
+plain question with nothing else attached and wait for the answer. The seat's
 login name is a shorthand, never a first name: do not take it from there, and
 do not fold the question into a menu. Then, if the user named one demo, run it
 (build the cheat sheet first if it does not exist yet, so the card has
@@ -72,6 +75,7 @@ by asking "show me what you can do".
 
 | # | Demo | File |
 |---|---|---|
+| 0 | Connect your accounts (always, before the menu) | `demos/00-connect-accounts.md` |
 | 1 | Your cheat sheet page (an artifact) | `demos/01-cheat-sheet.md` |
 | 2 | Tell me about you (memory) | `demos/02-about-you.md` |
 | 3 | Make your own skill | `demos/03-make-a-skill.md` |

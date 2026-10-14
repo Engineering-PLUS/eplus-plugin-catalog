@@ -5,14 +5,20 @@ conversations, so they do not have to repeat themselves.
 
 ## Steps
 
-1. Say: "Tell me a little about yourself and I'll remember it for next time."
-   Ask in one `AskUserQuestion` (free text is always available through "Other"):
-   - Your role and trade (e.g. telecom, security, electrical, project management)
+1. Start from what demo 0 already gave you: their display name, email and job
+   title from the Microsoft 365 profile. Say: "I already know you're
+   <displayName> (<mail>)<, <jobTitle> when it was present>. Tell me a little
+   more and I'll remember it for next time." Ask in one `AskUserQuestion`
+   (free text is always available through "Other"):
+   - Your role and trade (e.g. telecom, security, electrical, project
+     management), unless the job title already says it
    - What you are working on right now (projects or sites)
    - How you like answers (short and direct / detailed / step by step)
-2. Save what they told you with Claude's memory, in their words, as a few short
-   facts ("Works as a telecom engineer on the NVA05A project", "Prefers short,
-   direct answers"). Tell them exactly what you saved.
+2. Save the profile facts and what they told you with Claude's memory, in
+   their words, as a few short facts ("Victor Ortega, victor.ortega@..., the
+   Microsoft 365 account", "Works as a telecom engineer on the NVA05A
+   project", "Prefers short, direct answers"). Tell them exactly what you
+   saved.
 3. **If there is no memory tool in your tool list, memory is turned off for
    this account.** Say so in one sentence, do not pretend it was saved, and
    carry on: their answers are still used in demos 3 and 6 of this
