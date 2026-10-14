@@ -1,6 +1,6 @@
 {
   "name": "eplus-office-skills",
-  "version": "0.6.15",
+  "version": "0.6.16",
   "description": "EPLUS branding (default fonts), the workflow-packager skill, the eplus-getting-started onboarding tour and the /epu video-library shortcut for the EPLUS Claude desktop fleet; Anthropic's docx/pdf/pptx/xlsx skills are now shipped natively and were removed from this plugin",
   "keywords": [
     "brand-guidelines",
