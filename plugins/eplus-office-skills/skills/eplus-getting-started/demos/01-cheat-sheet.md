@@ -32,18 +32,35 @@ and retyping them would be slow and error-prone.
    workflow-packager, plangrid-extraction, error-reporting). Include
    `eplus-getting-started` itself. The built-in Anthropic skills are already on
    the page; do not pass them.
-3. Show it with the artifact tool (`create_artifact`; load it with ToolSearch
-   `select:mcp__cowork__create_artifact`, and if that name is not found,
-   ToolSearch `artifact` and use what comes back), titled
-   "<first name>'s Claude cheat sheet", using that file: if the tool takes a
-   file path, give it the path; if it takes the HTML text, read the file and
-   pass it unchanged. Then also show the file itself with `present_files`, and
-   tell them: "Open that file in your browser and use Print this page (or
-   Ctrl+P) to print it."
+3. Publish it. The user keeps one cheat sheet page, so update theirs if it
+   already exists and create one only when it does not:
+   - Load the three artifact tools in one ToolSearch call,
+     `select:mcp__cowork__list_artifacts,mcp__cowork__create_artifact,mcp__cowork__update_artifact`
+     (if those names are not found, ToolSearch `artifact` and use what comes
+     back).
+   - Call `list_artifacts` and look for one titled
+     "<first name>'s Claude cheat sheet". It may come from an earlier tour in
+     another chat.
+   - Found: `update_artifact` with its `id`, the file, and an
+     `update_summary` (one line saying what changed; it is required). Say
+     first that the app may ask them to approve updating the page and that it
+     only swaps in the new version.
+   - Not found: `create_artifact` titled "<first name>'s Claude cheat sheet"
+     with the file.
+   - Without a name (demo 0 could not read the profile), the title is
+     "Claude cheat sheet" in both the lookup and the create, and `--name` is
+     left out of the build.
+   - If the tool takes a file path, give it the path; if it takes the HTML
+     text, read the file and pass it unchanged. Never create a second page
+     when one with that title exists.
+
+   Then also show the file itself with `present_files`, and tell them: "Open
+   that file in your browser and use Print this page (or Ctrl+P) to print it."
 4. Every later demo appends its card to `cheatsheet-cards.json` (one entry,
    same three fields). Do not rebuild or republish the page after each demo;
    that happens once, at the end of the tour (SKILL.md, Finish), or whenever
-   the user asks to see it.
+   the user asks to see it, each time by rebuilding with the step 2 command
+   and publishing with step 3.
 
 ## Close
 

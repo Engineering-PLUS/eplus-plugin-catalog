@@ -56,10 +56,11 @@ What the user typed: $ARGUMENTS
 Greet them in two sentences, then run demo 0 (`demos/00-connect-accounts.md`)
 before anything else, every time: it checks their Microsoft 365 account, gets
 a first-time user signed in to the connectors, and gives you their name from
-the profile. If demo 0 could not get a profile, ask their first name as a
-plain question with nothing else attached and wait for the answer. The seat's
-login name is a shorthand, never a first name: do not take it from there, and
-do not fold the question into a menu. Then, if the user named one demo, run it
+the Microsoft 365 profile (`get_me`). Never ask for their name: when Microsoft
+365 is not signed in, demo 0 shows the sign-in card. The seat's login name is
+a shorthand, never a first name: do not take it from there. If the profile
+still cannot be read after the sign-in, carry on without a name (see demo 0,
+step 5). Then, if the user named one demo, run it
 (build the cheat sheet first if it does not exist yet, so the card has
 somewhere to go). Otherwise offer the menu with one `AskUserQuestion` holding
 two multi-select questions:
@@ -98,12 +99,10 @@ Start a new chat and say: show me the browser." and stop there.
 ## Finish
 
 After the last demo, rebuild the cheat sheet with the same
-`build_cheatsheet.py` command as demo 1 (it now carries every card), say that
-the app may ask them to approve updating the page and that it only swaps in
-the version with the new cards, update the artifact with the new file
-(`update_artifact` with the same `id`, the `html_path`, and an
-`update_summary`, one line saying what was added; it is required), and present
-the file again so they can print it. Then say in three lines what they now have (the page, the
+`build_cheatsheet.py` command as demo 1 (it now carries every card), publish
+it the way demo 1 step 3 says (`list_artifacts` finds their page, then
+`update_artifact` with its `id`; create only if none exists), and present the
+file again so they can print it. Then say in three lines what they now have (the page, the
 skill, the document, anything they created), then: "To watch me use the
 browser, start a new chat and say: show me the browser." and close with:
 "Whenever you want to see what else I can do, just ask me to show you."
