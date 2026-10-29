@@ -56,7 +56,7 @@ List whatever the file is called.
 | `cover_mode` | Body page 1 | Cover file written | Use when |
 |---|---|---|---|
 | `template` | blank | `<output>-Cover.docx` | default: the reviewer gets a cover to review and can still swap it |
-| `supplied` | blank | no | the reviewer handed over their own coversheet |
+| `supplied` | blank | no | the reviewer makes their own coversheet; no cover facts are asked for (SKILL.md, "The reviewer's own cover") |
 | `blank` | blank | no | the reviewer will make a cover later |
 | `none` | no blank page, TOC is page 1 | no | a client that issues the report without a cover |
 

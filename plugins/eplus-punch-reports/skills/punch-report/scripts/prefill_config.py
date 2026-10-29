@@ -193,9 +193,14 @@ def main():
 
     # House defaults
     put("issuance_date", "TBD", "default")
-    if settable("cover_mode") and missing(cfg.get("cover_mode")):
-        cfg["cover_mode"] = profile.get("cover_mode") or "template"
-        sources["cover_mode"] = "profile" if profile.get("cover_mode") else "default"
+    # The profile's cover_mode wins over the template's "template": a reviewer who
+    # makes their own cover said so once for the project, and the next visit keeps it.
+    if sources.get("cover_mode") != "user" and not missing(profile.get("cover_mode")):
+        cfg["cover_mode"] = profile["cover_mode"]
+        sources["cover_mode"] = "profile"
+    elif settable("cover_mode") and missing(cfg.get("cover_mode")):
+        cfg["cover_mode"] = "template"
+        sources["cover_mode"] = "default"
     if missing(cfg.get("deleted_pins")):
         cfg["deleted_pins"] = "drop"
         sources["deleted_pins"] = "default"

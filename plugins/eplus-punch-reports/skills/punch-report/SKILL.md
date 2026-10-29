@@ -131,6 +131,21 @@ different logo) the reviewer edits in Word. A new client's cover is a plugin
 change: its `.docx` and a `.json` naming its fields go in the plugin's
 `covers/` folder.
 
+**The reviewer's own cover.** When the user says they make their own cover
+("I'll do my own cover", "skip the cover", "no cover", "don't bother with the
+coversheet"), run `python3 scripts/update_report.py --set cover_mode=supplied
+--no-render` right after `prefill_config.py`, before the render. No
+`-Cover.docx` is written; page 1 of the body stays blank, so the page numbers
+are right once their cover replaces it. Then skip everything that exists only
+for the cover: the address, EP number, building, inspector and issuance date
+are not asked for (the finish list leaves them out; the client name stays,
+the footer carries it), there is no cover preview page, and the folder gets
+the report and the package. The choice goes into `client-profile.json`, so
+the project's next visit starts the same way. "No cover page at all" (the
+report starts at the contents page) is `cover_mode=none`. Field request
+2026-10-29: the reviewer builds the issued PDF's cover from earlier reports
+and did not want the run spending time on one.
+
 Then install the dependencies and check the tooling actually works:
 
 ```bash

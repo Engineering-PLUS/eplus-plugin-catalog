@@ -1068,6 +1068,39 @@ assert json.load(open(os.path.join(pipe, "build", "report.config.json")))["sheet
 PYCHECK
 fi
 
+# The reviewer's own cover (cover_mode supplied): the project's profile choice
+# beats the template's "template", no cover is written, and the finish list
+# asks for none of the cover-only facts.
+"$PY" - <<'PYCHECK' 2>&1 && ok "own cover: profile cover_mode kept by prefill, no -Cover.docx, finish list skips cover facts" \
+    || bad "own-cover check failed"
+import json, os, subprocess, sys, tempfile
+here = os.getcwd()
+d = tempfile.mkdtemp(); pipe = os.path.join(d, "_pipeline"); pf = os.path.join(d, "project")
+for sub in ("data", "build"):
+    os.makedirs(os.path.join(pipe, sub))
+os.makedirs(pf)
+json.dump({"output_filename": "O.docx", "cover_mode": "template"}, open(os.path.join(pipe, "build", "report.config.json"), "w"))
+json.dump([{"number": 1, "created_at": "2026-10-23T09:00:00", "created_by": "jim.mcglynn@eplusadvisors.com"}],
+          open(os.path.join(pipe, "data", "items.json"), "w"))
+json.dump({"cover_mode": "supplied"}, open(os.path.join(pf, "client-profile.json"), "w"))
+r = subprocess.run([sys.executable, os.path.join(here, "prefill_config.py"), "--pipeline", pipe, "--project-folder", pf,
+                    "--project-name", "Project Miner - Operations"], capture_output=True, text=True)
+assert r.returncode == 0, r.stdout + r.stderr
+cfg = json.load(open(os.path.join(pipe, "build", "report.config.json")))
+assert cfg["cover_mode"] == "supplied" and cfg["fact_sources"]["cover_mode"] == "profile", cfg
+r = subprocess.run([sys.executable, os.path.join(here, "fill_cover.py"), os.path.join(pipe, "build")], capture_output=True, text=True)
+assert r.returncode == 0 and "not written (cover_mode supplied)" in r.stdout, r.stdout + r.stderr
+assert not os.path.exists(os.path.join(pipe, "build", "O-Cover.docx"))
+r = subprocess.run([sys.executable, os.path.join(here, "finish_list.py"), "--pipeline", pipe, "--no-docs"], capture_output=True, text=True)
+assert r.returncode == 0, r.stdout + r.stderr
+fin = json.load(open(os.path.join(pipe, "build", "finish.json")))
+blocking = [e["what"] for e in fin["blocking"]]
+assert not any(w in blocking for w in ("Site address", "EP project number", "Issuance date",
+                                       "Building or area (cover subtitle)", "Inspector (who walked it)")), blocking
+assert "Client name" in blocking, blocking          # the footer still carries it
+assert any(e["what"] == "Cover" and "blank for your own coversheet" in e["detail"] for e in fin["review"]), fin["review"]
+PYCHECK
+
 # The wording-review preview markup ships with the skill, not the workspace, so
 # only assert it when running from a skill checkout.
 if [ -d ../templates ]; then

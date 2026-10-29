@@ -233,9 +233,11 @@ def main():
 
     pipe = os.path.dirname(os.path.abspath(args.build))
     covers = args.covers or os.path.join(pipe, "covers")
-    if not os.path.isdir(covers):
-        sys.exit(f"ERROR: {covers} not found; re-run init_workspace.sh from the plugin to refresh it")
+    def need_covers():
+        if not os.path.isdir(covers):
+            sys.exit(f"ERROR: {covers} not found; re-run init_workspace.sh from the plugin to refresh it")
     if args.list:
+        need_covers()
         for f in sorted(os.listdir(covers)):
             if f.endswith(".docx"):
                 spec = load(os.path.join(covers, f[:-5] + ".json"), {}) or {}
@@ -249,6 +251,7 @@ def main():
     if mode != "template":
         print(f"cover        : not written (cover_mode {mode})")
         return 0
+    need_covers()  # only a cover being written needs the coversheets
 
     name = pick_template(cfg, covers)
     spec = load(os.path.join(covers, name + ".json"), {}) or {}

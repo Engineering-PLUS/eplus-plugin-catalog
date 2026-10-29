@@ -199,7 +199,7 @@ later with one command (sections 8 and 9):
 | A pull spanning two walk dates | one list, every item carries its pin date | `--set visit_sections=by_date` |
 | Issuance date | TBD | `--set issuance_date=YYYY-MM-DD` |
 | Client, address, EP number, building, inspector | from the profile, the PlanGrid project name and the Task Report header, else `[MISSING]` | `--set <key>=...` |
-| Cover | EPLUS's own coversheet filled in (`stack.docx` for STACK, `default.docx` otherwise), a separate `-Cover.docx`; body page 1 blank for it | `--set cover_template=<name>`, `--set cover_mode=supplied\|blank\|none` |
+| Cover | EPLUS's own coversheet filled in (`stack.docx` for STACK, `default.docx` otherwise), a separate `-Cover.docx`; body page 1 blank for it | `--set cover_template=<name>`; the user's own cover: `--set cover_mode=supplied` (SKILL.md, "The reviewer's own cover") |
 | No PlanGrid connector | built from the Task Report PDF on disk | none needed; a re-run with the connector gets full-size photos |
 | Wording | every item drafted in field-report voice; inferred items flagged with confidence and an Editor's Note | `--item N --description "..."` |
 | No Task Report PDF | exported from PlanGrid in the browser; if it does not arrive, no pin clips | `--task-report "<pdf>"` |
@@ -221,7 +221,8 @@ RENDER_ONLY=1 bash scripts/run_pipeline.sh
 It builds the master, renders, verifies, writes the run record and the review
 sheet, and prints the **finish list** (also in `build/finish.json` and at the
 top of `ISSUES-LIST.md`). Then look at three preview pages: the cover, one item
-with photos, one without (`scripts/render_preview.py`). Nothing more.
+with photos, one without (`scripts/render_preview.py`). Nothing more. With the
+user's own cover (`cover_mode` not `template`) there is no cover page to look at.
 
 **A worker's Open questions do not go to the user mid-run.** The main thread
 settles each one from house policy (SKILL.md) and the defaults above, writes
@@ -250,7 +251,8 @@ delivered yet.
 
 In this order, short:
 
-1. **What was built.** The body `.docx` and its `-Cover.docx`, as links
+1. **What was built.** The body `.docx` and its `-Cover.docx` (none with the
+   user's own cover), as links
    **in the workspace** (`_pipeline/build/`), and one line:
    it goes to `<project folder>` (or, with none connected, stays in the
    session's working folder) once the questions below are answered.

@@ -33,8 +33,8 @@ by using fields.
 in the XML does not mean the page looks right — the empty photo grid once
 shipped verified only by a `<w:tc>` cell count, which cannot distinguish a
 visible paste target from a collapsed hairline row. The standard check is
-**three pages and no more**: the cover (page 1 of `-Cover.docx`, or the TOC
-when there is no cover), one item with photos, one item without.
+**three pages and no more**: the cover (page 1 of `-Cover.docx`; with the
+reviewer's own cover there is none, so two pages), one item with photos, one item without.
 
 ```bash
 python3 scripts/render_preview.py build/<output>-Cover.docx --pages 1

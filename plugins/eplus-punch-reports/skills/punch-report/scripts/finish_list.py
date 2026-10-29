@@ -96,17 +96,31 @@ def main():
         lst.append({"what": what, "detail": detail, "command": f"{UPD} {cmd}" if cmd else None})
 
     # --- cover facts ------------------------------------------------------------
+    # With the reviewer's own cover (cover_mode supplied, blank or none) no cover
+    # is written, so its facts are not asked for; the client name stays, the
+    # body's footer carries it. Field request 2026-10-29: "an option to create my
+    # own coversheet so it doesn't waste time doing it".
+    mode = cfg.get("cover_mode") or ("none" if cfg.get("include_cover") is False else "template")
+    own_cover = mode != "template"
+    if own_cover:
+        add(review, "Cover", f"not built (cover_mode {mode}); "
+            + ("the report starts at the contents page" if mode == "none"
+               else "page 1 of the body is blank for your own coversheet"),
+            "--set cover_mode=template")
     for key, (label, cmd) in LABELS.items():
+        if own_cover and key != "client_display_name":
+            continue
         val, src = cfg.get(key), str(sources.get(key) or "")
         if missing(val):
             add(blocking, label, "missing; the cover shows [MISSING]", cmd)
         elif "confirm" in src:
             add(blocking, label, f"'{val}' is a guess from {src.replace(', confirm', '')}; confirm or correct", cmd)
     iss = str(cfg.get("issuance_date") or "").strip()
-    if missing(iss) or iss.upper() == "TBD":
+    if not own_cover and (missing(iss) or iss.upper() == "TBD"):
         add(blocking, "Issuance date", "TBD on the cover; the reviewer decides it, it is never inferred",
             "--set issuance_date=YYYY-MM-DD")
-    from_profile = [LABELS[k][0] for k in LABELS if sources.get(k) == "profile" and not missing(cfg.get(k))]
+    from_profile = [LABELS[k][0] for k in LABELS if sources.get(k) == "profile" and not missing(cfg.get(k))
+                    and not (own_cover and k != "client_display_name")]
     if from_profile:
         add(review, "Facts from client-profile.json", ", ".join(from_profile)
             + " came from the project folder's client profile; confirm they are still current")

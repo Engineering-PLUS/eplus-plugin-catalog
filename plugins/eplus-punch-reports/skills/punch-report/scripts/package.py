@@ -512,6 +512,8 @@ def main():
     print(f"report      : {os.path.relpath(docx, ws)} -> {beside[0][1]}")
     if cover:
         print(f"cover       : {os.path.relpath(cover, ws)} -> {stem}{suffix}-Cover.docx  (separate file; body page 1 is blank for it)")
+    else:
+        print("cover       : none written (the reviewer's own cover; see cover_mode in the config)")
     if xlsx and args.review_sheet:
         xname = next(n for s, n in beside if s == xlsx)
         print(f"review sheet: {os.path.relpath(xlsx, ws)} -> {xname}")
