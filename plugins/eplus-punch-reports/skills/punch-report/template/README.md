@@ -7,7 +7,7 @@ Draft punch report for the <date> site walk, plus the pipeline that generates it
 | File | What it is |
 |---|---|
 | `<report>-DRAFT-v0.1.docx` | **The draft.** <N> items, <N> pages, <N> photos. Open in Word; the table of contents updates on open (Ctrl+A then F9 to force). |
-| `<report>-Review.xlsx` | Bulk-edit sheet. Edit the yellow columns, re-import, re-render. |
+| `<report>-Review.xlsx` | Bulk-edit sheet, in `_pipeline/build/`. Edit the yellow columns, re-import, re-render. |
 
 The report is a **draft for internal review**, not for issuance. Each item carries
 a red `EDITOR'S NOTE` box marked *delete before issuing*.

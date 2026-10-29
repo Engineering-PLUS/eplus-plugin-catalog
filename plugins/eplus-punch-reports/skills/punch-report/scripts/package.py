@@ -4,13 +4,15 @@ package.py -- bundle a finished punch report workspace and deliver it.
 
 The pipeline never works inside the user's selected project folder. It runs in
 the session's own workspace, and the ONLY write to the project folder is the
-single delivery this script performs at the end: one zip holding the workspace
-(pipeline, sources, data, build, handoff) plus the rendered .docx, its cover,
-and the review .xlsx placed beside it so the reviewer does not have to unzip
-anything to start reading.
+single delivery this script performs at the end: the rendered .docx and its
+cover, placed so the reviewer does not have to unzip anything to start
+reading, and one zip holding the workspace (pipeline, sources, data, build,
+handoff, the review sheet, the client profile). Three files, nothing else:
+field result 2026-10-22, a delivery of five files (body, cover, review sheet,
+package, client-profile.json) left the user unsure which one was the report.
 
     python3 scripts/package.py <workspace> <destination> [--name <stem>] [--dry-run]
-                               [--replace] [--pdf]
+                               [--replace] [--pdf] [--review-sheet]
 
 <workspace>    the folder that holds _pipeline/ and the report inputs
 <destination>  the user's selected project folder (or any folder to deliver to)
@@ -23,6 +25,8 @@ anything to start reading.
                an existing file.
 --pdf          also place the newest .pdf from _pipeline/build/ beside the zip
                (only when the user asked for a PDF; it is a convenience copy)
+--review-sheet also place the review .xlsx beside the zip (only when the user
+               asked for it; it is always inside the zip under _pipeline/build/)
 
 Where the deliverables are found: the newest body .docx under _pipeline/build/
 (the renderer writes there), its -Cover.docx when one exists, and the newest
@@ -38,6 +42,8 @@ wrong place, a whole build/v0.2/ duplicate tree, the previous version's docx,
 and worker probe files. Excluded now, and each exclusion is printed:
 
   - node_modules/, __pycache__/, _scratch/, .DS_Store, Thumbs.db, ~$ lock files
+  - _pipeline/covers/ (the blank coversheets; init_workspace.sh supplies them
+    from the plugin on every run, so a package never needs its own copy)
   - *.bak.json (review_sheet.py's backups)
   - any file or folder whose name starts with "_", except _pipeline itself
     (worker scratch such as _write_probe.py; scratch belongs in _scratch/)
@@ -67,9 +73,9 @@ Re-delivery: a render under a NEW output_filename (v0.1 -> v0.2) has a new
 stem and never collides. Earlier versions of the same report already in the
 destination (their body, cover and review sheet) are written INTO the new
 package under previous-versions/ and then removed from the folder, so the
-folder shows the current version and the inputs (the Task Report PDF,
-client-profile.json) only; field result 2026-09-23: a v0.2 delivery left ten
-files. A file is removed only after the new zip is verified to hold an
+folder shows the current version and the inputs (the Task Report PDF, and a
+client-profile.json an older delivery left there) only; field result
+2026-09-23: a v0.2 delivery left ten files. A file is removed only after the new zip is verified to hold an
 identical copy (size and CRC). An earlier PACKAGE (.zip) is never put inside
 the new one: each package would carry every earlier package and the size
 compounds (field result 2026-10-06: v0.2 had to carry v0.1's 130 MB zip). The
@@ -116,6 +122,7 @@ BUILD_KEEP_DIRS = {"assets", "thumbs_uniform", "sheet_clips_jpg"}
 STORED_SUFFIXES = (".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".pdf", ".zip",
                    ".docx", ".xlsx", ".pptx", ".gz")
 STRAY_PIPELINE_DIRS = {"template", "templates"}
+PIPELINE_SUPPLIED_DIRS = {"covers"}
 
 
 def newest(paths):
@@ -169,6 +176,8 @@ def collect(ws, keep_files):
                 reason = "name starts with _ (worker scratch)"
             elif dirpath == pipe and d in STRAY_PIPELINE_DIRS:
                 reason = "template stamped into the wrong place"
+            elif dirpath == pipe and d in PIPELINE_SUPPLIED_DIRS:
+                reason = "blank coversheets, supplied by the plugin on every run"
             elif dirpath == build and d not in BUILD_KEEP_DIRS:
                 reason = "extra build subfolder (duplicate render tree)"
             elif live_photos and os.path.basename(dirpath) == "plangrid_mcp" \
@@ -428,6 +437,9 @@ def main():
     ap.add_argument("--pdf", action="store_true",
                     help="also place the newest .pdf from _pipeline/build/ beside the zip "
                          "(only when the user asked for a PDF; it is a convenience copy)")
+    ap.add_argument("--review-sheet", action="store_true",
+                    help="also place the review .xlsx beside the zip (only when the user asked for it; "
+                         "it is always inside the package)")
     ap.add_argument("--allow-placeholders", action="store_true",
                     help="deliver even though PROCESS-LOG, ISSUES-LIST, README or CLAUDE.md still "
                          "carry template text (tests and dry runs only)")
@@ -466,15 +478,15 @@ def main():
     files, skipped = collect(ws, [docx, cover, xlsx])
     total = sum(os.path.getsize(f) for f in files)
 
-    # One suffix for the whole delivery, so the zip, the .docx and the .xlsx
-    # always share a name and never collide with an earlier delivery.
-    exts = [".zip", ".docx"] + ([".xlsx"] if xlsx else [])
+    # One suffix for the whole delivery, so the zip and the .docx always share a
+    # name and never collide with an earlier delivery.
+    exts = [".zip", ".docx"] + ([".xlsx"] if xlsx and args.review_sheet else [])
     suffix = "" if args.replace else free_suffix(dest, stem, exts)
     zip_path = os.path.join(dest, f"{stem}{suffix}.zip")
     beside = [(docx, f"{stem}{suffix}.docx")]
     if cover:
         beside.append((cover, f"{stem}{suffix}-Cover.docx"))
-    if xlsx:
+    if xlsx and args.review_sheet:
         xstem = os.path.splitext(os.path.basename(xlsx))[0]
         xname = f"{xstem}{suffix}.xlsx"
         # The review sheet's name carries no version (<report>-Review.xlsx), so a
@@ -500,9 +512,12 @@ def main():
     print(f"report      : {os.path.relpath(docx, ws)} -> {beside[0][1]}")
     if cover:
         print(f"cover       : {os.path.relpath(cover, ws)} -> {stem}{suffix}-Cover.docx  (separate file; body page 1 is blank for it)")
-    if xlsx:
+    if xlsx and args.review_sheet:
         xname = next(n for s, n in beside if s == xlsx)
         print(f"review sheet: {os.path.relpath(xlsx, ws)} -> {xname}")
+    elif xlsx:
+        print(f"review sheet: inside the package, {os.path.relpath(xlsx, ws).replace(os.sep, '/')}  "
+              "(--review-sheet puts it beside the report)")
     else:
         print("review sheet: (none found; review_sheet.py export not run)")
     if pdf:
@@ -577,14 +592,10 @@ def main():
         print(f"delivered   : {name}" + ("  (replaced)" if existed else ""))
     print(f"delivered   : {os.path.basename(zip_path)}")
 
-    # The client profile is the one file that is updated in place: it holds the
-    # client-level facts supplied by the user (name, address, EP number, inspector,
-    # reviewer, drop phrases, cover settings) so the next report for this client
-    # starts from them instead of asking again or reading memory.
-    profile = os.path.join(ws, "client-profile.json")
-    if os.path.isfile(profile):
-        shutil.copy2(profile, os.path.join(dest, "client-profile.json"))
-        print("delivered   : client-profile.json (updated in place)")
+    # The client profile (client name, address, EP number, inspector, cover
+    # settings) travels inside the package, at its root; prefill_config.py reads
+    # it from the newest package in the folder, so the next report starts from
+    # it without a loose file beside the report.
     if old or old_zips:
         removed, blocked = prune(dest, zip_path)
         report_cleanup(dest, zip_path, removed, blocked)

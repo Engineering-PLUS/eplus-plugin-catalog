@@ -17,10 +17,19 @@ pull, any Task Report PDF and the next version on its own; with no folder
 connected the report is built and delivered into the session outputs folder.
 Every decision the old intake round asked about has a default (deleted pins
 left out, issuance date TBD, one flat list with pin dates, every item drafted
-and the inferred ones flagged). Cover facts come only from the project folder's
-`client-profile.json`, PlanGrid (`scripts/prefill_config.py`) and the user's own
-words, never from memory, and whatever no record states renders on the cover as a red
-`[MISSING: ...]` marker. After every render `scripts/finish_list.py` lists what
+and the inferred ones flagged). Cover facts come only from the client profile,
+PlanGrid (the project name `CLIENT - BUILDING - EP no` gives the client, building
+and EP number; the Task Report header gives the address; `scripts/prefill_config.py`)
+and the user's own words, never from memory, and whatever no record states renders
+on the cover as a red `[MISSING: ...]` marker.
+
+**Three ways in, no question about which (2026-10-23).** A PlanGrid pull (on disk or
+from the connector); the **Task Report PDF alone** when the connector is missing
+or failing (`scripts/task_report_to_pull.py`: tasks, photos with their captions,
+the header; field result 2026-10-22, a run stopped to send the user away with the
+PDF already in the folder); or **site photos and notes with no PlanGrid at all**
+(`reference/notes-report.md`, `scripts/notes_to_items.py`), whose item pages carry
+Location and Date Recorded and no sheet-clip column, as does a blank fill-in report. After every render `scripts/finish_list.py` lists what
 the draft still needs, each gap with the one command that supplies it; the
 final message carries that list and asks its questions only then.
 
@@ -72,10 +81,10 @@ the next version (v0.1 to v0.2). A delivery to a folder that holds a Task
 Report PDF picks it up in the same call. In a later session the workspace is
 rebuilt from the delivered package in three commands.
 
-**The project folder stays tidy (0.9.2).** It holds the current version (body,
-cover, review sheet, package), `client-profile.json` and the user's own inputs,
-nothing else. Each delivery writes the earlier versions' body, cover and review
-sheet into the new package under `previous-versions/`, replaces the earlier
+**The project folder stays tidy (0.9.2; three files since 2026-10-23).** It holds the current version as
+three files (body, cover, package; the review sheet and `client-profile.json`
+travel inside the package) and the user's own inputs, nothing else. Each delivery
+writes the earlier versions' body and cover into the new package under `previous-versions/`, replaces the earlier
 package (0.9.9: never packed inside, so sizes do not compound; field result
 2026-10-06, v0.2 tried to carry v0.1's 130 MB zip), and removes them from the
 folder only after the new zip is verified; the first time in a folder, Cowork
@@ -126,8 +135,8 @@ result into a file (0.7.4; the first field test spent 34k output tokens and
 five minutes doing exactly that).
 
 The project folder is read-only until the end; the run finishes with one
-delivery (`scripts/package.py`): a zip of the workspace plus the `.docx`, the
-`-Cover.docx` and the review `.xlsx` beside it. The zip carries what the next
+delivery (`scripts/package.py`): a zip of the workspace (review sheet and client
+profile included) plus the `.docx` and the `-Cover.docx` beside it. The zip carries what the next
 run needs and prints what it left out (scratch, caches, earlier renders,
 duplicate raw photos, a template stamped into the wrong place); a re-delivery
 is suffixed by default and overwrites only with `--replace`. Inside the
@@ -151,10 +160,13 @@ _pipeline/
 Four deliverables come out, not one: the draft body (page 1 left blank for the
 coversheet), the cover as its own Word file when one is generated, the issues
 list, and the handoff. The issues list is where the reviewer's attention gets
-directed. The cover layout is measured from the issued EPLUS coversheet and
-driven entirely by `report.config.json`; the reviewer can use it, edit it, or
-swap in their own, and `scripts/staple_pdf.py` puts a cover PDF in front of the
-body PDF on request.
+directed. **The cover is EPLUS's own coversheet** (`skills/punch-report/covers/`:
+`stack.docx` with the STACK logo, `default.docx` without a client logo), set in
+Arial; `scripts/fill_cover.py` fills only its text fields from
+`report.config.json`, so the artwork and logos are the designer's Word file. The
+reviewer can use it, edit it, or swap in their own, and `scripts/staple_pdf.py`
+puts a cover PDF in front of the body PDF on request. A new client's cover is a
+`.docx` and a `.json` naming its fields in `covers/`.
 
 ## Searching the corpus
 

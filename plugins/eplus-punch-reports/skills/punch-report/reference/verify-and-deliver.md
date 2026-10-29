@@ -106,12 +106,13 @@ timestamped `.bak.json` is written before anything changes.
 
 ### Step 10 — Deliver the draft, the issues list, and the handoff
 
-Four deliverables, not one, and they leave the workspace together in one
-package: the body `.docx` (page 1 blank), the `-Cover.docx` when
-`cover_mode` is `template`, the review `.xlsx`, and the issues list. The
-verifier already checked the cover file beside the body (EP number present,
-building present, dates MM/DD/YYYY, no draft warning, no header, no Word-only
-defects). A stapled PDF is offered, never assumed: `scripts/staple_pdf.py`
+Three files reach the project folder: the body `.docx` (page 1 blank), the
+`-Cover.docx` when `cover_mode` is `template`, and the package, which holds
+the review `.xlsx`, the issues list and `client-profile.json` with the rest of
+the workspace (`--review-sheet` also puts the sheet beside the report, only
+when the user asks). The verifier already checked the cover file beside the
+body (EP number present, building present, dates MM/DD/YYYY, no draft
+warning, no Word-only defects). A stapled PDF is offered, never assumed: `scripts/staple_pdf.py`
 replaces the body PDF's blank page 1 with the cover PDF once the user has both
 and has said yes.
 
@@ -125,14 +126,14 @@ project folder `locate_inputs.py` found, or, when no folder is connected, the
 session outputs folder; the run never stops to ask for one first. It builds
 the zip of the workspace (pipeline, sources, data, build, handoff) in
 `_pipeline/build/_scratch/`, checks every entry, and only then copies it into
-the destination, with the `.docx`, the `-Cover.docx` and the review `.xlsx`
-beside it; photos, PDFs and Office files are stored, not recompressed. It leaves out what the run superseded and prints each
+the destination, with the `.docx` and the `-Cover.docx` beside it; photos, PDFs and Office files are stored, not recompressed. It leaves out what the run superseded and prints each
 exclusion: caches and `_scratch/`, anything named with a leading underscore
 (worker probe files), a template stamped into `_pipeline/`, `build/`
 subfolders other than `assets`, `thumbs_uniform` and `sheet_clips_jpg`, raw
 MCP photos already copied into `plangrid_pull/`, `.bak.json` backups, and
-every `.docx` or `.xlsx` that is not one of the three delivered (earlier
-renders are reproducible from the data), and photos of pins outside the
+`_pipeline/covers/` (the plugin supplies the blank coversheets on every run),
+every `.docx` or `.xlsx` that is not the delivered body, cover or review sheet
+(earlier renders are reproducible from the data), and photos of pins outside the
 report's scope. Field results: 2026-09-14, 26.6 MB and 252 files for a
 38-item report without these rules; 2026-10-06, 127 MB for a 36-item report
 that carried a 94-task project's photos. It is the only write to the project

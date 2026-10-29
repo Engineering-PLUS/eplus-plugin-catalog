@@ -331,7 +331,7 @@ PYCHECK
 # reviewer once (2026-09-09) with verify_report.py passing 16/16, because the
 # checks lived only in a session workspace. They now live here.
 if node -e 'require("docx")' >/dev/null 2>&1; then
-"$PY" - <<'PYCHECK' 2>&1 && ok "gen_report.js: fixture renders, pin dates, deleted banner, visit sections, no <undefined>, unique wp:docPr ids, verify passes" \
+"$PY" - <<'PYCHECK' 2>&1 && ok "gen_report.js + fill_cover.py: fixture renders, pin dates, deleted banner, visit sections, no <undefined>, unique wp:docPr ids, EPLUS coversheet filled, verify passes" \
     || bad "gen_report.js render check failed"
 import json, os, re, shutil, subprocess, sys, tempfile, zipfile
 here = os.getcwd()
@@ -373,6 +373,11 @@ json.dump({}, open(os.path.join(d, "sheet_clip_dims_jpg.json"), "w", encoding="u
 r = subprocess.run(["node", "gen_report.js", d], capture_output=True, text=True)
 assert r.returncode == 0, r.stdout + r.stderr
 assert "visit_sections=2 deleted_marked=1" in r.stdout and "DATE_RECORDED_MISSING" not in r.stdout, r.stdout
+# the cover is the EPLUS coversheet, filled by fill_cover.py (../covers: the plugin's or the workspace's)
+covers = os.path.abspath(os.path.join(here, "..", "covers"))
+fill = lambda: subprocess.run([sys.executable, "fill_cover.py", d, "--covers", covers], capture_output=True, text=True)
+r = fill()
+assert r.returncode == 0 and "template default.docx" in r.stdout, r.stdout + r.stderr
 out = os.path.join(d, "fixture.docx")
 x = zipfile.ZipFile(out).read("word/document.xml").decode("utf-8")
 assert "<undefined" not in x, "literal <undefined> element rendered: gen_report.js lost the importXml() unwrap"
@@ -401,6 +406,7 @@ cfg_tbd = dict(cfg, issuance_date="TBD", output_filename="tbd.docx")
 json.dump(cfg_tbd, open(os.path.join(d, "report.config.json"), "w", encoding="utf-8"))
 r3 = subprocess.run(["node", "gen_report.js", d], capture_output=True, text=True)
 assert r3.returncode == 0, r3.stdout + r3.stderr
+assert fill().returncode == 0
 subprocess.run([sys.executable, "fix_bookmark_ids.py", os.path.join(d, "tbd.docx")], capture_output=True, text=True)
 r3 = subprocess.run([sys.executable, "verify_report.py", os.path.join(d, "tbd.docx"), master], capture_output=True, text=True)
 assert r3.returncode == 0 and "issuance date TBD" in r3.stdout, "TBD issuance date must verify\n" + r3.stdout + r3.stderr
@@ -411,10 +417,30 @@ ctext = " ".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", cx)).replace("&amp;", "&
 assert "<undefined" not in cx
 cids = re.findall(r'<wp:docPr[^>]*\bid="(\d+)"', cx)
 assert cids and len(cids) == len(set(cids)), f"duplicate wp:docPr ids in cover: {cids}"
-for needle in ("99999", "Building X", "Fixture Client Project", "01/01/2026 & 01/02/2026", "01/03/2026", "Technology Site Inspection"):
+for needle in ("99999", "Building X", "Fixture Client Project", "1 Fixture St.,", "Town, ST",
+               "01/01/2026 & 01/02/2026", "01/03/2026", "Technology Site Inspection"):
     assert needle in ctext, f"cover missing {needle!r}"
 assert "DRAFT" not in ctext.upper(), "draft warning must not be on the cover"
-assert not any(re.match(r"word/header\d*\.xml$", n) for n in cz.namelist()), "cover must have no letterhead header"
+# nothing of the coversheet's own sample project survives the fill
+for stale in ("Jake Budnick", "03/05/2026", "03/09/2026", "C&S + 12MW", "4735 Northeast", "27073", "STACK"):
+    assert stale not in ctext, f"coversheet sample text {stale!r} left on the cover"
+assert "word/media/image1.png" not in cz.namelist(), "the default cover must carry no client logo"
+assert "Montserrat" not in cx, "covers are set in Arial"
+# a STACK client gets the STACK sheet, its logo, and the building on the client line
+cfg_s = dict(cfg, client_display_name="STACK", output_filename="stack.docx")
+json.dump(cfg_s, open(os.path.join(d, "report.config.json"), "w", encoding="utf-8"))
+r = fill()
+assert r.returncode == 0 and "template stack.docx" in r.stdout, r.stdout + r.stderr
+sz = zipfile.ZipFile(os.path.join(d, "stack-Cover.docx"))
+stext = " ".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", sz.read("word/document.xml").decode("utf-8")))
+assert "STACK Building X" in stext and "word/media/image1.png" in sz.namelist(), stext
+# a missing fact is a red marker, never the sample's value
+cfg_m = dict(cfg, inspector="", output_filename="missing.docx")
+json.dump(cfg_m, open(os.path.join(d, "report.config.json"), "w", encoding="utf-8"))
+assert fill().returncode == 0
+mx = zipfile.ZipFile(os.path.join(d, "missing-Cover.docx")).read("word/document.xml").decode("utf-8")
+assert "[MISSING: inspector]" in mx and 'w:val="B00000"' in mx, "missing inspector not marked in red"
+json.dump(cfg, open(os.path.join(d, "report.config.json"), "w", encoding="utf-8"))
 fx = zipfile.ZipFile(out).read("word/footer1.xml").decode("utf-8") if "word/footer1.xml" in zipfile.ZipFile(out).namelist() else ""
 assert "Technology System Punch List" in " ".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", fx)), "footer wording not derived"
 r = subprocess.run([sys.executable, "fix_bookmark_ids.py", out], capture_output=True, text=True)
@@ -508,7 +534,7 @@ if [ ! -d ../template/_pipeline ]; then
 elif node -e 'require("docx")' >/dev/null 2>&1; then
 "$PY" - <<'PYCHECK' 2>&1 && ok "build first: prefill from records, [MISSING] on the cover, finish list, update_report edits, re-render, deliver v0.1 then v0.2" \
     || bad "build-first flow check failed"
-import json, os, re, subprocess, sys, tempfile, time, zipfile
+import io, json, os, re, subprocess, sys, tempfile, time, zipfile
 bash = os.environ.get("SMOKE_BASH") or "bash"
 here = os.getcwd()
 d = tempfile.mkdtemp(); mnt = os.path.join(d, "mnt")
@@ -545,7 +571,7 @@ assert cfg["inspection_date"] == ["2026-08-27", "2026-08-28"] and cfg["deleted_p
 r = subprocess.run([bash, "scripts/run_pipeline.sh"], cwd=pipe, env=dict(env, RENDER_ONLY="1"), capture_output=True, text=True)
 assert r.returncode == 0, r.stdout[-2500:] + r.stderr[-1500:]
 assert "all checks passed" in r.stdout and "To finish this report" in r.stdout, r.stdout[-2000:]
-cz = zipfile.ZipFile(os.path.join(pipe, "build", "CTX2-Punch-Report-DRAFT-v0.1-Cover.docx"))
+cz = zipfile.ZipFile(io.BytesIO(open(os.path.join(pipe, "build", "CTX2-Punch-Report-DRAFT-v0.1-Cover.docx"), "rb").read()))  # never hold the file: Windows will not replace an open file
 ct = " ".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", cz.read("word/document.xml").decode("utf-8")))
 for needle in ("[MISSING: client name]", "[MISSING: site address]", "[MISSING: EP project number]",
                "[MISSING: building or area]", "TBD", "Leo Manning", "08/27/2026 &amp; 08/28/2026"):
@@ -570,7 +596,7 @@ r = py("scripts/update_report.py", "--set", "client_display_name=ServerFarm CTX2
        "--set", "inspector=Leo Manning", "--set", "issuance_date=09/30/2026", "--mnt-glob", os.path.join(d, "*"))
 assert r.returncode == 0, r.stdout + r.stderr
 assert "render only" in open(os.path.join(pipe, "build", "update_render.log"), encoding="utf-8").read()
-cz = zipfile.ZipFile(os.path.join(pipe, "build", "CTX2-Punch-Report-DRAFT-v0.1-Cover.docx"))
+cz = zipfile.ZipFile(io.BytesIO(open(os.path.join(pipe, "build", "CTX2-Punch-Report-DRAFT-v0.1-Cover.docx"), "rb").read()))  # never hold the file: Windows will not replace an open file
 ct = " ".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", cz.read("word/document.xml").decode("utf-8")))
 assert "[MISSING" not in ct and "27625" in ct and "ServerFarm CTX2" in ct and "09/30/2026" in ct, ct
 cfg = json.load(open(os.path.join(pipe, "build", "report.config.json"), encoding="utf-8"))
@@ -613,13 +639,24 @@ assert fin["paperwork"] == [], fin["paperwork"]
 r = py("scripts/update_report.py", "--set", "issuance_date=2026-10-01", "--deliver", "--mnt-glob", os.path.join(d, "*"))
 assert r.returncode == 0, r.stdout + r.stderr
 got = sorted(os.listdir(os.path.join(mnt, "Proj")))
-# the folder holds the current version only; v0.1's body, cover and review sheet are inside
-# the v0.2 package under previous-versions/, and v0.1's package is replaced, never packed inside
-assert got == ["CTX2-Punch-Report-DRAFT-v0.2-Cover.docx", "CTX2-Punch-Report-DRAFT-v0.2-Review.xlsx",
-               "CTX2-Punch-Report-DRAFT-v0.2.docx", "CTX2-Punch-Report-DRAFT-v0.2.zip", "client-profile.json"], got
+# the folder holds the current version only, three files: the report, its cover, the package.
+# v0.1's body and cover are inside the v0.2 package under previous-versions/, v0.1's package is
+# replaced (never packed inside), and the review sheet and client profile travel in the package
+assert got == ["CTX2-Punch-Report-DRAFT-v0.2-Cover.docx", "CTX2-Punch-Report-DRAFT-v0.2.docx",
+               "CTX2-Punch-Report-DRAFT-v0.2.zip"], got
 inner = set(zipfile.ZipFile(os.path.join(mnt, "Proj", "CTX2-Punch-Report-DRAFT-v0.2.zip")).namelist())
 assert {"previous-versions/CTX2-Punch-Report-DRAFT-v0.1.docx", "previous-versions/SUPERSEDED.txt",
-        "previous-versions/CTX2-Punch-Report-DRAFT-v0.1-Cover.docx", "previous-versions/CTX2-Punch-Report-Review.xlsx"} <= inner, inner
+        "previous-versions/CTX2-Punch-Report-DRAFT-v0.1-Cover.docx", "client-profile.json"} <= inner, inner
+assert any(n.startswith("_pipeline/build/") and n.endswith("-Review.xlsx") for n in inner), inner
+assert not any(n.startswith("_pipeline/covers/") for n in inner), "the blank coversheets were packaged"
+# the next report reads the client profile from the package
+pf = os.path.join(d, "pf"); os.makedirs(os.path.join(pf, "_pipeline", "build")); os.makedirs(os.path.join(pf, "_pipeline", "data"))
+json.dump({"output_filename": "x.docx"}, open(os.path.join(pf, "_pipeline", "build", "report.config.json"), "w"))
+json.dump([], open(os.path.join(pf, "_pipeline", "data", "items.json"), "w"))
+rp = subprocess.run([sys.executable, os.path.join(pipe, "scripts", "prefill_config.py"), "--pipeline", os.path.join(pf, "_pipeline"),
+                     "--project-name", "SERVERFARM - CTX2 - 27625", "--project-folder", os.path.join(mnt, "Proj")],
+                    capture_output=True, text=True)
+assert rp.returncode == 0 and "Leo Manning   (profile)" in rp.stdout and "CTX2   (plangrid project name)" in rp.stdout, rp.stdout + rp.stderr
 assert not any(n.endswith(".zip") for n in inner), "an earlier package was packed inside the new one"
 assert "CTX2-Punch-Report-DRAFT-v0.1.zip" in zipfile.ZipFile(os.path.join(mnt, "Proj", "CTX2-Punch-Report-DRAFT-v0.2.zip")).read(
     "previous-versions/SUPERSEDED.txt").decode()
@@ -651,7 +688,7 @@ w("_pipeline/scripts/build_master.py"); w("_pipeline/scripts/_write_probe.py"); 
 w("_pipeline/template/_pipeline/CLAUDE.md"); w("_pipeline/templates/item-preview.html")
 w("_pipeline/build/master_report_items.json"); w("_pipeline/build/master_report_items.json.20260914.bak.json")
 w("_pipeline/build/assets/logos/ep_logo.jpg"); w("_pipeline/build/thumbs_uniform/a.jpg"); w("_pipeline/build/sheet_clips_jpg/item_1.jpg")
-w("_pipeline/build/_scratch/preview.pdf"); w("_pipeline/build/v0.2/X-DRAFT-v0.2.docx")
+w("_pipeline/build/_scratch/preview.pdf"); w("_pipeline/build/v0.2/X-DRAFT-v0.2.docx"); w("_pipeline/covers/default.docx")
 w("plangrid_mcp/tasks.json"); w("plangrid_mcp/photos/p.jpg"); w("plangrid_pull/tasks.json"); w("plangrid_pull/photos/p.jpg")
 old = w("_pipeline/build/X-DRAFT-v0.1.docx"); w("_pipeline/build/X-DRAFT-v0.1-Cover.docx"); w("_pipeline/build/X-Review-old.xlsx")
 time.sleep(1.1)
@@ -677,7 +714,7 @@ for bad_name in ("_pipeline/data/_write_probe.json", "_pipeline/scripts/_write_p
                  "_pipeline/build/master_report_items.json.20260914.bak.json", "_pipeline/build/_scratch/preview.pdf",
                  "_pipeline/build/v0.2/X-DRAFT-v0.2.docx", "plangrid_mcp/photos/p.jpg",
                  "_pipeline/build/X-DRAFT-v0.1.docx", "_pipeline/build/X-DRAFT-v0.1-Cover.docx", "_pipeline/build/X-Review-old.xlsx",
-                 "plangrid_pull/photos/other_visit.jpg"):
+                 "plangrid_pull/photos/other_visit.jpg", "_pipeline/covers/default.docx"):
     assert bad_name not in names, f"{bad_name} should not be packaged"
 assert "not packaged:" in r.stdout and "outside this report's scope" in r.stdout, r.stdout
 # photos and Office files are stored, text is deflated; the zip was built and checked before the copy
@@ -685,16 +722,16 @@ info = {i.filename: i.compress_type for i in zipfile.ZipFile(os.path.join(dest, 
 assert info["plangrid_pull/photos/p.jpg"] == zipfile.ZIP_STORED and info["_pipeline/build/X-DRAFT-v0.2.docx"] == zipfile.ZIP_STORED, info
 assert info["_pipeline/CLAUDE.md"] == zipfile.ZIP_DEFLATED, info
 assert "checked before the copy" in r.stdout, r.stdout
-assert sorted(os.listdir(dest)) == ["X-DRAFT-v0.2-Cover.docx", "X-DRAFT-v0.2.docx", "X-DRAFT-v0.2.zip", "X-Review.xlsx", "client-profile.json"], os.listdir(dest)
+assert sorted(os.listdir(dest)) == ["X-DRAFT-v0.2-Cover.docx", "X-DRAFT-v0.2.docx", "X-DRAFT-v0.2.zip"], os.listdir(dest)
+assert "review sheet: inside the package" in r.stdout, r.stdout
 # second delivery: suffixed together; the earlier body, cover and sheet move INSIDE the new
 # package (previous-versions/), the earlier package is replaced and never packed inside
 r = subprocess.run([sys.executable, "package.py", ws, dest], capture_output=True, text=True)
 assert r.returncode == 0 and "'-2' suffix" in r.stdout, r.stdout + r.stderr
-assert sorted(os.listdir(dest)) == ["X-DRAFT-v0.2-2-Cover.docx", "X-DRAFT-v0.2-2.docx", "X-DRAFT-v0.2-2.zip",
-                                    "X-Review-2.xlsx", "client-profile.json"], os.listdir(dest)
+assert sorted(os.listdir(dest)) == ["X-DRAFT-v0.2-2-Cover.docx", "X-DRAFT-v0.2-2.docx", "X-DRAFT-v0.2-2.zip"], os.listdir(dest)
 prev = set(zipfile.ZipFile(os.path.join(dest, "X-DRAFT-v0.2-2.zip")).namelist())
 assert {"previous-versions/SUPERSEDED.txt", "previous-versions/X-DRAFT-v0.2.docx",
-        "previous-versions/X-DRAFT-v0.2-Cover.docx", "previous-versions/X-Review.xlsx"} <= prev, sorted(prev)
+        "previous-versions/X-DRAFT-v0.2-Cover.docx"} <= prev, sorted(prev)
 assert "previous-versions/X-DRAFT-v0.2.zip" not in prev, "an earlier package was packed inside the new one"
 # --replace (with --keep-previous): same names overwritten in place, nothing else touched, no third set
 open(new, "wb").write(b"newer body")
@@ -720,7 +757,7 @@ if r.returncode == 0 and "CLEANUP PENDING" in r.stdout:
     # the message for the user names every file to be deleted, before the permission step
     msg = r.stdout.split("STEP 1.", 1)[1].split("STEP 2.", 1)[0]
     assert "exactly what I will delete" in msg and "nothing else in the folder is touched" in msg, msg
-    for n in ("X-DRAFT-v0.2.docx", "X-DRAFT-v0.2-2.zip", "X-Review-2.xlsx"):
+    for n in ("X-DRAFT-v0.2.docx", "X-DRAFT-v0.2-2.zip", "X-DRAFT-v0.2-2-Cover.docx"):
         assert f"- {n}" in msg, (n, msg)
     for p in locked:
         if os.path.exists(p):
@@ -731,11 +768,14 @@ else:
     assert r.returncode == 0, r.stdout + r.stderr
 for p in os.listdir(dest):
     os.chmod(os.path.join(dest, p), stat.S_IREAD | stat.S_IWRITE)
-assert sorted(os.listdir(dest)) == ["X-DRAFT-v0.3-Cover.docx", "X-DRAFT-v0.3-Review.xlsx", "X-DRAFT-v0.3.docx",
-                                    "X-DRAFT-v0.3.zip", "client-profile.json"], os.listdir(dest)
+assert sorted(os.listdir(dest)) == ["X-DRAFT-v0.3-Cover.docx", "X-DRAFT-v0.3.docx", "X-DRAFT-v0.3.zip"], os.listdir(dest)
 inner = set(zipfile.ZipFile(os.path.join(dest, "X-DRAFT-v0.3.zip")).namelist())
 assert "previous-versions/X-DRAFT-v0.2.docx" in inner and not any(n.endswith(".zip") for n in inner), sorted(inner)
 assert "X-DRAFT-v0.2-2.zip" in zipfile.ZipFile(os.path.join(dest, "X-DRAFT-v0.3.zip")).read("previous-versions/SUPERSEDED.txt").decode()
+# the review sheet goes beside the report only when asked for
+r = subprocess.run([sys.executable, "package.py", ws, dest, "--replace", "--keep-previous", "--review-sheet"],
+                   capture_output=True, text=True)
+assert r.returncode == 0 and "X-Review.xlsx" in os.listdir(dest), r.stdout + r.stderr
 PYCHECK
 
 # MCP route: a get_tasks packet as pull_mcp.sh fetches it (photos and sheets inline, native
@@ -912,6 +952,119 @@ json.dump([{"number": 1}], open(items, "w", encoding="utf-8"))
 r = subprocess.run([sys.executable, "task_report_filter.py", "--project-uid", "u1", "--items", items], capture_output=True, text=True)
 assert r.returncode != 0 and "Export (All)" in r.stdout + r.stderr, r.stdout + r.stderr
 PYCHECK
+
+# No connector: a Task Report PDF alone is the pull. A synthetic export laid out
+# as PlanGrid prints one (header band, labelled blocks, a wrapped e-mail, a
+# description over two blocks, two photos on the item page and a third on the
+# continuation page, field result 2026-10-22) must give every task field, the
+# header, and every photo matched to its own caption.
+"$PY" - <<'PYCHECK' 2>&1 && ok "Task Report only: task_report_to_pull -> extract_pdf_photos (continuation page) -> adapt" \
+    || bad "Task Report only route check failed"
+import json, os, subprocess, sys, tempfile
+try:
+    import pymupdf as f
+except ImportError:
+    import fitz as f
+d = tempfile.mkdtemp(); pdf = os.path.join(d, "PlanGrid Task Report - Oct 22, 2026.pdf"); mcp = os.path.join(d, "plangrid_mcp")
+doc = f.open()
+def hdr(p):
+    p.insert_text((31, 34), "STACK - POR03C - 27073", fontsize=9)
+    p.insert_text((31, 46), "4735 Northeast Starr Boulevard, Hillsboro, Oregon", fontsize=7)
+    p.insert_text((31, 765), "Prepared by j\n2\nCreated with PlanGrid", fontsize=6)
+def photo(p, x, y, color, cap):
+    pm = f.Pixmap(f.csRGB, f.IRect(0, 0, 350, 620), False); pm.set_rect(pm.irect, color)
+    p.insert_image(f.Rect(x, y, x + 242, y + 176), pixmap=pm)
+    for k, t in enumerate((cap, "j o", "Oct 22, 2026 9:09 AM")):
+        p.insert_text((x, y + 186 + 11 * k), t, fontsize=7)
+p = doc.new_page(); p.insert_text((31, 34), "STACK - POR03C - 27073", fontsize=12)
+p.insert_text((31, 300), "Contents\n#317 General.............. 2", fontsize=9)
+p = doc.new_page(); hdr(p)
+p.insert_text((31, 98), "#317 General", fontsize=12)
+p.insert_text((35, 134), "Status\nOpen", fontsize=9)
+p.insert_text((219, 134), "Created\nOct 22, 2026 9:05 AM\njoshua.ortega@eplusadvisor\ns.com", fontsize=9)
+p.insert_text((402, 134), "Sheet\nT02-01B.1", fontsize=9)
+p.insert_text((35, 239), "Description\nHorizontal cabling missing\nbarrel labels.", fontsize=9)
+p.insert_text((35, 380), "Clean with a HEPA filter.", fontsize=9)
+p.insert_text((31, 410), "Photos", fontsize=10)
+photo(p, 37, 420, (200, 30, 30), "Labels 1.6-3"); photo(p, 291, 420, (30, 200, 30), "Labels 1.6")
+p = doc.new_page(); hdr(p); photo(p, 37, 78, (30, 30, 200), "Labels 1.6-2")
+doc.save(pdf)
+r = subprocess.run([sys.executable, "task_report_to_pull.py", pdf, "--out", mcp], capture_output=True, text=True)
+assert r.returncode == 0, r.stdout + r.stderr
+t = json.load(open(os.path.join(mcp, "tasks.json"), encoding="utf-8"))["tasks"]
+assert len(t) == 1 and t[0]["number"] == 317 and t[0]["status"] == "open", t
+assert t[0]["created_by"] == "joshua.ortega@eplusadvisors.com" and t[0]["created_at"] == "2026-10-22T09:05:00", t[0]
+assert t[0]["description"] == "Horizontal cabling missing barrel labels. Clean with a HEPA filter.", t[0]["description"]
+assert t[0]["sheet"]["name"] == "T02-01B.1" and [x["title"] for x in t[0]["photos"]] == ["Labels 1.6-3", "Labels 1.6", "Labels 1.6-2"], t[0]
+assert json.load(open(os.path.join(mcp, "project.json"), encoding="utf-8")) == {
+    "name": "STACK - POR03C - 27073", "address": "4735 Northeast Starr Boulevard, Hillsboro, Oregon", "source": "task_report_pdf"}
+r = subprocess.run([sys.executable, "extract_pdf_photos.py", pdf, "--pull", mcp], capture_output=True, text=True)
+assert r.returncode == 0 and "WARNING" not in r.stderr, r.stdout + r.stderr
+want = {"Labels 1.6-3": (200, 30, 30), "Labels 1.6": (30, 200, 30), "Labels 1.6-2": (30, 30, 200)}
+got = sorted(os.listdir(os.path.join(mcp, "pdf_photos")))
+assert len(got) == 3, got
+for name in got:
+    pm = f.Pixmap(os.path.join(mcp, "pdf_photos", name)); px = pm.pixel(pm.width // 2, pm.height // 2)
+    cap = name.split("__", 1)[1][:-4]
+    assert all(abs(a - b) < 12 for a, b in zip(px, want[cap])), (name, px)   # each photo carries its own caption
+r = subprocess.run([sys.executable, "adapt_mcp_pull.py", "--pull", mcp, "--dest", os.path.join(d, "plangrid_pull")],
+                   capture_output=True, text=True)
+assert r.returncode == 0 and "0 live originals, 3 from the Task Report PDF" in r.stdout, r.stdout + r.stderr
+PYCHECK
+
+# No PlanGrid at all: notes and photos give items with Location and no clip
+# column, and an empty fill-in report has no clip column either.
+if node -e 'require("docx")' >/dev/null 2>&1; then
+"$PY" - <<'PYCHECK' 2>&1 && ok "notes report and blank report: Location row, no sheet-clip column, prefill from the project name" \
+    || bad "notes / blank report check failed"
+import json, os, shutil, subprocess, sys, tempfile, zipfile
+from PIL import Image
+here = os.getcwd()
+assets = next(os.path.join(here, c) for c in ("../template/_pipeline/build/assets", "../build/assets")
+              if os.path.isdir(os.path.join(here, c, "logos")))
+d = tempfile.mkdtemp(); pipe = os.path.join(d, "_pipeline")
+for sub in ("data", "build/thumbs_uniform", "build/sheet_clips_jpg", "scripts"):
+    os.makedirs(os.path.join(pipe, sub))
+shutil.copytree(assets, os.path.join(pipe, "build", "assets"))
+os.makedirs(os.path.join(d, "site"))
+Image.new("RGB", (400, 300), (10, 20, 30)).save(os.path.join(d, "site", "IMG_1.jpg"))
+json.dump({"output_filename": "N.docx", "master_file": "master_report_items.json", "cover_mode": "none"},
+          open(os.path.join(pipe, "build", "report.config.json"), "w"))
+json.dump({}, open(os.path.join(pipe, "build", "sheet_clip_dims_jpg.json"), "w"))
+json.dump({"items": [{"title": "Missing Cable Labels", "location": "IDF 1, cabinet 1:6", "date": "2026-10-22",
+                      "description": "Horizontal cabling is missing barrel labels.", "corrective_action": "Label both ends.",
+                      "photos": ["IMG_1.jpg"]},
+                     {"title": "Debris in Cabinet", "description": "Debris remains in the cabinet.",
+                      "corrective_action": "Clean the cabinet.", "photos": []}]},
+          open(os.path.join(pipe, "data", "notes_items.json"), "w"))
+r = subprocess.run([sys.executable, os.path.join(here, "notes_to_items.py"), os.path.join(pipe, "data", "notes_items.json"),
+                    "--photos", os.path.join(d, "site"), "--pipeline", pipe], capture_output=True, text=True)
+assert r.returncode == 0 and "2 item(s), 1 photo(s)" in r.stdout, r.stdout + r.stderr
+assert os.path.isfile(os.path.join(d, "notes_photos", "note-1-1__IMG_1.jpg"))
+cfg = json.load(open(os.path.join(pipe, "build", "report.config.json")))
+assert cfg["sheet_clips"] is False, cfg
+r = subprocess.run([sys.executable, os.path.join(here, "prefill_config.py"), "--pipeline", pipe,
+                    "--project-name", "STACK - POR03C - 27073"], capture_output=True, text=True)
+assert r.returncode == 0 and "STACK   (plangrid project name)" in r.stdout and "27073   (plangrid project name)" in r.stdout, r.stdout
+r = subprocess.run([sys.executable, os.path.join(here, "build_master.py"), "--items", os.path.join(pipe, "data", "items.json"),
+                    "--drafted", os.path.join(pipe, "data", "drafted_items.json"), "-o",
+                    os.path.join(pipe, "build", "master_report_items.json")], capture_output=True, text=True)
+assert r.returncode == 0, r.stdout + r.stderr
+r = subprocess.run(["node", os.path.join(here, "gen_report.js"), os.path.join(pipe, "build")], capture_output=True, text=True,
+                   env=dict(os.environ, NODE_PATH=os.path.join(here, "node_modules")))
+assert r.returncode == 0, r.stdout + r.stderr
+x = zipfile.ZipFile(os.path.join(pipe, "build", "N.docx")).read("word/document.xml").decode("utf-8")
+import re
+t = " ".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", x))
+assert "Location" in t and "IDF 1, cabinet 1:6" in t and "Drawing Sheet" not in t and "(no pin clip)" not in t, t[-800:]
+assert "Not recorded in PlanGrid" not in t, "a notes item with no location must not mention PlanGrid"
+# the blank report: no clip column either
+r = subprocess.run([sys.executable, os.path.join(here, "blank_template.py"), "--pages", "1", "--data", os.path.join(pipe, "data")],
+                   capture_output=True, text=True)
+assert r.returncode == 0 and "no sheet-clip column" in r.stdout, r.stdout + r.stderr
+assert json.load(open(os.path.join(pipe, "build", "report.config.json")))["sheet_clips"] is False
+PYCHECK
+fi
 
 # The wording-review preview markup ships with the skill, not the workspace, so
 # only assert it when running from a skill checkout.

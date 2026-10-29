@@ -70,40 +70,42 @@ Read the `docx` skill for mechanics and `eplus-branding` for styling
 if you need to modify the renderer. Its defaults are all learned the hard way —
 **do not re-derive them**:
 
-**The cover is the issued EPLUS coversheet, measured, not approximated.** The
-layout constants in `gen_report.js` (positions, sizes, alignment of every text
-block) were read off an issued coversheet PDF on 2026-09-10: EP logo and
-address line at the top, eyebrow and building on the dark band, client name and
-address right-aligned at the bottom, EP project number and the two dates and
-the inspector as four lines bottom left, MM/DD/YYYY. Two raster pieces are the
-artwork: `assets/cover/cover_hero.jpg` and `assets/cover/cover_bands.png`, both
-page-anchored floating images behind the text; **the hero is emitted first**
-because docx derives z order from document order and the bands belong on top.
-Every piece of cover text is native and page-anchored, so it stays editable in
-Word and lines up at print size. No draft warning on the cover; the first
-Editor's Note in the body carries it.
+**The cover is EPLUS's own coversheet, filled in, never drawn.** Until
+2026-10-23 `gen_report.js` drew a cover measured from an issued sheet; it never
+matched and carried no client logo, so reviewers rebuilt it by hand (field
+result 2026-10-22). Now `scripts/fill_cover.py`, run by the render after
+`gen_report.js`, copies a coversheet from `_pipeline/covers/` and replaces
+only the text of its fields: the artwork, the EP brand block, the client logo
+and the layout are the designer's Word file. The covers are set in Arial
+(converted from the original Montserrat, which the seats do not carry).
+
+| Cover | Used for | Logo |
+|---|---|---|
+| `stack.docx` | a client name or PlanGrid project name containing "STACK" | STACK Infrastructure |
+| `default.docx` | every other client | none (the reviewer can add one in Word) |
+
+`report.config.json` `cover_template` (or the client profile's) forces one.
+Each `.docx` has a `.json` beside it: `match` (the words that pick it) and
+`fields`, the sample text each field reads in the Word file, which is how
+`fill_cover.py` finds it. The fields: eyebrow (`cover_eyebrow`), building
+(`cover_subtitle`), client line (`client_display_name`; on the STACK sheet
+`"{client} {building}"`), the two address lines (`site_address`), and by
+their labels EP Project No, Inspection Date, Issuance Date (MM/DD/YYYY) and
+Inspector. A field it cannot find fails the render, so a cover edited in Word
+until its sample text no longer matches is caught rather than shipping the
+previous project's facts. A new client's cover: its `.docx` and `.json` in
+the plugin's `covers/` folder; a plugin change, never a workspace edit. No
+draft warning on the cover; the first Editor's Note in the body carries it.
 
 **A cover fact nobody has supplied renders as a red `[MISSING: ...]` marker**
 (client name, site address, EP project number, building, inspector, walk date;
 an empty issuance date renders TBD). The draft is built before those facts are
 known, so the marker is the honest state, never a `<template hint>` and never a
-guess. `prefill_config.py` fills what the client profile and PlanGrid state
-and records each value's source in `fact_sources`; `finish_list.py` lists every
-marker with its `update_report.py --set` command; `verify_report.py` fails a
-cover that still carries template hint text. The old fallback of printing the
-PlanGrid project name where the client name belongs applies only to configs
-without `fact_sources`.
-
-The original is set in Montserrat, which
-the seats do not have, so the cover uses the document font (Arial) at the same
-sizes; when the fleet standardises a brand font, `FONT` is the one constant.
-
-The **client logo is per project and is not bundled with this skill** — it is
-the end client's trademark. Drop it at `build/assets/cover/client_logo.png` and
-it renders bottom right inside a 3.19 x 0.73 in box; omit it and the cover
-renders without it. How a project's logo file gets there is still an open
-question (it usually lives inside a document); leave the slot empty rather than
-guess.
+guess. `prefill_config.py` fills what the client profile, the PlanGrid project
+name and the Task Report header state and records each value's source in
+`fact_sources`; `finish_list.py` lists every marker with its
+`update_report.py --set` command; `verify_report.py` fails a cover that still
+carries template hint text.
 
 **The letterhead is built natively, never pasted in as a bitmap.** This was
 raised on two consecutive reports. The root cause is not image size: a

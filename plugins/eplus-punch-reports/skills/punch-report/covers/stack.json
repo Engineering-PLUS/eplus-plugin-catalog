@@ -1,0 +1,12 @@
+{
+  "about": "The STACK Infrastructure coversheet EPLUS issues (POR03C, March 2026), with the STACK logo, set in Arial.",
+  "match": ["stack"],
+  "client_line": "{client} {building}",
+  "fields": {
+    "eyebrow": "C&S + 12MW Final Punch",
+    "building": "POR03C",
+    "client_line": "STACK POR03C",
+    "address_1": "4735 Northeast Starr Boulevard, ",
+    "address_2": "Hillsboro, Oregon"
+  }
+}

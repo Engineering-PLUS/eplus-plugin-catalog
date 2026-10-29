@@ -13,6 +13,7 @@ Changes (any number, in one call):
                          cover_subtitle, cover_title, cover_eyebrow, inspector,
                          reviewer (profile only), inspection_date (comma list),
                          issuance_date (YYYY-MM-DD, MM/DD/YYYY or TBD), cover_mode,
+                         cover_template (a name in _pipeline/covers/, e.g. stack),
                          visit_sections (by_date | none), footer_text.
                          Source recorded as "user"; client-level facts are also
                          written to client-profile.json for the next report.
@@ -58,8 +59,9 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 CFG_KEYS = {"client_display_name", "site_address", "ep_project_no", "cover_subtitle", "cover_title",
             "cover_eyebrow", "inspector", "reviewer", "inspection_date", "issuance_date", "cover_mode",
-            "visit_sections", "footer_text"}
-PROFILE_KEYS = {"client_display_name", "site_address", "ep_project_no", "inspector", "reviewer", "cover_mode"}
+            "cover_template", "visit_sections", "footer_text"}
+PROFILE_KEYS = {"client_display_name", "site_address", "ep_project_no", "inspector", "reviewer", "cover_mode",
+                "cover_template"}
 COVER_MODES = {"template", "supplied", "blank", "none"}
 PHOTO_MODES = {"own_photos", "none", "followup"}
 VERSION_RE = re.compile(r"-DRAFT-v(\d+)\.(\d+)", re.I)
@@ -198,6 +200,11 @@ def main():
             if val not in COVER_MODES:
                 sys.exit(f"ERROR: cover_mode must be one of {sorted(COVER_MODES)}")
             value = val
+        elif key == "cover_template":
+            value = os.path.splitext(os.path.basename(val))[0].lower()
+            if not os.path.isfile(os.path.join(pipe, "covers", value + ".docx")):
+                have = sorted(f[:-5] for f in os.listdir(os.path.join(pipe, "covers")) if f.endswith(".docx"))
+                sys.exit(f"ERROR: no cover '{value}' in _pipeline/covers/ (have: {', '.join(have)})")
         elif key == "visit_sections":
             if val not in ("by_date", "none"):
                 sys.exit("ERROR: visit_sections is by_date or none")

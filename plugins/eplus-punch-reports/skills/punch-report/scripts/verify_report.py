@@ -282,8 +282,9 @@ def main():
                        sect_count >= 2, f"{sect_count} section(s); expected a blank first section"))
 
     # The cover is a separate file in "template" mode: <output>-Cover.docx beside
-    # the body. Same two Word-only defects can bite it, and its content must
-    # carry what the issued coversheet carries.
+    # the body, filled by fill_cover.py from an EPLUS coversheet (its artwork
+    # sits in the coversheet's own first-page header). Its content must carry
+    # what the issued coversheet carries.
     cover_path = re.sub(r"\.docx$", "-Cover.docx", path, flags=re.I)
     if cover_mode == "template" and os.path.isfile(cover_path):
         cz = zipfile.ZipFile(cover_path)
@@ -292,9 +293,8 @@ def main():
         cids = [m.group(1) for m in re.finditer(r'<wp:docPr\b[^>]*id="(\d+)"', cdoc)]
         checks.append(("cover: no schema-illegal element names", "<undefined" not in cdoc, "found <undefined>"))
         checks.append(("cover: wp:docPr ids are unique", len(cids) == len(set(cids)), f"{cids}"))
-        checks.append(("cover: one page, no letterhead header",
-                       cdoc.count("<w:sectPr") == 1 and not any(re.match(r"word/header\d*\.xml$", n) for n in cz.namelist()),
-                       "cover should be a single section with no header parts"))
+        checks.append(("cover: one section", cdoc.count("<w:sectPr") == 1,
+                       f"{cdoc.count('<w:sectPr')} sections; the cover is one page"))
         if ep_no and not ep_no.startswith("<"):
             checks.append(("cover: EP project number present", ep_no in ctext, f"'{ep_no}' missing from the cover"))
         sub = str(cfg.get("cover_subtitle") or "").strip()
@@ -330,7 +330,8 @@ def main():
         # reach the cover; an unknown fact renders as a red [MISSING: ...] marker.
         checks.append(("cover: no template placeholder text", "&lt;" not in ctext and "<" not in ctext,
                        "a '<...>' template hint is on the cover; set the field or leave it empty"))
-        n_missing = ctext.count("[MISSING:")
+        # distinct markers: a coversheet's text boxes carry each field twice (Word's drawing and its fallback)
+        n_missing = len(set(re.findall(r"\[MISSING: [^\]]+\]", ctext)))
         checks.append((f"cover: {n_missing} field(s) marked MISSING (listed in the finish list)", True, ""))
     elif cover_mode == "template":
         checks.append(("cover file written beside the body", False, f"{os.path.basename(cover_path)} not found"))

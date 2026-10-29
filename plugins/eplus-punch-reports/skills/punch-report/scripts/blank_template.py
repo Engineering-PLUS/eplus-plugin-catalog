@@ -3,9 +3,12 @@
 blank_template.py -- the data for an empty, fill-in punch report.
 
 For a user who asked for an empty report instead of one built from PlanGrid
-(run order, section 1, "No match"): N blank item pages the engineer fills in by
-hand in Word, each with an empty Drawing Sheet and Date Recorded, an empty
-Item Description and Corrective Action, and one empty photo row to paste into.
+(run order, section 1, "No match", or "a blank report" in so many words): N
+blank item pages the engineer fills in by hand in Word, each with an empty
+Location and Date Recorded, an empty Item Description and Corrective Action,
+and one empty photo row to paste into. No drawing-sheet clip column: there is
+no PlanGrid drawing behind an empty report (it sets "sheet_clips": false in
+build/report.config.json).
 
 Writes data/items.json and data/drafted_items.json. The rest is the normal
 render path, from _pipeline/:
@@ -39,7 +42,15 @@ def main():
     for name, doc in (("items.json", items), ("drafted_items.json", drafted)):
         with open(os.path.join(args.data, name), "w", encoding="utf-8") as f:
             json.dump(doc, f, indent=2)
-    print(f"blank template: {args.pages} empty item page(s) -> {args.data}/items.json, {args.data}/drafted_items.json")
+    cfg_path = os.path.join(os.path.dirname(os.path.abspath(args.data)), "build", "report.config.json")
+    if os.path.isfile(cfg_path):
+        with open(cfg_path, encoding="utf-8") as f:
+            cfg = json.load(f)
+        cfg["sheet_clips"] = False
+        with open(cfg_path, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=2)
+    print(f"blank template: {args.pages} empty item page(s) -> {args.data}/items.json, {args.data}/drafted_items.json"
+          " (no sheet-clip column)")
 
 
 if __name__ == "__main__":

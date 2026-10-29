@@ -117,7 +117,9 @@ def main():
     in_report = {int(str(m.get("plangrid_ref", "#0")).lstrip("#") or 0) for m in master}
     clip_missing = [n for n in counts.get("clip_missing", []) if n in in_report]
     tr_route = (run.get("inputs") or {}).get("task_report_route_detail") or {}
-    if not task_report and tr_route.get("status") in ("fallback", "skipped"):
+    if cfg.get("sheet_clips") is False:
+        pass  # a report with no drawings (notes, or an empty fill-in report): no clips to ask for
+    elif not task_report and tr_route.get("status") in ("fallback", "skipped"):
         where = (f"It is in PlanGrid under Tasks > Reports as '{tr_route['report_name']}'"
                  if tr_route.get("report_name") else "Export it in PlanGrid (Tasks > Export (All) > PDF)")
         add(blocking, "Drawing pin clips", f"none: the PlanGrid Task Report export did not reach the workspace "

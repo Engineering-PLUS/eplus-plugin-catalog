@@ -1,0 +1,12 @@
+{
+  "about": "The same coversheet with no client logo; used for every client without a cover of its own.",
+  "match": [],
+  "client_line": "{client}",
+  "fields": {
+    "eyebrow": "C&S + 12MW Final Punch",
+    "building": "POR03C",
+    "client_line": "STACK POR03C",
+    "address_1": "4735 Northeast Starr Boulevard, ",
+    "address_2": "Hillsboro, Oregon"
+  }
+}

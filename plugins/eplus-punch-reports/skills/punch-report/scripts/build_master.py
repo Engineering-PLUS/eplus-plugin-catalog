@@ -291,7 +291,7 @@ def main():
             "corrective_action": ca if protected else capitalize_first(ca),
             # PlanGrid room is empty on 100% of pins in this pull. Say so rather
             # than printing a bare "N/A" the reader has to interpret.
-            "location": room or "Not recorded in PlanGrid, see sheet reference",
+            "location": room or ("Not recorded in PlanGrid, see sheet reference" if sheet_name else ""),
             "sheet_display": sheet_display,
             "sheet_name": sheet_name,
             "sheet_description": sheet_desc,

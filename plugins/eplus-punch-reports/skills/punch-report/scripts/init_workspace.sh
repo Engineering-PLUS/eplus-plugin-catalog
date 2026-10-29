@@ -21,8 +21,9 @@
 #      workspace keeps the filled-in CLAUDE.md, config and profile).
 #      The stamped tree is made writable straight away (see 3), before step 2
 #      creates _pipeline/scripts inside it.
-#   2. Refreshes <workspace>/_pipeline/scripts/ from THIS plugin checkout,
-#      always. A package's scripts are never the source for a new run.
+#   2. Refreshes <workspace>/_pipeline/scripts/ and _pipeline/covers/ (the
+#      EPLUS coversheets fill_cover.py fills) from THIS plugin checkout,
+#      always. A package's scripts and covers are never the source for a new run.
 #   3. Makes everything under the workspace writable (copies off a read-only
 #      plugin mount otherwise inherit the read-only bit; field result
 #      2026-09-14: a worker could not edit its own workspace copy; field result
@@ -127,6 +128,11 @@ mkdir -p "$WS/_pipeline/scripts"
         cp -f "$SKILL/scripts/$f" "$WS/_pipeline/scripts/$f"
     done
 
+# The coversheets, always from the plugin too: a package delivered before a
+# cover was added or changed still gets today's covers on a re-run.
+mkdir -p "$WS/_pipeline/covers"
+cp -f "$SKILL/covers/"* "$WS/_pipeline/covers/"
+
 # --- 3. writable -------------------------------------------------------------
 chmod -R u+w "$WS" 2>/dev/null || true
 
@@ -143,10 +149,10 @@ need "_pipeline/handoff/HANDOFF.md"
 need "_pipeline/build/report.config.json"
 need "_pipeline/build/assets/logos/ep_logo.jpg"
 need "_pipeline/build/assets/logos/ep_url.png"
-need "_pipeline/build/assets/cover/cover_hero.jpg"
-need "_pipeline/build/assets/cover/cover_bands.png"
+need "_pipeline/covers/default.docx"
 need "_pipeline/scripts/run_pipeline.sh"
 need "_pipeline/scripts/gen_report.js"
+need "_pipeline/scripts/fill_cover.py"
 need "_pipeline/scripts/package.py"
 need "client-profile.json"
 need "README.md"

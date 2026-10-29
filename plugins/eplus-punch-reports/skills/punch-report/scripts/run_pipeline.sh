@@ -184,6 +184,10 @@ OUT=$("$PY" -c "import json;print(json.load(open('$BUILD/report.config.json', en
 # Renumber in place, then verify (verify_report.py asserts the ids are unique).
 "$PY" scripts/fix_bookmark_ids.py "$BUILD/$OUT"
 
+# The cover: EPLUS's own coversheet with the facts filled in (cover_mode
+# template), <output>-Cover.docx beside the body. Never drawn in gen_report.js.
+"$PY" scripts/fill_cover.py "$BUILD"
+
 echo "==> verify"
 # Captured as well as shown, so run_record.py can quote it verbatim.
 set +e

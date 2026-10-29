@@ -286,18 +286,14 @@ timestamped `.bak.json` is written before anything changes.
   slot: page 1 of the exported body PDF is replaced by the coversheet, so the
   page numbers and the "of N" count are already right. That section carries no
   header and no footer.
-- **The cover is the issued EPLUS coversheet, measured.** Positions and sizes of
-  every text block were read off an issued coversheet PDF; the two rasters
-  (`assets/cover/cover_hero.jpg`, `assets/cover/cover_bands.png`) are the
-  artwork, page-anchored behind the text, hero first so the bands sit on top.
-  Content, all from `report.config.json`: eyebrow and building on the band,
-  client display name and address bottom right, EP project number, inspection
-  date, issuance date and inspector bottom left, dates MM/DD/YYYY. No draft
-  warning on the cover. Arial at the reference sizes (the original is
-  Montserrat, which the seats do not carry).
-- **The client logo is per project and is not bundled.** Drop it at
-  `build/assets/cover/client_logo.png` and it renders bottom right; leave it out
-  and the cover renders without it.
+- **The cover is EPLUS's own coversheet, filled in.** `scripts/fill_cover.py`
+  copies `_pipeline/covers/stack.docx` (STACK, with its logo) or
+  `default.docx` (everyone else, no logo) and replaces only the text fields
+  from `report.config.json`: eyebrow, building, client line, address, EP
+  project number, inspection and issuance dates (MM/DD/YYYY), inspector. The
+  artwork and logos are the Word file's own. Arial. No draft warning on the
+  cover. `--set cover_template=<name>` forces a cover; anything else on it is
+  edited in Word.
 - **The footer is derived**: `Engineering PLUS  •  <client> <building> Technology
   System Punch List  •  Page N of M`. The letterhead says Technology System /
   Punch List regardless of what the file is called.
