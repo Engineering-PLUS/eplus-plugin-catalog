@@ -27,6 +27,10 @@ Writes, in --out:
   project.json  the report header: PlanGrid project name and site address,
                 which prefill_config.py reads for the cover
 
+--header-only writes project.json alone. run_pipeline.sh runs it on the MCP
+route, where the connector supplies the tasks but not the project address
+(list_projects carries none), so the address still comes from the header.
+
 What the PDF does not carry: sheet titles (only the number prints), photo
 originals (the photos are embedded at about 350 x 620 px), and the PlanGrid
 uids (synthetic ones are made: pdftask-<N>, pdfphoto-<N>-<k>). A later run
@@ -51,6 +55,9 @@ LABELS = ("Status", "Type", "Created", "Last Updated", "Sheet", "Description", "
 TITLE_RE = re.compile(r"^#(\d+)\s+(.*)$")
 DATE_RE = re.compile(r"^[A-Z][a-z]{2} \d{1,2}, \d{4} \d{1,2}:\d{2} [AP]M$")
 EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+# header lines that are never the project address
+NOT_ADDRESS_RE = re.compile(r"^(?:Prepared by\b|Created with\b|PlanGrid\b|Page \d|\d+(?: of \d+)?$"
+                            r"|[A-Z][a-z]{2} \d{1,2}, \d{4}\b)", re.I)
 
 
 def iso(s):
@@ -77,19 +84,23 @@ def blocks(page):
 
 def header(doc):
     """(project name, address) from the running header the item pages repeat:
-    the most common top-band text across pages (the title page may differ)."""
+    the most common top-band text across pages (the title page may differ).
+    A project with no address in PlanGrid prints "Prepared by <name>" and the page
+    number under the name (field result 2026-10-29: Project Miner - Operations),
+    and neither is an address."""
     seen = Counter()
     for page in doc:
         h = page.rect.height
         top = sorted((b for b in page.get_text("blocks") if b[6] == 0 and b[1] < 0.075 * h),
                      key=lambda b: b[1])
-        lines = [ln.strip() for b in top for ln in b[4].splitlines() if ln.strip()]
+        lines = [ln.strip() for b in top for ln in b[4].splitlines()
+                 if ln.strip() and not NOT_ADDRESS_RE.match(ln.strip())]
         if lines:
             seen[tuple(lines[:2])] += 1
     if not seen:
         return "", ""
     lines = max(seen, key=lambda k: (seen[k], len(k)))
-    return lines[0], (lines[1] if len(lines) > 1 and not lines[1].startswith("PlanGrid") else "")
+    return lines[0], (lines[1] if len(lines) > 1 else "")
 
 
 def labelled(bl):
@@ -127,10 +138,19 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("pdf")
     ap.add_argument("--out", default="../plangrid_mcp", help="raw pull folder (default ../plangrid_mcp)")
+    ap.add_argument("--header-only", action="store_true",
+                    help="write project.json only (the MCP route: the tasks come from the connector)")
     args = ap.parse_args()
 
     doc = fitz.open(args.pdf)
     project, address = header(doc)
+    if args.header_only:
+        os.makedirs(args.out, exist_ok=True)
+        with open(os.path.join(args.out, "project.json"), "w", encoding="utf-8") as f:
+            json.dump({"name": project, "address": address, "source": "task_report_pdf"}, f, indent=1)
+        print(f"project      : {project or '(no header)'}")
+        print(f"address      : {address or '(none in the header)'}")
+        return 0
     tasks, cur = [], None
     for pno, page in enumerate(doc):
         bl = blocks(page)

@@ -150,6 +150,12 @@ echo "==> 3/5 sheet clips"
 if [ -n "${TASK_REPORT:-}" ] && [ -f "$TASK_REPORT" ]; then
     "$PY" scripts/extract_sheet_clips.py "$TASK_REPORT" "$BUILD/sheet_clips_jpg" \
         --items-from data/items.json --dims-out "$BUILD/sheet_clip_dims_jpg.json"
+    # The MCP route has no project.json (the connector carries no address); the
+    # Task Report header does, and prefill_config.py reads it from there.
+    if [ ! -f ../plangrid_mcp/project.json ]; then
+        "$PY" scripts/task_report_to_pull.py "$TASK_REPORT" --header-only --out ../plangrid_mcp \
+            || echo "    (Task Report header not read; the address stays [MISSING])"
+    fi
 else
     echo "    No Task Report PDF. Items will render '(no pin clip)'."
     echo "    Export a Task Report from PlanGrid and re-run to add pin clips."

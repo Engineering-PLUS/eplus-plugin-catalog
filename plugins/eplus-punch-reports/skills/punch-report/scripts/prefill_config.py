@@ -106,10 +106,16 @@ def profile_from_package(folder):
 
 
 def name_from_email(email):
-    """leo.manning@eplusadvisors.com -> Leo Manning (a guess the finish list asks to confirm)."""
+    """leo.manning@eplusadvisors.com -> Leo Manning (a guess the finish list asks to confirm).
+    Mc names keep their second capital: jim.mcglynn -> Jim McGlynn (field result
+    2026-10-29 printed "Jim Mcglynn"). Mac is left alone; Mack and Macy are names too."""
     local = (email or "").split("@")[0]
     parts = [p for p in re.split(r"[._\-]+", local) if p and not p.isdigit()]
-    return " ".join(p.capitalize() for p in parts) if len(parts) >= 2 else None
+
+    def cap(p):
+        p = p.capitalize()
+        return "Mc" + p[2:].capitalize() if p.startswith("Mc") and len(p) > 2 else p
+    return " ".join(cap(p) for p in parts) if len(parts) >= 2 else None
 
 
 def main():

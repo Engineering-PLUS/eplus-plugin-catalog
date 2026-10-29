@@ -23,7 +23,8 @@ Changes (any number, in one call):
   --item N [--title T] [--description D] [--corrective-action C]
            [--editor-note E] [--photo-mode own_photos|none|followup]
                          reword one item; approved text becomes origin user_reviewed
-  --edits FILE.json      many items at once: [{"number": N, "description": "...", ...}]
+  --edits FILE.json      many items at once: [{"number": N, "description": "...", ...}];
+                         an entry's own "origin"/"confidence" win over user_reviewed
   --task-report PDF      a Task Report PDF arrived: copy it in, cut the pin clips,
                          re-render (the only step that re-reads a PDF)
   --scope / --title-filter / --created-after / --drop-phrases
@@ -287,6 +288,14 @@ def main():
             if touched:
                 entry["origin"] = "user_reviewed"
                 entry["confidence"] = "reviewer approved"
+            # An entry may state its own origin and confidence: wording the model
+            # drafted is not reviewer approved (field result 2026-10-29: #87 was sent
+            # with "origin": "authored", "confidence": "medium" and came out
+            # user_reviewed, protected and exempt from the voice guard).
+            for f in ("origin", "confidence"):
+                if str(e.get(f) or "").strip():
+                    entry[f] = str(e[f]).strip()
+                    touched.append(f)
             if "editor_note" in e:
                 entry["editor_note"] = e["editor_note"] or None
                 touched.append("editor_note")

@@ -618,6 +618,13 @@ r = py("scripts/update_report.py", "--edits", "build/_scratch/edits.json")
 assert r.returncode == 0, r.stdout + r.stderr
 m1 = json.load(open(os.path.join(pipe, "build", "master_report_items.json"), encoding="utf-8"))[0]
 assert m1["title"] == "Open Junction Box, Level 1", m1["title"]
+# an entry's own origin and confidence are kept: drafted wording is not reviewer approved
+json.dump([{"number": 1, "description": "The junction box cover is missing.", "origin": "authored",
+            "confidence": "medium"}], open(os.path.join(pipe, "build", "_scratch", "edits.json"), "w"))
+r = py("scripts/update_report.py", "--edits", "build/_scratch/edits.json")
+assert r.returncode == 0, r.stdout + r.stderr
+m1 = json.load(open(os.path.join(pipe, "build", "master_report_items.json"), encoding="utf-8"))[0]
+assert (m1["origin"], m1["confidence"]) == ("authored", "medium"), m1
 m = json.load(open(os.path.join(pipe, "build", "master_report_items.json"), encoding="utf-8"))
 assert [x["plangrid_ref"] for x in m] == ["#1", "#2"] and m[1]["deleted_in_plangrid"] is True, m
 assert m[1]["origin"] == "user_reviewed" and "—" not in m[1]["description"], m[1]      # dashes cleaned on the way in
@@ -1010,6 +1017,40 @@ for name in got:
 r = subprocess.run([sys.executable, "adapt_mcp_pull.py", "--pull", mcp, "--dest", os.path.join(d, "plangrid_pull")],
                    capture_output=True, text=True)
 assert r.returncode == 0 and "0 live originals, 3 from the Task Report PDF" in r.stdout, r.stdout + r.stderr
+PYCHECK
+
+# MCP route: the connector carries no address, so the Task Report header gives it
+# (--header-only, no tasks.json). A project with no address in PlanGrid prints
+# "Prepared by <name>" and the page number under the name, and neither is an
+# address (field result 2026-10-29). Pin authors' Mc names keep their capital.
+"$PY" - <<'PYCHECK' 2>&1 && ok "Task Report header: --header-only, no address read from 'Prepared by', McGlynn" \
+    || bad "Task Report header / name check failed"
+import json, os, subprocess, sys, tempfile
+try:
+    import pymupdf as f
+except ImportError:
+    import fitz as f
+from prefill_config import name_from_email
+d = tempfile.mkdtemp()
+def report(path, second):
+    doc = f.open()
+    for _ in range(2):
+        p = doc.new_page(); p.insert_text((31, 34), "Project Miner - Operations", fontsize=9)
+        p.insert_text((31, 46), second + "\n1", fontsize=7)
+    doc.save(path)
+for second, want in (("Prepared by Victor Ortega", ""), ("4735 Northeast Starr Boulevard, Hillsboro, Oregon",
+                                                         "4735 Northeast Starr Boulevard, Hillsboro, Oregon")):
+    pdf, mcp = os.path.join(d, "tr.pdf"), os.path.join(d, "mcp-" + str(len(want)))
+    report(pdf, second)
+    r = subprocess.run([sys.executable, "task_report_to_pull.py", pdf, "--header-only", "--out", mcp],
+                       capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert os.listdir(mcp) == ["project.json"], os.listdir(mcp)
+    pj = json.load(open(os.path.join(mcp, "project.json"), encoding="utf-8"))
+    assert pj["name"] == "Project Miner - Operations" and pj["address"] == want, pj
+assert name_from_email("jim.mcglynn@eplusadvisors.com") == "Jim McGlynn"
+assert name_from_email("leo.manning@eplusadvisors.com") == "Leo Manning"
+assert name_from_email("ed.mack@eplusadvisors.com") == "Ed Mack"
 PYCHECK
 
 # No PlanGrid at all: notes and photos give items with Location and no clip
