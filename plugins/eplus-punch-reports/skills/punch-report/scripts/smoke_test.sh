@@ -1050,8 +1050,10 @@ r = subprocess.run([sys.executable, os.path.join(here, "build_master.py"), "--it
                     "--drafted", os.path.join(pipe, "data", "drafted_items.json"), "-o",
                     os.path.join(pipe, "build", "master_report_items.json")], capture_output=True, text=True)
 assert r.returncode == 0, r.stdout + r.stderr
-r = subprocess.run(["node", os.path.join(here, "gen_report.js"), os.path.join(pipe, "build")], capture_output=True, text=True,
-                   env=dict(os.environ, NODE_PATH=os.path.join(here, "node_modules")))
+# run as the render check above does: from scripts/, environment untouched. The sandbox
+# resolves docx through its own NODE_PATH; overriding it failed this check on a seat
+# (field result 2026-10-29) and sent the model off to npm install by hand.
+r = subprocess.run(["node", "gen_report.js", os.path.join(pipe, "build")], capture_output=True, text=True, cwd=here)
 assert r.returncode == 0, r.stdout + r.stderr
 x = zipfile.ZipFile(os.path.join(pipe, "build", "N.docx")).read("word/document.xml").decode("utf-8")
 import re
