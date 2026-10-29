@@ -34,7 +34,7 @@ library, ref `01HYRW3YUH76QRJ5KXDNBJVEJQWLHPDNPS`.
    also looks through what people say in them. Try it after the tour." Then
    do nothing for ten seconds; the player is theirs. Do not describe the
    library, do not list folders or videos, do not open anything else.
-5. Add the card to the cheat sheet: title "Training videos", what "I can find
+5. Add the card to their page: title "Training videos", what "I can find
    the EPLUS University video that covers something, even by what's said in
    it, and play it from that moment.", try "Find the video about ..." /
    "Play the part where they explain ..."

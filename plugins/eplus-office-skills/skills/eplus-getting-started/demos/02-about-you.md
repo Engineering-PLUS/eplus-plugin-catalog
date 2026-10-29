@@ -27,7 +27,7 @@ conversations, so they do not have to repeat themselves.
    you, or tell me to forget something, at any time. Now and then, type
    /consolidate-memory and I'll tidy it up: merge duplicates and fix old
    facts."
-5. Add the card to the cheat sheet: title "I remember you", what "Tell me about
+5. Add the card to their page: title "I remember you", what "Tell me about
    yourself once and I'll keep it in mind in future chats.", try "Remember
    that I ..." / "What do you remember about me?"
 

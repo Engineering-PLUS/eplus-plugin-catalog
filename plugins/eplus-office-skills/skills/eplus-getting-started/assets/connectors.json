@@ -1,0 +1,369 @@
+{
+  "as_of": "2026-10-27",
+  "makers": {
+    "eplus": {
+      "label": "Built by EPLUS",
+      "blurb": "Connectors the EPLUS team built for our own projects, files and training. They run on EPLUS servers and sign in with your Microsoft account."
+    },
+    "anthropic": {
+      "label": "Built into Claude",
+      "blurb": "Made by Anthropic and part of the Claude desktop app: the browser, pages, skills, schedules and your Microsoft 365 account."
+    },
+    "partner": {
+      "label": "Partner connectors",
+      "blurb": "Made by the software vendors themselves and approved for EPLUS. Each one signs in to your account with that service."
+    }
+  },
+  "connectors": [
+    {
+      "name": "EPU Video Library",
+      "maker": "eplus",
+      "by": "EPLUS",
+      "what": "Every EPLUS University training video. Plays in the chat with a transcript that follows along, and you can search by what is said.",
+      "try": [
+        "Find the training video about ...",
+        "Play the part where they explain ..."
+      ],
+      "tools": {
+        "browse_library": "Browse the library's folder tree",
+        "list_videos": "List the videos in a folder, or the ones matching a word",
+        "play_video": "Play a video in the chat, with its transcript beside it",
+        "search_videos": "Search titles, folders and what is said in the videos"
+      }
+    },
+    {
+      "name": "Punch Knowledge Hub",
+      "maker": "eplus",
+      "by": "EPLUS",
+      "what": "Four years of EPLUS punch walks: precedent, recurring deficiencies and the photos behind them.",
+      "try": [
+        "How have we written up missing seismic bracing before?",
+        "What deficiencies keep coming back on data hall jobs?"
+      ],
+      "tools": {
+        "export_punch_report": "Export punch items as a report",
+        "get_punch_item": "Open one punch item with its photos",
+        "grep_punch": "Exact-word search across every punch walk",
+        "list_punch": "List punch items, filtered by project, trade or status",
+        "punch_stats": "Counts and the deficiencies that keep coming back",
+        "query_hermes_punch": "Ask a question across four years of punch walks"
+      }
+    },
+    {
+      "name": "RFI Knowledge Hub",
+      "maker": "eplus",
+      "by": "EPLUS",
+      "what": "Specifications and past RFI responses, so drafts cite the spec section. Nothing is saved without your sign-off.",
+      "try": [
+        "Draft a response to this RFI with the spec section",
+        "Have we answered an RFI like this before?"
+      ],
+      "tools": {
+        "commit_approved_rfi": "Save an approved RFI response to the knowledge base (after your OK)",
+        "grep_corpus": "Exact-word search across specs and past RFIs",
+        "list_sources": "List the documents in the knowledge base",
+        "query_hermes_rfi": "Ask a question across specs and past RFIs",
+        "read_source": "Read one source document"
+      }
+    },
+    {
+      "name": "PlanGrid",
+      "maker": "eplus",
+      "by": "EPLUS",
+      "what": "Your PlanGrid projects, tasks, sheets and photos, which /punch-report turns into a draft report.",
+      "try": [
+        "/punch-report",
+        "List the open tasks on ... in PlanGrid"
+      ],
+      "tools": {
+        "get_photos": "Photos attached to tasks",
+        "get_task": "One task (punch item) in full",
+        "get_task_clips": "A clip of the drawing around a task's pin",
+        "get_tasks": "List a project's tasks",
+        "ingest_task_report": "Load a PlanGrid task report",
+        "list_projects": "Your PlanGrid projects",
+        "list_sheets": "A project's drawing sheets",
+        "pull_tasks": "Pull a project's tasks for a report"
+      }
+    },
+    {
+      "name": "Error Reporting",
+      "maker": "eplus",
+      "by": "EPLUS",
+      "what": "Sends problems and requests to the EPLUS team, including asking for a blocked website to be allowed.",
+      "try": [
+        "Report this issue",
+        "Ask the team to allow ..."
+      ],
+      "tools": {
+        "check_egress_host": "Check whether a website is allowed from Claude's workspace",
+        "get_report_status": "Check on a report you filed",
+        "list_egress_requests": "List the requests to allow websites",
+        "report_issue": "Send a problem report to the EPLUS team",
+        "request_egress_allow": "Ask the EPLUS team to allow a website"
+      }
+    },
+    {
+      "name": "Microsoft 365",
+      "maker": "anthropic",
+      "by": "Anthropic",
+      "what": "Your Outlook mail and calendar, Teams chats and channels, SharePoint and OneDrive, signed in as you.",
+      "try": [
+        "What's on my calendar tomorrow?",
+        "Find the email from ... about ..."
+      ],
+      "tools": {
+        "chat_message_search": "Search your Teams chat messages",
+        "find_meeting_availability": "Find when a group of people is free",
+        "get_granted_scopes": "See what Claude has been allowed to read",
+        "get_me": "Your profile: name and email",
+        "outlook_calendar_search": "Search your calendar",
+        "outlook_email_search": "Search your email",
+        "outlook_find_available_time": "Find open time on your calendar",
+        "read_resource": "Open an email, file or message in full",
+        "search_people": "Find a colleague",
+        "sharepoint_folder_search": "Find SharePoint folders",
+        "sharepoint_search": "Search SharePoint and OneDrive files",
+        "teams_list_channel_messages": "Read a channel's messages",
+        "teams_list_channels": "List a team's channels",
+        "teams_list_chats": "List your Teams chats",
+        "teams_list_teams": "List your teams"
+      },
+      "note": "Managed by EPLUS. Anthropic built this connector, but EPLUS decides which of its tools are turned on and what Claude is allowed to see in your Microsoft 365 account. If something you need isn't available, ask Victor."
+    },
+    {
+      "name": "Claude Browser",
+      "maker": "anthropic",
+      "by": "Anthropic",
+      "what": "A browser inside the app. Claude opens sites, reads them, clicks through them and fills in forms while you watch, and you can take over any time.",
+      "try": [
+        "Open ... and find ...",
+        "Compare these two product pages"
+      ],
+      "tools": {
+        "browser_batch": "Run several browser steps in one go",
+        "computer": "Click, type, scroll and take screenshots",
+        "find": "Find something on the page by its text",
+        "form_input": "Fill in a form field",
+        "get_page_text": "Read a page's text",
+        "javascript_tool": "Inspect a page's code",
+        "navigate": "Go to an address, or back and forward",
+        "preview_start": "Open a site in a new tab",
+        "read_console_messages": "Read the page's error log",
+        "read_network_requests": "See what the page loaded",
+        "read_page": "Read the page's layout and buttons",
+        "resize_window": "Try a page at phone or tablet size",
+        "tabs_close": "Close a tab",
+        "tabs_context": "List the open tabs",
+        "tabs_create": "Open a blank tab",
+        "tabs_select": "Bring a tab to the front"
+      }
+    },
+    {
+      "name": "Cowork",
+      "maker": "anthropic",
+      "by": "Anthropic",
+      "what": "The desktop app itself: pages that open beside the chat, your folders, files Claude hands you and skills it saves.",
+      "try": [
+        "Make me a page that tracks ...",
+        "Open my project folder"
+      ],
+      "tools": {
+        "allow_cowork_file_delete": "Ask your OK before deleting files in a folder",
+        "create_artifact": "Publish a new page beside the chat",
+        "list_artifacts": "List the pages you've made",
+        "present_files": "Hand you files Claude made, ready to open",
+        "read_widget_context": "Read what's in an interactive widget",
+        "request_cowork_directory": "Ask to open one of your folders",
+        "save_skill": "Save a skill to your / menu",
+        "screenshot_artifact": "Take a picture of a page to check it",
+        "screenshot_file_preview": "Take a picture of a file preview",
+        "update_artifact": "Replace a page with a new version"
+      }
+    },
+    {
+      "name": "Workspace",
+      "maker": "anthropic",
+      "by": "Anthropic",
+      "what": "Claude's private Linux workspace, where it runs Python, converts files and builds documents.",
+      "try": [
+        "Convert these to PDF",
+        "Combine these spreadsheets"
+      ],
+      "tools": {
+        "bash": "Run commands and scripts in Claude's workspace",
+        "web_fetch": "Fetch a web page or file"
+      }
+    },
+    {
+      "name": "Scheduled Tasks",
+      "maker": "anthropic",
+      "by": "Anthropic",
+      "what": "Jobs Claude runs on its own, once at a set time or every day or week.",
+      "try": [
+        "Every Monday at 8, summarize ...",
+        "What tasks do I have scheduled?"
+      ],
+      "tools": {
+        "create_scheduled_task": "Set up a task that runs on a schedule",
+        "delete_scheduled_task": "Remove a scheduled task",
+        "list_scheduled_tasks": "List your scheduled tasks",
+        "update_scheduled_task": "Change a task's timing or instructions"
+      }
+    },
+    {
+      "name": "Skills",
+      "maker": "anthropic",
+      "by": "Anthropic",
+      "what": "Finds skills you have and suggests ones worth adding.",
+      "try": [
+        "What skills do I have?",
+        "Is there a skill for ...?"
+      ],
+      "tools": {
+        "list_skills": "List the skills you have",
+        "suggest_skills": "Suggest skills to add"
+      }
+    },
+    {
+      "name": "Plugins",
+      "maker": "anthropic",
+      "by": "Anthropic",
+      "what": "Finds plugins and connectors, including the EPLUS catalog, and offers to install them.",
+      "try": [
+        "Is there a plugin for ...?",
+        "What plugins do I have?"
+      ],
+      "tools": {
+        "list_plugins": "List the plugins you have",
+        "search_connectors": "Find connectors to add",
+        "search_plugins": "Find plugins in the catalog",
+        "suggest_plugin_install": "Show an install card for a plugin"
+      }
+    },
+    {
+      "name": "Session Info",
+      "maker": "anthropic",
+      "by": "Anthropic",
+      "what": "Looks back at your earlier chats.",
+      "try": [
+        "What did we work on yesterday?",
+        "Find the chat where we ..."
+      ],
+      "tools": {
+        "list_sessions": "List your earlier chats",
+        "read_transcript": "Read an earlier chat"
+      }
+    },
+    {
+      "name": "Asana",
+      "maker": "partner",
+      "by": "Asana",
+      "what": "Your Asana tasks, projects, portfolios and tables: read them, create them and keep them up to date.",
+      "try": [
+        "What's due for me this week in Asana?",
+        "Add a task to ... for ..."
+      ],
+      "tools": {
+        "add_comment": "Comment on a task",
+        "add_record_comment": "Comment on a table record",
+        "create_project": "Create a project",
+        "create_project_from_template": "Start a project from a template",
+        "create_project_status_update": "Post a status update on a project",
+        "create_records": "Add rows to a table",
+        "create_table": "Create a table",
+        "create_task_from_template": "Create a task from a template",
+        "create_tasks": "Create one or more tasks",
+        "delete_record": "Delete a table record",
+        "delete_task": "Delete a task",
+        "get_agent": "Look up an Asana AI agent",
+        "get_attachments": "List a task's attachments",
+        "get_items_for_portfolio": "List the projects in a portfolio",
+        "get_me": "Your Asana profile",
+        "get_my_tasks": "Tasks assigned to you",
+        "get_notifications": "Your Asana inbox",
+        "get_portfolio": "One portfolio's details",
+        "get_portfolios": "List portfolios",
+        "get_project": "One project's details",
+        "get_projects": "List projects",
+        "get_record": "One table record",
+        "get_records": "List table records",
+        "get_status_overview": "Status overview across projects",
+        "get_table": "One table's details",
+        "get_tables": "List tables",
+        "get_task": "One task's details",
+        "get_task_stories": "A task's comments and history",
+        "get_tasks": "List the tasks in a project or section",
+        "get_teams": "List teams",
+        "get_user": "Look up a person",
+        "get_users": "List the people in the workspace",
+        "get_workspace_agents": "List the workspace's AI agents",
+        "search_objects": "Find projects, tasks or people by name",
+        "search_records": "Search table records",
+        "search_tasks": "Search tasks with filters",
+        "update_notifications": "Mark notifications read or archived",
+        "update_project": "Change a project",
+        "update_records": "Edit table records",
+        "update_table": "Change a table",
+        "update_tasks": "Change tasks: assignee, due date, status and more"
+      }
+    },
+    {
+      "name": "Firecrawl",
+      "maker": "partner",
+      "by": "Firecrawl",
+      "what": "Web search and scraping at scale: whole sites, research papers, US codes and regulations, and pages to watch for changes.",
+      "try": [
+        "Research ... and give me the sources",
+        "Find the code section that covers ..."
+      ],
+      "tools": {
+        "firecrawl_agent": "Hand a research job to Firecrawl's web agent",
+        "firecrawl_agent_status": "Check on an agent job",
+        "firecrawl_check_crawl_status": "Check on a site crawl",
+        "firecrawl_crawl": "Crawl a whole website",
+        "firecrawl_credit_usage": "See the Firecrawl credits used",
+        "firecrawl_developer_search": "Search code, repositories and developer docs",
+        "firecrawl_feedback": "Rate a result",
+        "firecrawl_find_tools": "Browse Firecrawl's data providers",
+        "firecrawl_gov_search": "Search US laws, codes and regulations",
+        "firecrawl_interact": "Click and type on a page Firecrawl has open",
+        "firecrawl_interact_stop": "Close that page",
+        "firecrawl_map": "List every page on a site",
+        "firecrawl_monitor_check": "One check from a page monitor",
+        "firecrawl_monitor_checks": "List a monitor's checks",
+        "firecrawl_monitor_create": "Watch a page for changes",
+        "firecrawl_monitor_delete": "Stop watching a page",
+        "firecrawl_monitor_get": "One monitor's details",
+        "firecrawl_monitor_list": "List your monitors",
+        "firecrawl_monitor_run": "Run a monitor now",
+        "firecrawl_monitor_update": "Change a monitor",
+        "firecrawl_parse": "Turn a PDF or document into text",
+        "firecrawl_research_inspect_paper": "A research paper's details",
+        "firecrawl_research_read_paper": "Read a research paper",
+        "firecrawl_research_related_papers": "Find related papers",
+        "firecrawl_research_search_papers": "Search research papers",
+        "firecrawl_scrape": "Pull the content of one web page",
+        "firecrawl_search": "Search the web",
+        "firecrawl_search_feedback": "Rate a search"
+      }
+    },
+    {
+      "name": "Plaud AI",
+      "maker": "partner",
+      "by": "Plaud",
+      "what": "Recordings from your Plaud note-taker: transcripts and AI meeting notes.",
+      "try": [
+        "Summarize my last Plaud recording",
+        "What did we decide in Tuesday's site meeting?"
+      ],
+      "tools": {
+        "get_current_user": "Your Plaud account",
+        "get_file": "One recording",
+        "get_note": "The AI notes for a recording",
+        "get_transcript": "A recording's transcript",
+        "list_files": "Your recordings"
+      }
+    }
+  ]
+}

@@ -7,6 +7,10 @@ browser.
 
 Address: `https://chat-engineering-plus.centralus.cloudapp.azure.com/`
 
+Open it in a **new tab** with the browser's `preview_start`, never in the
+guide tab that holds their getting-started page, and pass this tab's id to
+every browser step in this demo.
+
 ## Sign-in: the user does it, always
 
 The page opens on "Welcome back" with Email address and Password. **You never
@@ -70,7 +74,7 @@ every time." Wait until they say they are in, then check the page shows
    from their trade (from demo 2). Let them read the answer.
 5. Tell them it is theirs: it appears in their agent list, they can edit it in
    Agent Builder, and they can build more by asking you.
-6. Add the card to the cheat sheet: title "LibreChat agents", what "I can
+6. Add the card to their page: title "LibreChat agents", what "I can
    build agents for you in EPLUS LibreChat and set their models, tools and
    helpers.", try "Build me a LibreChat agent that ..."
 

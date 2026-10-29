@@ -1,12 +1,11 @@
-# Demo 5: use the browser (runs on its own, in a fresh chat)
+# Demo 5: use the browser
 
 **What it shows:** Claude can open websites in the built-in browser, read
 them, click through them, and hand the tab back to the user.
 
-**Before anything:** if a page (artifact) has been built in this chat, do not
-open the browser. Say: "The browser needs the side panel to itself. Start a
-new chat and say: show me the browser." and stop. This demo is never part of
-the tour (SKILL.md explains).
+The getting-started page (demo 1) is already open in the guide tab. This demo
+opens the model viewer in a **new tab** beside it and never touches the guide
+tab.
 
 The demo site is the EPLUS model viewer (BIM model review). This is the only
 address the tour opens, exactly as written, including the `?k=` part, which is
@@ -46,13 +45,13 @@ in this demo.
 
 1. Say: "I'll open one of our 3D models in the browser and walk through it with
    you. You can take over the tab at any time."
-2. Open the address above in the browser pane, then call the browser's tab
-   list (`tabs_context`): its last line says whether the pane is displayed or
-   hidden. It is hidden whenever the cheat sheet or another artifact holds the
-   side panel, and nothing in the app offers a switch. If hidden, say exactly:
-   "The browser opened behind your cheat sheet. Press Ctrl+Shift+B, or the
-   browser button, to watch." Then wait five seconds and carry on; do not ask
-   them to confirm.
+2. Open the address above in a new tab with the browser's `preview_start`
+   (never `navigate`, which would replace the guide tab), then call the
+   browser's tab list (`tabs_context`): its last line says whether the pane
+   is displayed or hidden. If hidden, say exactly: "The model opened in the
+   browser. Press Ctrl+Shift+B, or the browser button, to watch." Then wait
+   five seconds and carry on; do not ask them to confirm. Every later step
+   in this demo acts on the model tab: pass its tab id.
 3. Read the page text. Tell them the model name, element count and extent in
    one line.
 4. The section cut: a vertical plane across the hall, never the top-down
@@ -74,12 +73,13 @@ in this demo.
    whole sequence should take about half a minute, not five seconds.
 5. Tell them the tab is theirs: they can rotate, zoom and walk through the hall
    with W/A/S/D, and you can read any website the same way, fill in forms,
-   and pull information out of pages.
-6. If `cheatsheet-cards.json` exists in the outputs folder (it will not in a
-   fresh chat), add the card: title "Websites", what "I can open a site in
+   and pull information out of pages. Their getting-started page is still in
+   the tab next to it.
+6. Add the card to their page: title "Websites", what "I can open a site in
    the browser, read it, click through it and pull out what you need.", try
-   "Open ... and find ..." / "Compare these two pages." Otherwise skip the
-   card; there is no page to rebuild in this chat.
+   "Open ... and find ..." / "Compare these two pages." If the user asked
+   for this demo alone and `cheatsheet-cards.json` does not exist yet, build
+   the page first (SKILL.md, Start).
 
 ## Close
 

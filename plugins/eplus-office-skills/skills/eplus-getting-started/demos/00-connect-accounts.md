@@ -72,7 +72,7 @@ Two facts to keep straight:
 
      Then show it with `present_files`, giving the outputs folder's Windows
      path from your environment block plus `\Connectors-and-updates.mp4`
-     (the same way demo 1 presents the cheat sheet). Say: "Open the video
+     (the same way demo 1 falls back to presenting the page). Say: "Open the video
      above; it plays in your video player." Only if the copy itself fails
      (the `ls` shows nothing), fall back to the written steps: Settings,
      Connectors, Connect on Microsoft 365 and approve in Authenticator, then
@@ -84,9 +84,10 @@ Two facts to keep straight:
 5. When they say they are done, call `get_me` again. If it works, do step 2.
    If it still fails, say: "Microsoft 365 isn't connected yet. We can carry on
    and come back to it; if the Connect button won't take, tell Victor." Do
-   not ask their name: carry on without one (the cheat sheet is then titled
-   "Claude cheat sheet", and greetings leave the name out).
-6. Add the card to the cheat sheet: title "Your accounts", what "Once you've
+   not ask their name: carry on without one (the page is then built without
+   a name, and greetings leave the name out).
+6. Keep this card for their page; demo 1 writes it into the cards file first,
+   since the file does not exist yet: title "Your accounts", what "Once you've
    signed in under Settings, Connectors, I can use your Microsoft 365 (mail,
    calendar, Teams, SharePoint), the video library and the EPLUS project
    tools.", try "What's on my calendar tomorrow?" / "Search SharePoint for ..."

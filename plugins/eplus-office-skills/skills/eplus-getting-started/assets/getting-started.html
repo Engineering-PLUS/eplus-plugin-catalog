@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Getting started with Claude</title>
+<!--
+  Filled in by scripts/build_page.py; never edit a built copy by hand.
+  EPLUS brand, default-fonts edition: Arial only; Primary Blue leads, greys
+  for text and rules, Accent Green only in the header rule. The page borrows
+  from the drawings EPLUS engineers read every day: the header is a title
+  block and the connector map is a one-line diagram. Claude's clay marks only
+  what is built into Claude. One self-contained file: logos and data inlined,
+  no external scripts or fonts, no browser storage.
+-->
+<style>
+  :root {
+    --ink: #2f3445; --blue: #666f89; --blue-d: #4c5369; --blue-dd: #353b4d;
+    --wash: #eef0f5; --paper: #f7f8fa; --grey: #58595b; --muted: #77787b; --rule: #d9dce3;
+    --green: #3c7d7f;
+    --eplus: #666f89; --anthropic: #b8623f; --partner: #8f9093;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 60px; }
+  body { margin: 0; background: var(--paper); color: var(--grey);
+         font: 15px/1.55 Arial, Helvetica, "Liberation Sans", sans-serif; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 28px; }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+  /* ---------- Header: a drawing title block ---------- */
+  .hero { color: #fff; border-bottom: 5px solid var(--green);
+          background-color: var(--blue-dd);
+          background-image:
+            linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px),
+            linear-gradient(rgba(255,255,255,.02) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px);
+          background-size: 120px 120px, 120px 120px, 24px 24px, 24px 24px; }
+  .hero .wrap { display: grid; grid-template-columns: 1fr minmax(300px, 380px); gap: 48px; align-items: end;
+                padding-top: 30px; padding-bottom: 40px; }
+  .hero img { height: 38px; width: auto; display: block; margin-bottom: 46px; }
+  .hero h1 { margin: 0; font-size: 52px; line-height: 1.02; letter-spacing: -.02em; font-weight: bold; }
+  .hero h1 span { display: block; color: rgba(255,255,255,.62); font-weight: normal; }
+  .hero .lead { margin: 18px 0 0; font-size: 17px; max-width: 34em; color: rgba(255,255,255,.84); }
+  .tb { border: 1.5px solid rgba(255,255,255,.7); font-size: 13px; background: rgba(20,24,36,.25); }
+  .tb > div { display: grid; grid-template-columns: 116px 1fr; border-top: 1px solid rgba(255,255,255,.35); }
+  .tb > div:first-child { border-top: 0; }
+  .tb .k { padding: 8px 10px; color: rgba(255,255,255,.62); border-right: 1px solid rgba(255,255,255,.35); }
+  .tb .v { padding: 8px 12px; font-weight: bold; color: #fff; }
+  .tb .big .v { font-size: 20px; padding-top: 6px; padding-bottom: 6px; }
+  .tb .pair { grid-template-columns: 1fr 1fr; }
+  .tb .pair > div { display: grid; grid-template-columns: 116px 1fr; }
+  .tb .pair > div + div { grid-template-columns: 1fr; border-left: 1px solid rgba(255,255,255,.35); }
+  .tb .pair > div + div .k { border-right: 0; padding-bottom: 0; }
+  .tb .pair > div + div .v { padding-top: 0; }
+
+  /* ---------- Nav ---------- */
+  nav.top { position: sticky; top: 0; z-index: 10; background: #fff; border-bottom: 1px solid var(--rule); }
+  nav.top .wrap { display: flex; align-items: center; gap: 2px; height: 50px; overflow-x: auto; }
+  nav.top a { text-decoration: none; color: var(--grey); font-size: 14px; padding: 7px 12px; border-radius: 4px; white-space: nowrap; }
+  nav.top a:hover { background: var(--wash); color: var(--blue-dd); }
+  nav.top .spacer { flex: 1; }
+  .print { border: 1px solid var(--rule); background: #fff; color: var(--blue-d); border-radius: 4px; padding: 6px 14px;
+           font-size: 13px; font-weight: bold; cursor: pointer; }
+  .print:hover { background: var(--wash); }
+
+  /* ---------- Sections ---------- */
+  section { padding: 56px 0 0; }
+  h2 { margin: 0; font-size: 30px; line-height: 1.15; color: var(--ink); letter-spacing: -.01em; }
+  .intro { margin: 8px 0 26px; color: var(--muted); max-width: 40em; font-size: 16px; }
+
+  /* Start here: a real sequence, so it is numbered */
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 2px solid var(--ink); counter-reset: s; }
+  .step { padding: 20px 24px 6px 0; }
+  .step + .step { padding-left: 24px; border-left: 1px solid var(--rule); }
+  .step::before { counter-increment: s; content: counter(s); display: block; font-size: 40px; line-height: 1;
+                  font-weight: bold; color: var(--blue); margin-bottom: 12px; }
+  .step h3 { margin: 0 0 6px; font-size: 17px; color: var(--ink); }
+  .step p { margin: 0; font-size: 14.5px; }
+
+  /* What to ask for: a ruled list, not a wall of cards */
+  .caps { display: grid; grid-template-columns: repeat(3, 1fr); column-gap: 32px; }
+  .cap { display: grid; grid-template-columns: 34px 1fr; column-gap: 14px; padding: 20px 0; border-top: 1px solid var(--rule); }
+  .cap .ic { color: var(--blue); padding-top: 2px; }
+  .cap .ic svg { width: 26px; height: 26px; display: block; }
+  .cap h3 { margin: 0 0 4px; font-size: 17px; color: var(--ink); }
+  .cap p { margin: 0 0 10px; font-size: 14.5px; }
+  .tried .cap { border-top-color: var(--blue); border-top-width: 2px; }
+  .chips { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+  .chip { text-align: left; font-size: 13.5px; color: var(--blue-dd); background: var(--wash); border: 0;
+          border-radius: 4px; padding: 6px 30px 6px 10px; cursor: pointer; position: relative; line-height: 1.35; }
+  .chip::before { content: "\201C"; color: var(--blue); }
+  .chip::after { content: ""; position: absolute; right: 9px; top: 50%; width: 13px; height: 13px; margin-top: -6.5px; opacity: .5;
+                 background: no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23353b4d' stroke-width='2'%3E%3Crect x='9' y='9' width='12' height='12' rx='2'/%3E%3Cpath d='M5 15V5a2 2 0 0 1 2-2h10'/%3E%3C/svg%3E"); }
+  .chip span::after { content: "\201D"; color: var(--blue); }
+  .chip:hover { background: #e2e5ee; }
+  .chip:hover::after { opacity: .9; }
+  .chip.cmd { font-family: Consolas, "Courier New", monospace; }
+  .chip.cmd::before, .chip.cmd span::after { content: none; }
+
+  /* ---------- Connectors: one-line diagram + tools panel ---------- */
+  .find { display: block; position: relative; max-width: 520px; margin: 0 0 22px; }
+  .find input { width: 100%; font: 15px Arial, sans-serif; padding: 11px 14px 11px 40px; border: 1px solid var(--rule);
+                border-radius: 4px; background: #fff; color: var(--ink); }
+  .find input:focus { outline: 2px solid var(--blue); outline-offset: -1px; border-color: var(--blue); }
+  .find svg { position: absolute; left: 13px; top: 50%; margin-top: -9px; width: 18px; height: 18px; color: var(--muted); }
+
+  .board { display: grid; grid-template-columns: minmax(0, 1fr) minmax(360px, 440px); gap: 0; background: #fff;
+           border: 1px solid var(--rule); border-radius: 6px; }
+  .oneline { padding: 28px 0 28px 24px; display: grid; grid-template-columns: 112px 1fr; }
+  .source { align-self: start; position: relative; background: var(--blue-dd); color: #fff; border-radius: 4px;
+            padding: 16px 10px; text-align: center; font-weight: bold; font-size: 17px; }
+  .source small { display: block; font-weight: normal; font-size: 12px; color: rgba(255,255,255,.7); margin-top: 2px; }
+  .source::after { content: ""; position: absolute; left: 100%; top: 50%; width: 22px; border-top: 3px solid var(--blue-dd); margin-top: -1.5px; }
+  .bus { margin-left: 22px; border-left: 3px solid var(--blue-dd); padding: 4px 0; }
+  .feeder { position: relative; padding: 0 0 0 26px; }
+  .feeder + .feeder { margin-top: 18px; }
+  .feeder::before { content: ""; position: absolute; left: 0; top: 13px; width: 20px; border-top: 3px solid var(--blue-dd); }
+  .feeder h3 { margin: 0; font-size: 16px; color: var(--ink); display: flex; align-items: center; gap: 9px; line-height: 28px; }
+  .feeder h3 .sw { width: 14px; height: 14px; border-radius: 3px; background: var(--c); flex: none; }
+  .feeder h3 em { font-style: normal; font-weight: normal; font-size: 13px; color: var(--muted); }
+  .feeder > p { margin: 0 0 6px 23px; font-size: 13.5px; color: var(--muted); max-width: 40em; }
+  .loads { list-style: none; margin: 0 0 0 29px; padding: 2px 0; border-left: 2px solid var(--c); }
+  .loads li { position: relative; padding-left: 18px; }
+  .loads li::before { content: ""; position: absolute; left: 0; top: 50%; width: 14px; border-top: 2px solid var(--c); }
+  .load { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 120px 30px; align-items: center; gap: 12px;
+          background: none; border: 1px solid transparent; border-radius: 4px; padding: 6px 10px 6px 10px; margin: 1px 0;
+          cursor: pointer; text-align: left; position: relative; }
+  .load .nm { font-weight: bold; color: var(--ink); font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .load .bar { height: 8px; background: var(--wash); border-radius: 2px; overflow: hidden; }
+  .load .bar i { display: block; height: 100%; background: var(--c); border-radius: 2px; }
+  .load .ct { font-size: 13px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+  .load:hover { background: var(--paper); border-color: var(--rule); }
+  .load[aria-pressed="true"] { background: var(--wash); border-color: var(--c); }
+  .load[aria-pressed="true"]::after { content: ""; position: absolute; right: -25px; top: 50%; margin-top: -1px; width: 24px;
+                                      border-top: 2px solid var(--c); }
+  .load .hits { font-size: 12px; font-weight: bold; color: var(--blue-dd); background: #dfe3ec; border-radius: 3px; padding: 0 5px; margin-left: 6px; }
+  .off { opacity: .32; }
+
+  .detail { border-left: 1px solid var(--rule); min-width: 0; }
+  .detail .stick { position: sticky; top: 50px; }
+  .dh { padding: 24px 26px 20px; border-top: 6px solid var(--c); border-radius: 0 6px 0 0; }
+  .dh .who { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .dh .who .sw { width: 11px; height: 11px; border-radius: 2px; background: var(--c); }
+  .dh h3 { margin: 6px 0 6px; font-size: 26px; line-height: 1.15; color: var(--ink); }
+  .dh p { margin: 0; font-size: 15px; }
+  .dh .note { margin-top: 14px; display: grid; grid-template-columns: 20px 1fr; gap: 10px; padding: 11px 13px;
+              background: var(--wash); border-left: 3px solid var(--eplus); border-radius: 0 4px 4px 0; font-size: 13.5px; color: var(--ink); }
+  .dh .note svg { width: 18px; height: 18px; color: var(--eplus); margin-top: 1px; }
+  .load .tag { font-size: 11.5px; font-weight: normal; color: var(--blue-d); border: 1px solid #c9cdd8; border-radius: 3px;
+               padding: 0 5px; margin-left: 7px; vertical-align: 1px; }
+  .dtry { padding: 0 26px 22px; }
+  .dtry h4, .toolbox h4 { margin: 0 0 8px; font-size: 14px; color: var(--ink); }
+  .toolbox { margin: 0 14px 14px; background: var(--paper); border: 1px solid var(--rule); border-radius: 4px; display: flex;
+             flex-direction: column; min-height: 0; }
+  .toolbox header { padding: 14px 14px 12px; border-bottom: 1px solid var(--rule); background: #fff; border-radius: 4px 4px 0 0; }
+  .toolbox header h4 { margin: 0; font-size: 16px; display: flex; align-items: baseline; gap: 8px; }
+  .toolbox header h4 b { font-size: 24px; color: var(--c); line-height: 1; }
+  .toolbox header p { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
+  .tools { list-style: none; margin: 0; padding: 4px 0; max-height: 420px; overflow: auto; }
+  .tools li { padding: 8px 14px 8px 36px; position: relative; }
+  .tools li + li { border-top: 1px solid #e7e9ee; }
+  .tools li::before { content: ""; position: absolute; left: 16px; top: 15px; width: 8px; height: 3px; border-radius: 2px; background: var(--c); }
+  .tools .d { display: block; color: var(--ink); font-size: 14.5px; line-height: 1.35; }
+  .tools code { display: block; font: 12px Consolas, "Courier New", monospace; color: var(--muted); margin-top: 2px; }
+  mark { background: #fbe7a8; color: inherit; border-radius: 2px; padding: 0 1px; }
+  .none { padding: 26px; color: var(--muted); }
+
+  /* ---------- Skills & commands ---------- */
+  .cols { display: grid; gap: 40px; grid-template-columns: 1fr 1fr; align-items: start; }
+  .cols h3 { margin: 0 0 2px; font-size: 18px; color: var(--ink); }
+  .cols .sub { margin: 0 0 10px; font-size: 14px; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; border-top: 2px solid var(--ink); }
+  td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  td.cmd { font-family: Consolas, "Courier New", monospace; color: var(--blue-dd); white-space: nowrap; width: 1%; padding-right: 20px; }
+  td.name { font-weight: bold; color: var(--ink); width: 34%; }
+  td .ask { display: block; color: var(--muted); font-size: 13.5px; margin-top: 2px; }
+  td .from { display: block; color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+  .slash { grid-template-columns: 1.45fr 1fr; }
+  .bg { margin-top: 40px; }
+
+  /* ---------- Help ---------- */
+  .help { display: grid; grid-template-columns: 1fr 1.2fr; gap: 40px; border-top: 2px solid var(--ink); padding-top: 20px; }
+  .help p { margin: 0; font-size: 16px; color: var(--ink); }
+  .help ol { margin: 0; padding-left: 22px; }
+  .help li { margin: 0 0 8px; padding-left: 4px; }
+  .help li::marker { color: var(--blue); font-weight: bold; }
+
+  footer { margin: 64px 0 0; background: #fff; border-top: 1px solid var(--rule); }
+  footer .wrap { display: flex; align-items: center; gap: 14px; font-size: 14.5px; padding-top: 22px; padding-bottom: 28px; }
+  footer img { height: 28px; }
+
+  .toast { position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 16px); opacity: 0; pointer-events: none;
+           background: var(--blue-dd); color: #fff; padding: 10px 18px; border-radius: 4px; font-size: 14px;
+           transition: opacity .18s, transform .18s; z-index: 20; }
+  .toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+  @media (max-width: 1000px) {
+    .board { grid-template-columns: 1fr; }
+    .detail { border-left: 0; border-top: 1px solid var(--rule); }
+    .detail .stick { position: static; }
+    .dh { border-radius: 0; }
+    .load[aria-pressed="true"]::after { display: none; }
+    .oneline { padding-right: 20px; }
+    .caps { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 760px) {
+    .hero .wrap { grid-template-columns: 1fr; gap: 28px; }
+    .hero h1 { font-size: 38px; }
+    .hero img { margin-bottom: 30px; }
+    .steps, .caps, .cols, .help { grid-template-columns: 1fr; }
+    .step, .step + .step { padding: 18px 0; border-left: 0; }
+    .step + .step { border-top: 1px solid var(--rule); }
+    .oneline { grid-template-columns: 1fr; padding: 20px 16px; }
+    .source { justify-self: start; padding: 10px 18px; }
+    .source::after { left: 22px; top: 100%; width: 0; height: 16px; border-top: 0; border-left: 3px solid var(--blue-dd); }
+    .bus { margin: 16px 0 0 22px; }
+    .load { grid-template-columns: minmax(0, 1fr) 60px 26px; gap: 8px; }
+  }
+  @media (max-width: 560px) {
+    .wrap { padding: 0 16px; }
+    .tb > div, .tb .pair > div { grid-template-columns: 96px 1fr; }
+    td.cmd { white-space: normal; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+  @media print {
+    @page { size: letter; margin: 0.45in; }
+    body { background: #fff; font-size: 12px; }
+    nav.top, .find, .toast, .print { display: none !important; }
+    .hero, .hero *, .source, .sw, .bar i, .load, .tools li::before { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    section { padding-top: 26px; }
+    .board { grid-template-columns: 1fr; }
+    .detail { border-left: 0; border-top: 1px solid var(--rule); }
+    .tools { max-height: none; overflow: visible; }
+    .load[aria-pressed="true"]::after { display: none; }
+  }
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <div>
+      <img src="{{LOGO_WHITE}}" alt="Engineering Plus">
+      <h1>Getting started <span>with Claude</span></h1>
+      <p class="lead">Claude works beside you in the desktop app. It writes, researches, builds documents and pages, and reaches into the systems EPLUS runs on. This page shows what to ask for and what it's connected to.</p>
+    </div>
+    <div class="tb" id="tb" aria-label="About this page"></div>
+  </div>
+</header>
+
+<nav class="top" aria-label="Sections">
+  <div class="wrap">
+    <a href="#start">Start here</a>
+    <a href="#tried" id="nav-tried" hidden>What we tried</a>
+    <a href="#ask">What to ask for</a>
+    <a href="#connectors">Connectors</a>
+    <a href="#skills">Your / menu</a>
+    <a href="#help">When something goes wrong</a>
+    <span class="spacer"></span>
+    <button class="print" type="button" onclick="window.print()">Print</button>
+  </div>
+</nav>
+
+<main class="wrap">
+  <section id="start">
+    <h2>Start here</h2>
+    <p class="intro">Three things to do on day one.</p>
+    <div class="steps">
+      <div class="step"><h3>Connect your accounts</h3><p>Open <b>Settings, Connectors</b> and click <b>Connect</b> on Microsoft 365 and the EPLUS connectors. After an app update, click <b>Reconnect</b> on anything that asks.</p></div>
+      <div class="step"><h3>Ask in plain words</h3><p>Ask the way you'd ask a colleague: "Find the spec section for firestopping and draft the RFI response." Claude works out which tools to use.</p></div>
+      <div class="step"><h3>Type / for shortcuts</h3><p>The <b>/</b> menu lists your skills and commands, like <b>/punch-report</b> and <b>/export</b>. Say "show me what you can do" any time for the tour.</p></div>
+    </div>
+  </section>
+
+  <section id="tried" class="tried" hidden>
+    <h2>What we tried together</h2>
+    <p class="intro">From your tour. Click a prompt to copy it.</p>
+    <div class="caps" id="tried-list"></div>
+  </section>
+
+  <section id="ask">
+    <h2>Things you can ask for</h2>
+    <p class="intro">Click a prompt to copy it, paste it into the chat and fill in the blanks.</p>
+    <div class="caps" id="caps"></div>
+  </section>
+
+  <section id="connectors">
+    <h2>What Claude is connected to</h2>
+    <p class="intro" id="conn-intro"></p>
+    <label class="find">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="Find a tool: calendar, photos, schedule, PDF" aria-label="Find a connector or tool">
+    </label>
+    <div class="board">
+      <div class="oneline">
+        <div class="source">Claude<small>in the desktop app</small></div>
+        <div class="bus" id="bus"></div>
+      </div>
+      <aside class="detail" id="detail" aria-live="polite"></aside>
+    </div>
+  </section>
+
+  <section id="skills">
+    <h2>Your / menu</h2>
+    <p class="intro">Type <b>/</b> in the message box to see these. Each one is a skill: instructions Claude follows for one kind of task. Pick one from the menu, or just ask in plain words and Claude uses the right one.</p>
+    <div class="cols slash">
+      <div>
+        <h3>EPLUS skills</h3>
+        <p class="sub">Built by EPLUS for our projects.</p>
+        <table id="eplus-skills"></table>
+      </div>
+      <div>
+        <h3>From Claude</h3>
+        <p class="sub">Part of the desktop app.</p>
+        <table id="commands"></table>
+      </div>
+    </div>
+    <div class="cols bg">
+      <div>
+        <h3>Working in the background</h3>
+        <p class="sub">EPLUS skills you never type. Claude uses them on its own.</p>
+        <table id="background"></table>
+      </div>
+      <div>
+        <h3>Documents</h3>
+        <p class="sub">Built into Claude. Ask in plain words.</p>
+        <table id="builtin"></table>
+      </div>
+    </div>
+  </section>
+
+  <section id="help">
+    <h2>When something goes wrong</h2>
+    <p class="intro">Errors, a tool that won't work, or Claude getting stuck.</p>
+    <div class="help" id="help-body"></div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <img src="{{ICON}}" alt="">
+    <span>To see more of what Claude can do, ask it: <b>"Show me what you can do."</b></span>
+  </div>
+</footer>
+<div class="toast" id="toast" role="status"></div>
+
+<script id="data" type="application/json">{{DATA}}</script>
+<script>
+(function () {
+  "use strict";
+  var D = JSON.parse(document.getElementById("data").textContent);
+  var C = D.connectors, M = C.makers;
+  var ORDER = ["eplus", "anthropic", "partner"];
+  var COLOR = { eplus: "var(--eplus)", anthropic: "var(--anthropic)", partner: "var(--partner)" };
+  var MAKER_LINE = { eplus: "Built by EPLUS", anthropic: "Built into Claude by Anthropic", partner: "Partner connector, made by " };
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; });
+  }
+  function arr(x) { return Array.isArray(x) ? x : (x ? [x] : []); }
+  function plural(n, one, many) { return n + " " + (n === 1 ? one : (many || one + "s")); }
+
+  // ---------- Copyable prompts ----------
+  var toast = $("toast"), tt;
+  function say(msg) {
+    toast.textContent = msg; toast.classList.add("on");
+    clearTimeout(tt); tt = setTimeout(function () { toast.classList.remove("on"); }, 1700);
+  }
+  function copy(text) {
+    function fallback() {
+      var t = document.createElement("textarea");
+      t.value = text; t.style.position = "fixed"; t.style.opacity = "0";
+      document.body.appendChild(t); t.select();
+      try { document.execCommand("copy"); say("Copied. Paste it into the chat."); } catch (e) { say("Select the text to copy it."); }
+      t.remove();
+    }
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(function () { say("Copied. Paste it into the chat."); }, fallback);
+    } else fallback();
+  }
+  function chips(tries) {
+    return '<div class="chips">' + arr(tries).map(function (t) {
+      return '<button type="button" class="chip' + (/^\//.test(t) ? " cmd" : "") + '" data-copy="' + esc(t) +
+        '" title="Copy"><span>' + esc(t) + "</span></button>";
+    }).join("") + "</div>";
+  }
+  document.addEventListener("click", function (e) {
+    var c = e.target.closest && e.target.closest("[data-copy]");
+    if (c) copy(c.getAttribute("data-copy"));
+  });
+
+  // ---------- Capability list ----------
+  var ICONS = {
+    doc: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
+    page: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/>',
+    skill: '<path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 17v4M17 19h4"/>',
+    memory: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    web: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+    agent: '<rect x="4" y="7" width="16" height="12" rx="3"/><path d="M12 3v4M9 13h.01M15 13h.01"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+    search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+    plug: '<path d="M9 2v6M15 2v6M7 8h10v4a5 5 0 0 1-10 0zM12 17v5"/>',
+    video: '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3"/>'
+  };
+  function iconFor(title) {
+    var t = title.toLowerCase();
+    var pick = /document|word|brand/.test(t) ? "doc" : /page|dashboard/.test(t) ? "page" : /skill/.test(t) ? "skill" :
+      /memory|about you/.test(t) ? "memory" : /web|browser/.test(t) ? "web" : /agent|librechat/.test(t) ? "agent" :
+      /schedul/.test(t) ? "clock" : /file|folder/.test(t) ? "folder" : /research/.test(t) ? "search" :
+      /account|connect/.test(t) ? "plug" : /video|training/.test(t) ? "video" : "skill";
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONS[pick] + "</svg>";
+  }
+  function cap(c) {
+    return '<div class="cap"><div class="ic">' + iconFor(c.title) + "</div><div><h3>" + esc(c.title) + "</h3><p>" +
+      esc(c.what) + "</p>" + chips(c.try) + "</div></div>";
+  }
+
+  // ---------- Header ----------
+  var name = (D.name || "").trim();
+  var nTools = 0, byMaker = { eplus: 0, anthropic: 0, partner: 0 };
+  C.connectors.forEach(function (c) { c.n = Object.keys(c.tools).length; nTools += c.n; byMaker[c.maker]++; });
+  if (name) document.title = name + "'s guide to Claude";
+  $("tb").innerHTML =
+    '<div><span class="k">Prepared for</span><span class="v">' + esc(name || "EPLUS engineers") + "</span></div>" +
+    '<div><span class="k">Date</span><span class="v">' + esc(D.date || "") + "</span></div>" +
+    '<div class="pair big"><div><span class="k">Connectors</span><span class="v">' + C.connectors.length +
+    '</span></div><div><span class="k">Tools</span><span class="v">' + nTools + "</span></div></div>" +
+    '<div><span class="k">Built by EPLUS</span><span class="v">' + plural(byMaker.eplus, "connector") + "</span></div>";
+
+  if (D.cards && D.cards.length) {
+    $("tried").hidden = false; $("nav-tried").hidden = false;
+    $("tried-list").innerHTML = D.cards.map(cap).join("");
+  }
+  $("caps").innerHTML = D.content.capabilities.map(cap).join("");
+
+  // ---------- The / menu, background skills, help ----------
+  function slashRows(rows) {
+    return "<tbody>" + rows.map(function (c) {
+      return '<tr><td class="cmd">' + esc(c.command) + "</td><td>" + esc(c.does) +
+        (c.plugin ? '<span class="from">' + esc(c.plugin) + " plugin</span>" : "") + "</td></tr>";
+    }).join("") + "</tbody>";
+  }
+  $("eplus-skills").innerHTML = slashRows(D.content.eplus_skills || []);
+  $("commands").innerHTML = slashRows(D.content.commands);
+  $("background").innerHTML = "<tbody>" + (D.content.background_skills || []).map(function (b) {
+    return '<tr><td class="name">' + esc(b.skill) + "</td><td>" + esc(b.does) + "</td></tr>";
+  }).join("") + "</tbody>";
+  $("builtin").innerHTML = "<tbody>" + D.content.builtin_skills.map(function (b) {
+    return '<tr><td class="name">' + esc(b.skill) + "</td><td>" + esc(b.does) + '<span class="ask">"' + esc(b.ask) + '"</span></td></tr>';
+  }).join("") + "</tbody>";
+  var h = D.content.help;
+  $("help-body").innerHTML = "<p>" + esc(h.intro) + "</p><ol>" + h.steps.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ol>";
+
+  // ---------- Connectors: one-line diagram ----------
+  $("conn-intro").textContent = "Each connector gives Claude a set of tools for one system. You never pick the tools yourself: ask for what you need and Claude uses the right ones. " +
+    "Pick a connector to see its tools, or search for what you want to do.";
+  var max = Math.max.apply(null, C.connectors.map(function (c) { return c.n; }));
+  var list = [];
+  $("bus").innerHTML = ORDER.map(function (m) {
+    var items = C.connectors.filter(function (c) { return c.maker === m; });
+    if (!items.length) return "";
+    var tools = items.reduce(function (k, c) { return k + c.n; }, 0);
+    return '<div class="feeder" style="--c:' + COLOR[m] + '"><h3><span class="sw"></span>' + esc(M[m].label) +
+      " <em>" + plural(items.length, "connector") + ", " + plural(tools, "tool") + "</em></h3><p>" + esc(M[m].blurb) + '</p><ul class="loads">' +
+      items.map(function (c) {
+        c.i = list.length; list.push(c);
+        return '<li><button type="button" class="load" data-i="' + c.i + '" aria-pressed="false" aria-controls="detail">' +
+          '<span class="nm">' + esc(c.name) + (c.note ? '<span class="tag">Managed by EPLUS</span>' : "") + '</span><span class="bar" aria-hidden="true"><i style="width:' +
+          Math.max(6, Math.round(c.n / max * 100)) + '%"></i></span><span class="ct">' + c.n + "</span></button></li>";
+      }).join("") + "</ul></div>";
+  }).join("");
+  var buttons = [].slice.call(document.querySelectorAll(".load"));
+  buttons.forEach(function (b) {
+    var c = list[+b.getAttribute("data-i")];
+    c.btn = b;
+    b.setAttribute("aria-label", c.name + ", " + plural(c.n, "tool") + ", " + M[c.maker].label + (c.note ? ", managed by EPLUS" : ""));
+    b.addEventListener("click", function () { state.sel = c; render(); });
+  });
+
+  // ---------- Tools panel ----------
+  var state = { sel: list[0], q: "" };
+  var qEl = $("q");
+  qEl.addEventListener("input", function () {
+    state.q = qEl.value.trim().toLowerCase();
+    if (state.q) {
+      var first = list.filter(function (c) { return match(c).tools.length; })[0];
+      if (first && !match(state.sel).tools.length) state.sel = first;
+    }
+    render();
+  });
+  function has(text) { return !!state.q && String(text).toLowerCase().indexOf(state.q) >= 0; }
+  function hl(text) {
+    var t = String(text);
+    if (!state.q) return esc(t);
+    var i = t.toLowerCase().indexOf(state.q);
+    if (i < 0) return esc(t);
+    return esc(t.slice(0, i)) + "<mark>" + esc(t.slice(i, i + state.q.length)) + "</mark>" + esc(t.slice(i + state.q.length));
+  }
+  function match(c) {
+    var all = Object.keys(c.tools);
+    if (!state.q) return { tools: all, whole: true };
+    var whole = has(c.name) || has(c.what);
+    var tools = all.filter(function (t) { return has(t) || has(c.tools[t]); });
+    // Matching tools win; a match on the connector alone shows all its tools.
+    return { tools: tools.length ? tools : (whole ? all : []), whole: !tools.length && whole, hits: tools.length };
+  }
+
+  var detail = $("detail");
+  function render() {
+    list.forEach(function (c) {
+      var m = match(c);
+      c.btn.setAttribute("aria-pressed", String(state.sel === c));
+      c.btn.classList.toggle("off", !!state.q && !m.tools.length);
+      var old = c.btn.querySelector(".hits");
+      if (old) old.remove();
+      if (state.q && m.hits) c.btn.querySelector(".nm").insertAdjacentHTML("beforeend", '<span class="hits">' + m.hits + "</span>");
+    });
+    var c = state.sel, m = match(c);
+    if (state.q && !list.some(function (x) { return match(x).tools.length; })) {
+      detail.style.removeProperty("--c");
+      detail.innerHTML = '<div class="none">No connector or tool matches "' + esc(state.q) + '". Try a plainer word, like email, photos or report.</div>';
+      return;
+    }
+    detail.style.setProperty("--c", COLOR[c.maker]);
+    var who = MAKER_LINE[c.maker] + (c.maker === "partner" ? c.by : "");
+    var shown = m.tools;
+    var filtered = state.q && !m.whole;
+    detail.innerHTML = '<div class="stick">' +
+      '<div class="dh"><div class="who"><span class="sw"></span>' + esc(who) + "</div><h3>" + hl(c.name) + "</h3><p>" + hl(c.what) + "</p>" +
+      (c.note ? '<div class="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">' +
+        '<path d="M12 3 4 6v6c0 4.5 3.4 8.2 8 9 4.6-.8 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg><span>' + esc(c.note) + "</span></div>" : "") +
+      "</div>" +
+      '<div class="dtry"><h4>Try saying</h4>' + chips(c.try) + "</div>" +
+      '<div class="toolbox"><header><h4><b>' + (filtered ? shown.length : c.n) + "</b>" +
+      (filtered ? "of its " + plural(c.n, "tool") + " match" + (shown.length === 1 ? "es" : "") : (c.n === 1 ? "tool" : "tools") + " in " + esc(c.name)) +
+      "</h4><p>What this connector lets Claude do. Claude picks from these on its own when your request needs them.</p></header>" +
+      '<ul class="tools">' + shown.map(function (t) {
+        return '<li><span class="d">' + hl(c.tools[t]) + "</span><code>" + hl(t) + "</code></li>";
+      }).join("") + "</ul></div></div>";
+  }
+  render();
+})();
+</script>
+</body>
+</html>

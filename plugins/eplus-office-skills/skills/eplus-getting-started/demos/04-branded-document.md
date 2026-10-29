@@ -22,7 +22,7 @@ document, and Claude combines them into a finished, editable deliverable.
 4. Point out the three parts: "The branding skill picked the colors and logo,
    the Word skill built the file, and it's a normal Word document you can
    edit."
-5. Add the card to the cheat sheet: title "Branded documents", what "Ask for a
+5. Add the card to their page: title "Branded documents", what "Ask for a
    report, memo or one-pager and I'll build it in EPLUS branding as Word,
    PowerPoint, Excel or PDF.", try "Make a one-page memo about ... in EPLUS
    branding"

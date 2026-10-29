@@ -1,6 +1,6 @@
 ---
 name: eplus-getting-started
-description: The EPLUS tour of Claude in the desktop app. A hands-on look at what Claude can do for you. Connect your accounts, build a page, save a skill, brand a document, set up a LibreChat agent, schedule a task and watch the training video library; the browser demo runs on its own in a fresh chat.
+description: The EPLUS tour of Claude in the desktop app. A hands-on look at what Claude can do for you. Connect your accounts, get your getting-started page in the browser, save a skill, brand a document, use the browser, set up a LibreChat agent, schedule a task and watch the training video library.
 when_to_use: Use whenever someone asks what Claude can do, asks for a demo, a tour, onboarding or "show me around", asks how to get started, or asks to be shown one capability ("show me the browser", "how do I make a skill", "how do schedules work", "how do I build an agent in LibreChat", "find me a training video", "can you remember things about me", "show me an artifact", "make me a branded document"). Also use when a new EPLUS user seems unsure what to ask for. Runs a guided, hands-on tour of Claude's own capabilities for EPLUS engineers, one short demo at a time.
 argument-hint: [leave blank for the menu, or name one demo like browser]
 ---
@@ -60,49 +60,46 @@ the Microsoft 365 profile (`get_me`). Never ask for their name: when Microsoft
 365 is not signed in, demo 0 shows the sign-in card. The seat's login name is
 a shorthand, never a first name: do not take it from there. If the profile
 still cannot be read after the sign-in, carry on without a name (see demo 0,
-step 5). Then, if the user named one demo, run it
-(build the cheat sheet first if it does not exist yet, so the card has
-somewhere to go). Otherwise offer the menu with one `AskUserQuestion` holding
-two multi-select questions:
+step 5). Then run demo 1 (`demos/01-getting-started-page.md`), also every
+time: it builds their getting-started page and opens it in the browser, so
+they have it in front of them while they choose. Then, if the user named one
+demo, run it. Otherwise offer the menu with one `AskUserQuestion` holding two
+multi-select questions:
 
-- **"Start with the basics"**: Your cheat sheet page / Tell me about you /
-  Make your own skill / A branded document
-- **"Then the tools"**: Build an agent in LibreChat / Schedule a task /
-  Training videos
+- **"Start with the basics"**: Tell me about you / Make your own skill /
+  A branded document
+- **"Then the tools"**: Use the browser / Build an agent in LibreChat /
+  Schedule a task / Training videos
 
-Nothing selected means the full tour, in the order below (the browser demo is
-not in it, see below). Tell them they can stop any time and pick it up later
-by asking "show me what you can do".
+Nothing selected means the full tour, in the order below. Tell them they can
+stop any time and pick it up later by asking "show me what you can do".
 
 | # | Demo | File |
 |---|---|---|
-| 0 | Connect your accounts (always, before the menu) | `demos/00-connect-accounts.md` |
-| 1 | Your cheat sheet page (an artifact) | `demos/01-cheat-sheet.md` |
+| 0 | Connect your accounts (always, first) | `demos/00-connect-accounts.md` |
+| 1 | Your getting-started page, opened in the browser (always, second) | `demos/01-getting-started-page.md` |
 | 2 | Tell me about you (memory) | `demos/02-about-you.md` |
 | 3 | Make your own skill | `demos/03-make-a-skill.md` |
 | 4 | A branded document | `demos/04-branded-document.md` |
+| 5 | Use the browser | `demos/05-browser.md` |
 | 6 | Build an agent in LibreChat | `demos/06-librechat-agent.md` |
 | 7 | Schedule a task | `demos/07-schedule.md` |
 | 8 | Training videos (the library plays in the chat) | `demos/08-video-library.md` |
-| on its own | Use the browser | `demos/05-browser.md` |
 
-## The browser demo runs on its own
+## The guide tab
 
-The side panel shows either a page you built or the browser, never both, and
-the app offers no way to switch (field result 2026-10-09, four runs). So the
-browser demo is never part of the tour and never runs in a chat where a page
-has been built. Run `demos/05-browser.md` only when the user names it ("show
-me the browser", "browser" as the argument) and no artifact exists in this
-chat yet. If one does, say: "The browser needs the side panel to itself.
-Start a new chat and say: show me the browser." and stop there.
+Their getting-started page lives in its own browser tab, the guide tab, from
+demo 1 to the end. Every site the tour opens (the model viewer, LibreChat)
+goes in a new tab with `preview_start`, never with `navigate` on the guide
+tab, and every browser step passes the tab id it means. Do not publish the
+page as an artifact: an artifact takes over the side panel and hides the
+browser.
 
 ## Finish
 
-After the last demo, rebuild the cheat sheet with the same
-`build_cheatsheet.py` command as demo 1 (it now carries every card), publish
-it the way demo 1 step 3 says (`list_artifacts` finds their page, then
-`update_artifact` with its `id`; create only if none exists), and present the
-file again so they can print it. Then say in three lines what they now have (the page, the
-skill, the document, anything they created), then: "To watch me use the
-browser, start a new chat and say: show me the browser." and close with:
-"Whenever you want to see what else I can do, just ask me to show you."
+After the last demo, rebuild the page with the same `build_page.py` command
+as demo 1 (it now carries every card), `navigate` the guide tab to the same
+file address so it reloads, and present the file with `present_files` so they
+can keep and print it (demo 1, step 3). Then say in three lines what they now
+have (the page, the skill, the document, anything they created) and close
+with: "Whenever you want to see what else I can do, just ask me to show you."
