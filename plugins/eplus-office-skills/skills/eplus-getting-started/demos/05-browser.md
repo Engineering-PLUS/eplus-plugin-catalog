@@ -3,9 +3,8 @@
 **What it shows:** Claude can open websites in the built-in browser, read
 them, click through them, and hand the tab back to the user.
 
-The getting-started page (demo 1) is already open in the guide tab. This demo
-opens the model viewer in a **new tab** beside it and never touches the guide
-tab.
+Their getting-started page (demo 1) is open in their own web browser, not in
+Claude's, so the built-in browser is free for this demo.
 
 The demo site is the EPLUS model viewer (BIM model review). This is the only
 address the tour opens, exactly as written, including the `?k=` part, which is
@@ -46,7 +45,7 @@ in this demo.
 1. Say: "I'll open one of our 3D models in the browser and walk through it with
    you. You can take over the tab at any time."
 2. Open the address above in a new tab with the browser's `preview_start`
-   (never `navigate`, which would replace the guide tab), then call the
+   (a tab of its own, so nothing the user had open is replaced), then call the
    browser's tab list (`tabs_context`): its last line says whether the pane
    is displayed or hidden. If hidden, say exactly: "The model opened in the
    browser. Press Ctrl+Shift+B, or the browser button, to watch." Then wait
@@ -73,8 +72,7 @@ in this demo.
    whole sequence should take about half a minute, not five seconds.
 5. Tell them the tab is theirs: they can rotate, zoom and walk through the hall
    with W/A/S/D, and you can read any website the same way, fill in forms,
-   and pull information out of pages. Their getting-started page is still in
-   the tab next to it.
+   and pull information out of pages.
 6. Add the card to their page: title "Websites", what "I can open a site in
    the browser, read it, click through it and pull out what you need.", try
    "Open ... and find ..." / "Compare these two pages." If the user asked

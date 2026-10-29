@@ -59,6 +59,12 @@ def main():
     if args.cards and os.path.isfile(args.cards):
         with open(args.cards, encoding="utf-8") as f:
             cards = json.load(f) or []
+    # One copy button per prompt: a "try" written as one string of prompts
+    # joined with " / " (seen in the field, 2026-10-29) is split back apart.
+    for c in cards:
+        tries = c.get("try", [])
+        tries = tries if isinstance(tries, list) else [tries]
+        c["try"] = [p.strip().strip('"') for t in tries for p in str(t).split(" / ") if p.strip()]
     content = load("cheatsheet-content.json")
     connectors = load("connectors.json")
     for c in connectors["connectors"]:

@@ -1,6 +1,6 @@
 ---
 name: eplus-getting-started
-description: The EPLUS tour of Claude in the desktop app. A hands-on look at what Claude can do for you. Connect your accounts, get your getting-started page in the browser, save a skill, brand a document, use the browser, set up a LibreChat agent, schedule a task and watch the training video library.
+description: The EPLUS tour of Claude in the desktop app. A hands-on look at what Claude can do for you. Connect your accounts, get your getting-started page, save a skill, brand a document, use the browser, set up a LibreChat agent, schedule a task and watch the training video library.
 when_to_use: Use whenever someone asks what Claude can do, asks for a demo, a tour, onboarding or "show me around", asks how to get started, or asks to be shown one capability ("show me the browser", "how do I make a skill", "how do schedules work", "how do I build an agent in LibreChat", "find me a training video", "can you remember things about me", "show me an artifact", "make me a branded document"). Also use when a new EPLUS user seems unsure what to ask for. Runs a guided, hands-on tour of Claude's own capabilities for EPLUS engineers, one short demo at a time.
 argument-hint: [leave blank for the menu, or name one demo like browser]
 ---
@@ -37,7 +37,8 @@ What the user typed: $ARGUMENTS
 7. **End every demo the same way, out loud.** Two lines in the chat, "What
    you just saw: ..." and "Try saying: ..." with one or two prompts they can
    reuse. They are never skipped, even when the next demo follows at once.
-   Then append the demo's card to `cheatsheet-cards.json` (demo 1 explains)
+   Then append the demo's card to `cheatsheet-cards.json` (demo 1 explains;
+   `try` is a list, one prompt per entry)
    and start the next demo they picked in the same reply, with no question in
    between. Stop only when their list is done or they say stop. The user never
    has to type something just to keep the tour moving.
@@ -61,8 +62,8 @@ the Microsoft 365 profile (`get_me`). Never ask for their name: when Microsoft
 a shorthand, never a first name: do not take it from there. If the profile
 still cannot be read after the sign-in, carry on without a name (see demo 0,
 step 5). Then run demo 1 (`demos/01-getting-started-page.md`), also every
-time: it builds their getting-started page and opens it in the browser, so
-they have it in front of them while they choose. Then, if the user named one
+time: it builds their getting-started page and hands it over to open in their
+own web browser, so they have it in front of them while they choose. Then, if the user named one
 demo, run it. Otherwise offer the menu with one `AskUserQuestion` holding two
 multi-select questions:
 
@@ -77,7 +78,7 @@ stop any time and pick it up later by asking "show me what you can do".
 | # | Demo | File |
 |---|---|---|
 | 0 | Connect your accounts (always, first) | `demos/00-connect-accounts.md` |
-| 1 | Your getting-started page, opened in the browser (always, second) | `demos/01-getting-started-page.md` |
+| 1 | Your getting-started page, opened in their web browser (always, second) | `demos/01-getting-started-page.md` |
 | 2 | Tell me about you (memory) | `demos/02-about-you.md` |
 | 3 | Make your own skill | `demos/03-make-a-skill.md` |
 | 4 | A branded document | `demos/04-branded-document.md` |
@@ -86,20 +87,21 @@ stop any time and pick it up later by asking "show me what you can do".
 | 7 | Schedule a task | `demos/07-schedule.md` |
 | 8 | Training videos (the library plays in the chat) | `demos/08-video-library.md` |
 
-## The guide tab
+## The page and the built-in browser
 
-Their getting-started page lives in its own browser tab, the guide tab, from
-demo 1 to the end. Every site the tour opens (the model viewer, LibreChat)
-goes in a new tab with `preview_start`, never with `navigate` on the guide
-tab, and every browser step passes the tab id it means. Do not publish the
-page as an artifact: an artifact takes over the side panel and hides the
-browser.
+Their getting-started page is a file they open in their own web browser.
+Claude's built-in browser refuses local files ("opening local files is not
+available in this session", field result 2026-10-29), so never try to open
+the page there, and never publish it as an artifact: an artifact takes over
+the side panel and hides the built-in browser. The built-in browser is only
+for the sites the tour visits (the model viewer, LibreChat), each in a new
+tab with `preview_start`, and every browser step passes the tab id it means.
 
 ## Finish
 
 After the last demo, rebuild the page with the same `build_page.py` command
-as demo 1 (it now carries every card), `navigate` the guide tab to the same
-file address so it reloads, and present the file with `present_files` so they
-can keep and print it (demo 1, step 3). Then say in three lines what they now
+as demo 1 (it now carries every card) and hand it over again with
+`present_files`, telling them to refresh it in their browser (F5) to see
+every card (demo 1, step 5). Then say in three lines what they now
 have (the page, the skill, the document, anything they created) and close
 with: "Whenever you want to see what else I can do, just ask me to show you."

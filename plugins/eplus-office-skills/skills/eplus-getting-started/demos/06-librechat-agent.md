@@ -7,9 +7,9 @@ browser.
 
 Address: `https://chat-engineering-plus.centralus.cloudapp.azure.com/`
 
-Open it in a **new tab** with the browser's `preview_start`, never in the
-guide tab that holds their getting-started page, and pass this tab's id to
-every browser step in this demo.
+Open it in a **new tab** with the browser's `preview_start`, so the model
+viewer or anything else already open stays where it is, and pass this tab's
+id to every browser step in this demo.
 
 ## Sign-in: the user does it, always
 
