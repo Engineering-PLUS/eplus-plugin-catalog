@@ -16,6 +16,10 @@ where each value came from:
              the project folder's own copy, else the one inside the newest
              package delivered there (copied to the workspace root)
   plangrid   the PlanGrid project name, the pin dates, the pin authors
+  plangrid project  PlanGrid's project record, which the connector puts in
+             the tasks packet (../plangrid_mcp/tasks.json coverage.project):
+             the site address, and the project code as the EP number when
+             it is one (4 to 6 digits)
   project name  the EPLUS naming convention "<CLIENT> - <BUILDING> - <EP no>"
              (STACK - POR03C - 27073): client, building and EP number, when
              the profile does not already state them
@@ -153,7 +157,11 @@ def main():
     profile = load(ws_profile, {})
     sources = dict(cfg.get("fact_sources") or {})
     header = load(os.path.join(ws, "plangrid_mcp", "project.json"), {}) or {}
-    project_name = args.project_name.strip() or str(header.get("name") or "").strip()
+    # The connector's get_tasks / pull_tasks packet carries PlanGrid's own project
+    # record in coverage.project (2026-10-29): the address and the project code.
+    pg = ((load(os.path.join(ws, "plangrid_mcp", "tasks.json"), {}) or {}).get("coverage") or {}).get("project") or {}
+    project_name = (args.project_name.strip() or str(pg.get("name") or "").strip()
+                    or str(header.get("name") or "").strip())
     pn_client, pn_building, pn_ep = split_project_name(project_name)
 
     def settable(key):
@@ -179,9 +187,12 @@ def main():
     put("client_display_name", profile.get("client_display_name", ""), "profile")
     put("client_display_name", pn_client, "plangrid project name")
     put("site_address", profile.get("site_address") or [], "profile")
+    put("site_address", [str(x).strip() for x in pg.get("address") or [] if str(x).strip()], "plangrid project")
     put("site_address", [str(header["address"]).strip()] if header.get("address") else [], "task report header")
     put("ep_project_no", profile.get("ep_project_no", ""), "profile")
     put("ep_project_no", pn_ep, "plangrid project name")
+    code = str(pg.get("custom_id") or "").strip()
+    put("ep_project_no", code if re.fullmatch(r"\d{4,6}", code) else "", "plangrid project code")
     put("cover_subtitle", args.building.strip(), "plangrid")
     put("cover_subtitle", pn_building, "plangrid project name")
     if profile.get("cover_template"):

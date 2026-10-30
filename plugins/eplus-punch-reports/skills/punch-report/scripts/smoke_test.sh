@@ -1142,6 +1142,37 @@ assert "Client name" in blocking, blocking          # the footer still carries i
 assert any(e["what"] == "Cover" and "blank for your own coversheet" in e["detail"] for e in fin["review"]), fin["review"]
 PYCHECK
 
+# PlanGrid's project record rides in the tasks packet (coverage.project, the
+# connector since 2026-10-29): its address beats the Task Report header, and its
+# project code is the EP number when it is one. An empty record leaves the
+# header's address in place.
+"$PY" - <<'PYCHECK' 2>&1 && ok "prefill: address and EP number from PlanGrid's project record, header as fallback" \
+    || bad "PlanGrid project record prefill check failed"
+import json, os, subprocess, sys, tempfile
+here = os.getcwd()
+def run(project):
+    d = tempfile.mkdtemp(); pipe = os.path.join(d, "_pipeline"); mcp = os.path.join(d, "plangrid_mcp")
+    for sub in ("data", "build"):
+        os.makedirs(os.path.join(pipe, sub))
+    os.makedirs(mcp)
+    json.dump({"output_filename": "O.docx"}, open(os.path.join(pipe, "build", "report.config.json"), "w"))
+    json.dump([{"number": 1, "created_at": "2026-10-23T09:00:00"}], open(os.path.join(pipe, "data", "items.json"), "w"))
+    json.dump({"coverage": {"project_uid": "u1", "project": project}, "tasks": []}, open(os.path.join(mcp, "tasks.json"), "w"))
+    json.dump({"name": "Project Miner - Operations", "address": "1 Header Way, Mesa, AZ"}, open(os.path.join(mcp, "project.json"), "w"))
+    r = subprocess.run([sys.executable, os.path.join(here, "prefill_config.py"), "--pipeline", pipe], capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr
+    return json.load(open(os.path.join(pipe, "build", "report.config.json")))
+cfg = run({"uid": "u1", "name": "Project Miner - Operations", "custom_id": "27616", "owner": "ACME",
+           "address": ["900 Exposition Blvd", "Los Angeles, California 90007"]})
+src = cfg["fact_sources"]
+assert cfg["site_address"] == ["900 Exposition Blvd", "Los Angeles, California 90007"], cfg["site_address"]
+assert (src["site_address"], cfg["ep_project_no"], src["ep_project_no"]) == ("plangrid project", "27616", "plangrid project code"), cfg
+assert cfg["cover_title"] == "Project Miner - Operations", cfg["cover_title"]   # the record's name when --project-name is not given
+cfg = run({"uid": "u1", "name": "Project Miner - Operations", "custom_id": "MINER-OPS", "owner": None, "address": []})
+assert (cfg["site_address"], cfg["fact_sources"]["site_address"]) == (["1 Header Way, Mesa, AZ"], "task report header"), cfg
+assert cfg["fact_sources"]["ep_project_no"] == "missing", cfg     # a code that is not an EP number is not used
+PYCHECK
+
 # The wording-review preview markup ships with the skill, not the workspace, so
 # only assert it when running from a skill checkout.
 if [ -d ../templates ]; then
