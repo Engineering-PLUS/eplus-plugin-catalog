@@ -78,7 +78,8 @@
         "grep_corpus": "Exact-word search across specs and past RFIs",
         "list_sources": "List the documents in the knowledge base",
         "query_hermes_rfi": "Ask a question across specs and past RFIs",
-        "read_source": "Read one source document"
+        "read_source": "Read one source document",
+        "show_rfi_graph": "Open an interactive map of the RFIs, submittals and specs on a topic"
       },
       "writes": [
         "commit_approved_rfi"
