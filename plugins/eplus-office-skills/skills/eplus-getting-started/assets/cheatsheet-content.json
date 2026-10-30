@@ -77,10 +77,6 @@
       "does": "Save this chat as a .zip to send to Victor when something went wrong, so he can see exactly what happened"
     },
     {
-      "command": "/setup-claude",
-      "does": "Tell Claude what you do and get skills recommended for you"
-    },
-    {
       "command": "/explain-usage",
       "does": "See where this chat's usage went, as a simple chart"
     },

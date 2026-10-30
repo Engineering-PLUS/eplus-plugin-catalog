@@ -1,5 +1,5 @@
 {
-  "as_of": "2026-10-27",
+  "as_of": "2026-10-30",
   "makers": {
     "eplus": {
       "label": "Built by EPLUS",
@@ -19,6 +19,8 @@
       "name": "EPU Video Library",
       "maker": "eplus",
       "by": "EPLUS",
+      "icon": "epu-video-library.png",
+      "tile": "dark",
       "what": "Every EPLUS University training video. Plays in the chat with a transcript that follows along, and you can search by what is said.",
       "try": [
         "Find the training video about ...",
@@ -29,12 +31,17 @@
         "list_videos": "List the videos in a folder, or the ones matching a word",
         "play_video": "Play a video in the chat, with its transcript beside it",
         "search_videos": "Search titles, folders and what is said in the videos"
-      }
+      },
+      "writes": [],
+      "skills": [
+        "/epu"
+      ]
     },
     {
       "name": "Punch Knowledge Hub",
       "maker": "eplus",
       "by": "EPLUS",
+      "icon": "punch-knowledge-hub.png",
       "what": "Four years of EPLUS punch walks: precedent, recurring deficiencies and the photos behind them.",
       "try": [
         "How have we written up missing seismic bracing before?",
@@ -47,12 +54,20 @@
         "list_punch": "List punch items, filtered by project, trade or status",
         "punch_stats": "Counts and the deficiencies that keep coming back",
         "query_hermes_punch": "Ask a question across four years of punch walks"
-      }
+      },
+      "writes": [
+        "export_punch_report"
+      ],
+      "skills": [
+        "/punch-history",
+        "/punch-report"
+      ]
     },
     {
       "name": "RFI Knowledge Hub",
       "maker": "eplus",
       "by": "EPLUS",
+      "icon": "rfi-knowledge-hub.png",
       "what": "Specifications and past RFI responses, so drafts cite the spec section. Nothing is saved without your sign-off.",
       "try": [
         "Draft a response to this RFI with the spec section",
@@ -64,12 +79,19 @@
         "list_sources": "List the documents in the knowledge base",
         "query_hermes_rfi": "Ask a question across specs and past RFIs",
         "read_source": "Read one source document"
-      }
+      },
+      "writes": [
+        "commit_approved_rfi"
+      ],
+      "skills": [
+        "/rfi"
+      ]
     },
     {
       "name": "PlanGrid",
       "maker": "eplus",
       "by": "EPLUS",
+      "icon": "plangrid.png",
       "what": "Your PlanGrid projects, tasks, sheets and photos, which /punch-report turns into a draft report.",
       "try": [
         "/punch-report",
@@ -84,12 +106,18 @@
         "list_projects": "Your PlanGrid projects",
         "list_sheets": "A project's drawing sheets",
         "pull_tasks": "Pull a project's tasks for a report"
-      }
+      },
+      "writes": [],
+      "skills": [
+        "/punch-report",
+        "PlanGrid extraction"
+      ]
     },
     {
       "name": "Error Reporting",
       "maker": "eplus",
       "by": "EPLUS",
+      "icon": "error-reporting.png",
       "what": "Sends problems and requests to the EPLUS team, including asking for a blocked website to be allowed.",
       "try": [
         "Report this issue",
@@ -101,12 +129,20 @@
         "list_egress_requests": "List the requests to allow websites",
         "report_issue": "Send a problem report to the EPLUS team",
         "request_egress_allow": "Ask the EPLUS team to allow a website"
-      }
+      },
+      "writes": [
+        "report_issue",
+        "request_egress_allow"
+      ],
+      "skills": [
+        "Error reporting"
+      ]
     },
     {
       "name": "Microsoft 365",
       "maker": "anthropic",
       "by": "Anthropic",
+      "icon": "microsoft-365.png",
       "what": "Your Outlook mail and calendar, Teams chats and channels, SharePoint and OneDrive, signed in as you.",
       "try": [
         "What's on my calendar tomorrow?",
@@ -129,12 +165,15 @@
         "teams_list_chats": "List your Teams chats",
         "teams_list_teams": "List your teams"
       },
+      "writes": [],
+      "skills": [],
       "note": "Managed by EPLUS. Anthropic built this connector, but EPLUS decides which of its tools are turned on and what Claude is allowed to see in your Microsoft 365 account. If something you need isn't available, ask Victor."
     },
     {
       "name": "Claude Browser",
       "maker": "anthropic",
       "by": "Anthropic",
+      "glyph": "browser",
       "what": "A browser inside the app. Claude opens sites, reads them, clicks through them and fills in forms while you watch, and you can take over any time.",
       "try": [
         "Open ... and find ...",
@@ -157,12 +196,25 @@
         "tabs_context": "List the open tabs",
         "tabs_create": "Open a blank tab",
         "tabs_select": "Bring a tab to the front"
-      }
+      },
+      "writes": [
+        "browser_batch",
+        "computer",
+        "form_input",
+        "navigate",
+        "preview_start",
+        "resize_window",
+        "tabs_close",
+        "tabs_create",
+        "tabs_select"
+      ],
+      "skills": []
     },
     {
       "name": "Cowork",
       "maker": "anthropic",
       "by": "Anthropic",
+      "glyph": "cowork",
       "what": "The desktop app itself: pages that open beside the chat, your folders, files Claude hands you and skills it saves.",
       "try": [
         "Make me a page that tracks ...",
@@ -179,12 +231,22 @@
         "screenshot_artifact": "Take a picture of a page to check it",
         "screenshot_file_preview": "Take a picture of a file preview",
         "update_artifact": "Replace a page with a new version"
-      }
+      },
+      "writes": [
+        "allow_cowork_file_delete",
+        "create_artifact",
+        "present_files",
+        "request_cowork_directory",
+        "save_skill",
+        "update_artifact"
+      ],
+      "skills": []
     },
     {
       "name": "Workspace",
       "maker": "anthropic",
       "by": "Anthropic",
+      "glyph": "terminal",
       "what": "Claude's private Linux workspace, where it runs Python, converts files and builds documents.",
       "try": [
         "Convert these to PDF",
@@ -193,12 +255,17 @@
       "tools": {
         "bash": "Run commands and scripts in Claude's workspace",
         "web_fetch": "Fetch a web page or file"
-      }
+      },
+      "writes": [
+        "bash"
+      ],
+      "skills": []
     },
     {
       "name": "Scheduled Tasks",
       "maker": "anthropic",
       "by": "Anthropic",
+      "glyph": "clock",
       "what": "Jobs Claude runs on its own, once at a set time or every day or week.",
       "try": [
         "Every Monday at 8, summarize ...",
@@ -209,12 +276,19 @@
         "delete_scheduled_task": "Remove a scheduled task",
         "list_scheduled_tasks": "List your scheduled tasks",
         "update_scheduled_task": "Change a task's timing or instructions"
-      }
+      },
+      "writes": [
+        "create_scheduled_task",
+        "delete_scheduled_task",
+        "update_scheduled_task"
+      ],
+      "skills": []
     },
     {
       "name": "Skills",
       "maker": "anthropic",
       "by": "Anthropic",
+      "glyph": "spark",
       "what": "Finds skills you have and suggests ones worth adding.",
       "try": [
         "What skills do I have?",
@@ -223,12 +297,15 @@
       "tools": {
         "list_skills": "List the skills you have",
         "suggest_skills": "Suggest skills to add"
-      }
+      },
+      "writes": [],
+      "skills": []
     },
     {
       "name": "Plugins",
       "maker": "anthropic",
       "by": "Anthropic",
+      "glyph": "plug",
       "what": "Finds plugins and connectors, including the EPLUS catalog, and offers to install them.",
       "try": [
         "Is there a plugin for ...?",
@@ -239,12 +316,15 @@
         "search_connectors": "Find connectors to add",
         "search_plugins": "Find plugins in the catalog",
         "suggest_plugin_install": "Show an install card for a plugin"
-      }
+      },
+      "writes": [],
+      "skills": []
     },
     {
       "name": "Session Info",
       "maker": "anthropic",
       "by": "Anthropic",
+      "glyph": "history",
       "what": "Looks back at your earlier chats.",
       "try": [
         "What did we work on yesterday?",
@@ -253,12 +333,17 @@
       "tools": {
         "list_sessions": "List your earlier chats",
         "read_transcript": "Read an earlier chat"
-      }
+      },
+      "writes": [],
+      "skills": [
+        "/export"
+      ]
     },
     {
       "name": "Asana",
       "maker": "partner",
       "by": "Asana",
+      "icon": "asana.png",
       "what": "Your Asana tasks, projects, portfolios and tables: read them, create them and keep them up to date.",
       "try": [
         "What's due for me this week in Asana?",
@@ -306,12 +391,32 @@
         "update_records": "Edit table records",
         "update_table": "Change a table",
         "update_tasks": "Change tasks: assignee, due date, status and more"
-      }
+      },
+      "writes": [
+        "add_comment",
+        "add_record_comment",
+        "create_project",
+        "create_project_from_template",
+        "create_project_status_update",
+        "create_records",
+        "create_table",
+        "create_task_from_template",
+        "create_tasks",
+        "delete_record",
+        "delete_task",
+        "update_notifications",
+        "update_project",
+        "update_records",
+        "update_table",
+        "update_tasks"
+      ],
+      "skills": []
     },
     {
       "name": "Firecrawl",
       "maker": "partner",
       "by": "Firecrawl",
+      "icon": "firecrawl.png",
       "what": "Web search and scraping at scale: whole sites, research papers, US codes and regulations, and pages to watch for changes.",
       "try": [
         "Research ... and give me the sources",
@@ -346,12 +451,24 @@
         "firecrawl_scrape": "Pull the content of one web page",
         "firecrawl_search": "Search the web",
         "firecrawl_search_feedback": "Rate a search"
-      }
+      },
+      "writes": [
+        "firecrawl_feedback",
+        "firecrawl_interact",
+        "firecrawl_interact_stop",
+        "firecrawl_monitor_create",
+        "firecrawl_monitor_delete",
+        "firecrawl_monitor_run",
+        "firecrawl_monitor_update",
+        "firecrawl_search_feedback"
+      ],
+      "skills": []
     },
     {
       "name": "Plaud AI",
       "maker": "partner",
       "by": "Plaud",
+      "icon": "plaud-ai.png",
       "what": "Recordings from your Plaud note-taker: transcripts and AI meeting notes.",
       "try": [
         "Summarize my last Plaud recording",
@@ -363,7 +480,9 @@
         "get_note": "The AI notes for a recording",
         "get_transcript": "A recording's transcript",
         "list_files": "Your recordings"
-      }
+      },
+      "writes": [],
+      "skills": []
     }
   ]
 }

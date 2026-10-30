@@ -5,8 +5,9 @@ build_page.py -- build the "Getting started with Claude" page as one HTML file.
 Fills assets/getting-started.html with assets/cheatsheet-content.json (what to
 ask for, the / menu: EPLUS skills and Claude's own, background skills, what to
 do when something goes wrong) and assets/connectors.json (every connector, who
-built it, what each tool does), and inlines the EPLUS logo and icon from the
-eplus-branding skill as data URIs, so the page is one self-contained file with
+built it, what each tool does, which tools write, the skills that use it), and
+inlines the EPLUS logo and icon from the eplus-branding skill and the connector
+icons from assets/connector-icons as data URIs, so the page is one self-contained file with
 no external requests. The model never retypes the page: it runs this script.
 When a skill is added to or removed from the catalog, update eplus_skills or
 background_skills in cheatsheet-content.json.
@@ -31,15 +32,17 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL = os.path.dirname(HERE)
 ASSETS = os.path.join(SKILL, "assets")
 LOGOS = os.path.join(os.path.dirname(SKILL), "eplus-branding", "assets", "logos")
+ICONS = os.path.join(ASSETS, "connector-icons")
 
 
-def data_uri(name):
-    path = os.path.join(LOGOS, name)
+def data_uri(name, folder=LOGOS):
+    path = os.path.join(folder, name)
     try:
         with open(path, "rb") as f:
             return "data:image/png;base64," + base64.b64encode(f.read()).decode("ascii")
     except OSError:
-        sys.exit(f"ERROR: logo not found at {path}; is the eplus-branding skill installed beside this one?")
+        hint = "is the eplus-branding skill installed beside this one?" if folder == LOGOS else "check the connector's icon in connectors.json"
+        sys.exit(f"ERROR: image not found at {path}; {hint}")
 
 
 def load(name):
@@ -67,13 +70,23 @@ def main():
         c["try"] = [p.strip().strip('"') for t in tries for p in str(t).split(" / ") if p.strip()]
     content = load("cheatsheet-content.json")
     connectors = load("connectors.json")
-    for c in connectors["connectors"]:
-        if c["maker"] not in connectors["makers"]:
-            sys.exit(f"ERROR: connector {c['name']!r} has unknown maker {c['maker']!r}")
     slash = [c["command"] for c in content.get("eplus_skills", []) + content["commands"]]
     dupes = sorted({s for s in slash if slash.count(s) > 1})
     if dupes:
         sys.exit(f"ERROR: listed more than once in the / menu: {dupes}")
+    known = set(slash) | {b["skill"] for b in content.get("background_skills", [])}
+    for c in connectors["connectors"]:
+        if c["maker"] not in connectors["makers"]:
+            sys.exit(f"ERROR: connector {c['name']!r} has unknown maker {c['maker']!r}")
+        # writes: the tools that create, change, send or act; every other tool only reads.
+        bad = [t for t in c.get("writes", []) if t not in c["tools"]]
+        if bad:
+            sys.exit(f"ERROR: {c['name']!r} lists writes that are not among its tools: {bad}")
+        bad = [s for s in c.get("skills", []) if s not in known]
+        if bad:
+            sys.exit(f"ERROR: {c['name']!r} lists skills that are not in cheatsheet-content.json: {bad}")
+        if c.get("icon"):
+            c["icon"] = data_uri(c["icon"], ICONS)
 
     data = {
         "name": args.name.strip(),
