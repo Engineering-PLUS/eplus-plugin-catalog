@@ -1,9 +1,10 @@
 # eplus-rfis-submittals
 
-Teaches Claude the EPLUS RFI & Submittal processing workflow: settle the
-memory question, deconstruct the request, delegate the spec lookup to a
-research subagent, draft the response to the house format, and gate the
-knowledge-base write-back behind the user's explicit sign-off. The knowledge
+Teaches Claude the EPLUS RFI & Submittal processing workflow: deconstruct
+the request, delegate the spec lookup to a research subagent, draft the
+response to the house format, and gate the knowledge-base write-back behind
+the user's explicit sign-off. It also opens an interactive map of how a topic
+connects across the knowledge base. The knowledge
 base holds 82,000+ pages of extracted AEC technical documents (Core & Shell
 specs, program-specific documentation, product submittals, historical RFIs,
 and TIA/NEC codebooks) and is reached through the `rfi-knowledge-hub`
@@ -15,8 +16,8 @@ connector** — this plugin ships no server definition and no credential.
 | Component | Path | Purpose |
 |-----------|------|---------|
 | Manifest  | [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) | Plugin identity and metadata |
-| Skill     | [`skills/rfi/SKILL.md`](skills/rfi/SKILL.md) | Doctrine: memory decision → deconstruct → delegate research → draft → HITL write-back gate, plus the return path for logging final RFI responses issued outside the chat |
-| Reference | [`skills/rfi/reference/tools.md`](skills/rfi/reference/tools.md) | Exact signatures and parameter rules for the five connector tools |
+| Skill     | [`skills/rfi/SKILL.md`](skills/rfi/SKILL.md) | Doctrine: deconstruct → delegate research → draft → HITL write-back gate, plus the knowledge-base map and the return path for logging final RFI responses issued outside the chat |
+| Reference | [`skills/rfi/reference/tools.md`](skills/rfi/reference/tools.md) | Exact signatures and parameter rules for the six connector tools |
 | Skill     | [`skills/contract-document-review/SKILL.md`](skills/contract-document-review/SKILL.md) | Folder-based review of RFIs and submittals against the project's own drawings, bulletins and specs: one round of questions, governing-sheet register, delegation by building, citation cross-check, packaging (Cowork only) |
 | Skill     | [`skills/pdf-stamping/SKILL.md`](skills/pdf-stamping/SKILL.md) | Apply the firm's Bluebeam review stamps and the ENGINEERING PLUS COMMENTS box to a submittal, as live annotations (Cowork only) |
 | Agent     | [`agents/rfi-researcher.md`](agents/rfi-researcher.md) | Sonnet research subagent: runs every spec-database lookup in its own isolated context under a hard budget and returns a compact evidence brief |
@@ -129,15 +130,29 @@ them into a single `FINAL_CONTENT.md`, and every stamp and Word document is
 built from that file, so revisions rebuild rather than patch. No knowledge-base
 commit happens during a batch review.
 
-## Memory
+## Knowledge-base map
 
-The RFI skill opens every session by asking whether anything should be saved to
-memory at all — *don't save*, *ask before each save*, or *save freely* — and
-holds to that answer for the session. An unanswered or ambiguous reply is
-treated as *don't save*. Regardless of the answer, project-specific technical
-values (mounting heights, note numbers, clause values, part numbers) are never
-memorized: they differ between drawing sets on the same program, so the
-governing value is read from the project's own sheet every time.
+`show_rfi_graph` opens an interactive graph inline in the chat (an MCP App;
+Claude Desktop and claude.ai render it, other hosts show only the text
+summary): the RFIs, submittals, code books and spec sections that mention a
+topic, how they connect, and the concepts they share. Claude never sees the
+graph, only counts, up to five top documents and the themes, and writes one to
+three sentences to orient the user. The `rfi` skill calls it from the main
+thread when the user wants to see, map or explore a topic, with a 1–3 word
+query; a written answer still goes through the researcher.
+
+The user explores on their own: clicking a document shows its project and the
+passages that mention the topic, "Expand neighbours" grows the graph in place,
+and nothing in the widget posts to the chat. A selection reaches Claude only as
+a silent context line naming the node; if the user then asks about "that one",
+the skill sends `rfi-researcher` on Haiku straight to that document.
+`rfi_graph_data` and `rfi_graph_expand` are the widget's own helpers
+(`visibility: ["app"]`), hidden from the model.
+
+The graph is built from the graphify snapshot of the corpus, so RFIs logged
+through `commit_approved_rfi` appear only after a rebuild (the server reloads
+it without a restart). Claude Desktop caches the widget: after a widget update,
+testers need a full quit and relaunch.
 
 ## Stamping submittals
 
@@ -187,6 +202,9 @@ not be edited in place.
    and triggers an incremental background update to the knowledge graph.
    Main thread only; gated by the skill's approval question and by the
    PreToolUse hook.
+6. `show_rfi_graph(query: str, project_id: Optional[str] = None) -> dict`
+   — opens the interactive knowledge-base map inline in the chat and returns
+   a short summary (status, counts, top documents, themes). Main thread only.
 
 ## Connector configuration
 
@@ -221,8 +239,8 @@ claude plugin install eplus-rfis-submittals@eplus-claude-plugins
 Verify: the skills list shows `rfi`, `contract-document-review` and `pdf-stamping`, the agent list shows
 `eplus-rfis-submittals:rfi-researcher`, and with the `rfi-knowledge-hub`
 connector active, asking Claude to "review this RFI and draft a response"
-settles the memory question, then delegates the lookup to the researcher
-instead of answering from memory.
+delegates the lookup to the researcher instead of answering from memory, and
+"map everything we have on ductbanks" opens the knowledge-base map.
 
 For stamping, in a Cowork session with `pymupdf` installed:
 

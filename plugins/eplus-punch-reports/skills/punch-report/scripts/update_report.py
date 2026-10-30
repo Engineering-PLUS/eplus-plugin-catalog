@@ -13,6 +13,7 @@ Changes (any number, in one call):
                          cover_subtitle, cover_title, cover_eyebrow, inspector,
                          reviewer (profile only), inspection_date (comma list),
                          issuance_date (YYYY-MM-DD, MM/DD/YYYY or TBD), cover_mode,
+                         cover_template (a name in _pipeline/covers/, e.g. stack),
                          visit_sections (by_date | none), footer_text.
                          Source recorded as "user"; client-level facts are also
                          written to client-profile.json for the next report.
@@ -22,7 +23,8 @@ Changes (any number, in one call):
   --item N [--title T] [--description D] [--corrective-action C]
            [--editor-note E] [--photo-mode own_photos|none|followup]
                          reword one item; approved text becomes origin user_reviewed
-  --edits FILE.json      many items at once: [{"number": N, "description": "...", ...}]
+  --edits FILE.json      many items at once: [{"number": N, "description": "...", ...}];
+                         an entry's own "origin"/"confidence" win over user_reviewed
   --task-report PDF      a Task Report PDF arrived: copy it in, cut the pin clips,
                          re-render (the only step that re-reads a PDF)
   --scope / --title-filter / --created-after / --drop-phrases
@@ -58,8 +60,9 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 CFG_KEYS = {"client_display_name", "site_address", "ep_project_no", "cover_subtitle", "cover_title",
             "cover_eyebrow", "inspector", "reviewer", "inspection_date", "issuance_date", "cover_mode",
-            "visit_sections", "footer_text"}
-PROFILE_KEYS = {"client_display_name", "site_address", "ep_project_no", "inspector", "reviewer", "cover_mode"}
+            "cover_template", "visit_sections", "footer_text"}
+PROFILE_KEYS = {"client_display_name", "site_address", "ep_project_no", "inspector", "reviewer", "cover_mode",
+                "cover_template"}
 COVER_MODES = {"template", "supplied", "blank", "none"}
 PHOTO_MODES = {"own_photos", "none", "followup"}
 VERSION_RE = re.compile(r"-DRAFT-v(\d+)\.(\d+)", re.I)
@@ -198,6 +201,11 @@ def main():
             if val not in COVER_MODES:
                 sys.exit(f"ERROR: cover_mode must be one of {sorted(COVER_MODES)}")
             value = val
+        elif key == "cover_template":
+            value = os.path.splitext(os.path.basename(val))[0].lower()
+            if not os.path.isfile(os.path.join(pipe, "covers", value + ".docx")):
+                have = sorted(f[:-5] for f in os.listdir(os.path.join(pipe, "covers")) if f.endswith(".docx"))
+                sys.exit(f"ERROR: no cover '{value}' in _pipeline/covers/ (have: {', '.join(have)})")
         elif key == "visit_sections":
             if val not in ("by_date", "none"):
                 sys.exit("ERROR: visit_sections is by_date or none")
@@ -280,6 +288,14 @@ def main():
             if touched:
                 entry["origin"] = "user_reviewed"
                 entry["confidence"] = "reviewer approved"
+            # An entry may state its own origin and confidence: wording the model
+            # drafted is not reviewer approved (field result 2026-10-29: #87 was sent
+            # with "origin": "authored", "confidence": "medium" and came out
+            # user_reviewed, protected and exempt from the voice guard).
+            for f in ("origin", "confidence"):
+                if str(e.get(f) or "").strip():
+                    entry[f] = str(e[f]).strip()
+                    touched.append(f)
             if "editor_note" in e:
                 entry["editor_note"] = e["editor_note"] or None
                 touched.append("editor_note")

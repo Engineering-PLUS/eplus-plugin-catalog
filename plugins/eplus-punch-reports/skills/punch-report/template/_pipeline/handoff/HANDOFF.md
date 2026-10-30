@@ -12,7 +12,7 @@ Everything a future run needs in order to be better than this one. Start here.
 | 2 | `../LESSONS-LEARNED.md` | What broke, why, and the recommended skill updates. **This is the learning data.** |
 | 3 | `../PROCESS-LOG.md` | The run record: inputs, decisions, review rounds, verification. |
 | 4 | `../ISSUES-LIST.md` | What is still missing (generated block at the top, each with its `update_report.py` command), then the open questions for the reviewer. |
-| 5 | `../../client-profile.json` | Client-level facts (name, address, EP number, inspector, reviewer), delivered to the project folder for the next report. |
+| 5 | `../../client-profile.json` | Client-level facts (name, address, EP number, inspector, reviewer, cover), carried in the package; the next report reads them from it. |
 
 Nothing in this package comes from, or is written to, agent memory. Everything
 the next run needs is in these files, where the next engineer can also read it.

@@ -1,7 +1,7 @@
 ---
 name: punch-report
-description: Build a draft punch report from a PlanGrid project. Pulls the pins and photos, writes each item in field-report voice, and delivers a branded Word report with a list of what's still missing.
-when_to_use: Trigger when asked to draft or write up a punch report, field progress report, or site inspection report from raw field material — a PlanGrid project pull, a folder of site photos, an engineer's walk notes, or any combination — to turn photos and notes into a report, produce a draft punch list document, or generate a deliverable from a site visit. Builds the whole draft without stopping to ask, then lists what is missing and applies each answer as a surgical edit. Covers consolidating messy source data, drafting descriptions in field-report voice, checking wording against EPLUS precedent, and rendering a branded one-page-per-item Word document with a live table of contents. Distinct from the `punch-history` skill, which QUERIES the historical corpus; this one PRODUCES a new report.
+description: Build a draft punch report from a PlanGrid project, a PlanGrid Task Report PDF, or plain site photos and notes. Writes each item in field-report voice and delivers a branded Word report and its EPLUS cover, with a list of what's still missing.
+when_to_use: Trigger when asked to draft or write up a punch report, field progress report, or site inspection report from raw field material — a PlanGrid project pull, a PlanGrid Task Report export, a folder of site photos, an engineer's walk notes, or any combination — to turn photos and notes into a report, produce a draft punch list document, make a blank punch report to fill in, or generate a deliverable from a site visit. Builds the whole draft without stopping to ask, then lists what is missing and applies each answer as a surgical edit. Covers consolidating messy source data, drafting descriptions in field-report voice, checking wording against EPLUS precedent, and rendering a branded one-page-per-item Word document with a live table of contents. Distinct from the `punch-history` skill, which QUERIES the historical corpus; this one PRODUCES a new report.
 argument-hint: [project folder or PlanGrid project name, or leave blank]
 ---
 
@@ -24,13 +24,15 @@ bash <plugin skill>/scripts/init_workspace.sh <workspace> --from-package <zip>  
 
 It lays the template out at the workspace root (so `<workspace>/_pipeline/CLAUDE.md`,
 `build/assets/`, `build/report.config.json` and `client-profile.json` exist where
-the pipeline reads them), refreshes `_pipeline/scripts/` from the plugin, makes
+the pipeline reads them), refreshes `_pipeline/scripts/` and `_pipeline/covers/`
+(the EPLUS coversheets) from the plugin, makes
 the tree writable, and exits non-zero naming anything missing. Never hand-roll
 `cp` commands for this: on 2026-09-14 a worker copied `template/` to
 `_pipeline/template/`, the first render died on a missing logo, a config was
 written into the user's project folder by mistake, and the delivered package
 had no CLAUDE.md, PROCESS-LOG or ISSUES-LIST at all. Then copy the inputs (the
-PlanGrid pull and the Task Report PDF) in beside `_pipeline/` once. Work only
+PlanGrid pull, the Task Report PDF, or the photos and notes) in beside
+`_pipeline/` once. Work only
 there. The template's `_pipeline/CLAUDE.md` is the operating manual for that
 project and is the file a future run reads first — fill it in as you go rather
 than at the end.
@@ -96,10 +98,11 @@ pipeline did not have, and two workers hand-patched the data.
 
 | Input | Found by | If absent |
 |---|---|---|
-| Project folder | `scripts/locate_inputs.py "<what the user typed>"` | build and deliver into the session outputs folder; ask for the folder at the end |
-| `client-profile.json` | the project folder | cover facts stay `[MISSING]`; the user's answers create it at delivery |
-| PlanGrid pull | a folder with `tasks.json`, or the `plangrid` MCP (`reference/build-data.md` Step 0b) | the only hard requirement |
-| **PlanGrid Task Report PDF** | the project folder or uploads | **not part of an API pull**; the only source of pin clips. Export it from PlanGrid in the browser, filtered to the scope, while the run carries on (`reference/task-report-export.md`); wanted unless the user says "no clips" in those words; if it does not arrive, build without clips; finish list |
+| Project folder | `scripts/locate_inputs.py "<what the user typed>"` (it also prints the **route**) | build and deliver into the session outputs folder; ask for the folder at the end |
+| `client-profile.json` | the project folder, or inside the newest package there | cover facts come from the project name and the Task Report header; the rest stay `[MISSING]` |
+| PlanGrid pull | a folder with `tasks.json`, or the `plangrid` MCP (`reference/build-data.md` Step 0b) | **the Task Report PDF alone is a complete input** (Step 0a): build from it, no question, no "relaunch the app" |
+| **PlanGrid Task Report PDF** | the project folder or uploads | the source of pin clips, and of everything else when there is no connector (`scripts/task_report_to_pull.py`). With a working connector and no PDF, export it from PlanGrid in the browser while the run carries on (`reference/task-report-export.md`); if it does not arrive, build without clips; finish list |
+| Site photos and notes, no PlanGrid | the project folder or uploads | a **notes report**: `reference/notes-report.md`, no sheet clips |
 | Scope rules | `SCOPE`, `TITLE`, `CREATED_AFTER`, `DROP_PHRASES` from the user's words or the profile | every item in the pull; near misses listed |
 | Walk notes | uploads or the project folder | optional; often two near-identical files |
 
@@ -107,9 +110,45 @@ pipeline did not have, and two workers hand-patched the data.
 carries TBD and the finish list asks for it. It is a contractual fact the
 reviewer decides.
 
-**The EP project number comes from the profile or the user**, into
-`report.config.json` as `ep_project_no` and the client profile. It renders on
-the cover only; `verify_report.py` asserts it is absent from the body.
+**Cover facts already in the records are never asked for.** EPLUS names
+PlanGrid projects `<CLIENT> - <BUILDING> - <EP no>` (`STACK - POR03C - 27073`),
+and the Task Report header prints that name and the site address.
+`prefill_config.py` takes the client, building, EP number and address from
+them (source `plangrid project name` / `task report header`). Field result
+2026-10-22: a run asked the user for all four. On the MCP route
+`run_pipeline.sh` reads the header too (`task_report_to_pull.py --header-only`),
+since the connector carries no address. A project with no address in PlanGrid
+prints "Prepared by <name>" there instead, and the address stays [MISSING].
+The EP project number renders
+on the cover only; `verify_report.py` asserts it is absent from the body.
+
+**The cover is EPLUS's own coversheet, filled in.** `_pipeline/covers/` holds
+the Word coversheets EPLUS issues (`stack.docx` with the STACK logo;
+`default.docx`, the same sheet without a client logo for everyone else), set
+in Arial. `scripts/fill_cover.py` (run by the render) picks one by client name
+and replaces only its text fields: eyebrow, building, client line, address,
+EP project number, inspection and issuance dates, inspector. It writes
+`<report>-Cover.docx` beside the body, whose page 1 stays blank for it. To
+change a cover fact, `update_report.py --set ...`; to force a cover,
+`--set cover_template=stack`. Anything else on a cover (a one-off wording, a
+different logo) the reviewer edits in Word. A new client's cover is a plugin
+change: its `.docx` and a `.json` naming its fields go in the plugin's
+`covers/` folder.
+
+**The reviewer's own cover.** When the user says they make their own cover
+("I'll do my own cover", "skip the cover", "no cover", "don't bother with the
+coversheet"), run `python3 scripts/update_report.py --set cover_mode=supplied
+--no-render` right after `prefill_config.py`, before the render. No
+`-Cover.docx` is written; page 1 of the body stays blank, so the page numbers
+are right once their cover replaces it. Then skip everything that exists only
+for the cover: the address, EP number, building, inspector and issuance date
+are not asked for (the finish list leaves them out; the client name stays,
+the footer carries it), there is no cover preview page, and the folder gets
+the report and the package. The choice goes into `client-profile.json`, so
+the project's next visit starts the same way. "No cover page at all" (the
+report starts at the contents page) is `cover_mode=none`. Field request
+2026-10-29: the reviewer builds the issued PDF's cover from earlier reports
+and did not want the run spending time on one.
 
 Then install the dependencies and check the tooling actually works:
 
@@ -172,6 +211,9 @@ do not read them all.**
 
 | If the user asks for / the workspace shows | Read |
 |---|---|
+| **No PlanGrid connector** (its tools are not loaded, sign-in fails, calls error) **and a Task Report PDF on disk** | nothing extra: `reference/build-data.md` Step 0a, three commands, then carry on. Never stop to tell the user to relaunch or to fix the connector first |
+| A walk with **no PlanGrid at all**: photos and notes, or the user says "from my notes" | `reference/notes-report.md` |
+| **A blank report** to fill in by hand ("an empty / blank punch report", "a template") | run order, section 1, the empty-report commands; no question |
 | **A draft exists and the user supplies a missing piece or answers the finish list** (a cover fact, an issuance date, a Task Report PDF, a folder to deliver to, a reworded item, keep or drop a pin) | **nothing: run `python3 scripts/update_report.py ...` from `_pipeline/`** (examples in `reference/run-order.md`, sections 8 and 9: before the run's one delivery without `--deliver`, after it with). No worker, no rebuild |
 | No Task Report PDF attached or found by `locate_inputs.py` (main thread, right after `list_projects`) | `reference/task-report-export.md` (start it, carry on, collect it later) |
 | A fresh start with a raw PlanGrid pull; `data/items.json`, `build/thumbs_uniform/` or `build/sheet_clips_jpg/` missing | `reference/build-data.md` (Steps 1, 2, 6) |
@@ -206,6 +248,11 @@ python3 "$S/scripts/locate_inputs.py" "<what the user typed>"
 bash "$S/scripts/init_workspace.sh" <workspace> && cd <workspace>/_pipeline \
     && bash scripts/install_deps.sh && bash scripts/smoke_test.sh
 
+# Step 0a No connector (or it fails) and a Task Report PDF on disk  -> reference/build-data.md
+python3 scripts/task_report_to_pull.py "../<Task Report>.pdf"            # tasks, photos' captions, header
+python3 scripts/extract_pdf_photos.py "../<Task Report>.pdf" --pull ../plangrid_mcp
+python3 scripts/adapt_mcp_pull.py                                   # ../plangrid_mcp -> ../plangrid_pull
+
 # Step 0b Only when the pull comes from the plangrid MCP  -> reference/build-data.md
 #         (get_tasks and list_sheets return summaries plus a packet url; never retype a
 #          result into a file: pull_mcp.sh fetches the packets and checks their sha256;
@@ -228,7 +275,8 @@ bash scripts/fetch_task_report.sh --skipped "<reason>"              # signed out
 #         (run_pipeline.sh always passes --keep-deleted; build master applies deleted_pins)
 python3 scripts/consolidate.py <pull_dir> -o data/items.json [--only 11-30] --keep-deleted
 
-# Step 1b The cover from records only: profile, PlanGrid, defaults; the rest [MISSING]
+# Step 1b The cover from records only: profile, PlanGrid project name, Task Report header,
+#         defaults; the rest [MISSING]. --project-name defaults to the Task Report header.
 python3 scripts/prefill_config.py --project-name "<PlanGrid project>" --version <next> [--project-folder <dir>]
 
 # Step 2  Normalise photos                    -> reference/build-data.md
@@ -245,7 +293,7 @@ python3 scripts/extract_sheet_clips.py "<Task Report>.pdf" build/sheet_clips_jpg
     --items-from data/items.json --dims-out build/sheet_clip_dims_jpg.json
 
 # Step 7  Assemble and render                 -> reference/render.md
-#         (build master, gen_report.js, fix_bookmark_ids.py, verify_report.py,
+#         (build master, gen_report.js, fix_bookmark_ids.py, fill_cover.py, verify_report.py,
 #          review_sheet.py export -> build/<report>-Review.xlsx, and the finish
 #          list -> build/finish.json + the top of ISSUES-LIST.md, in one go)
 RENDER_ONLY=1 bash scripts/run_pipeline.sh
@@ -263,6 +311,7 @@ RENDER_ONLY=1 bash scripts/run_pipeline.sh
 
 # Step 10 The draft (links in the workspace), the finish list, one AskUserQuestion; then the
 #         answers in ONE call without --deliver, then deliver ONCE  -> reference/run-order.md 7-8
+#         The folder gets three files: the report, its cover, the package (review sheet inside)
 python3 scripts/update_report.py --set issuance_date=2026-09-30 --set ep_project_no=27625
 python3 scripts/package.py <workspace> "<deliver to>"              # --replace only when the user said so
 

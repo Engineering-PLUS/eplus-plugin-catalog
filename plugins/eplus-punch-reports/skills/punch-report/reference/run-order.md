@@ -63,6 +63,14 @@ an earlier package.
 - **An earlier package in the project folder** (`*-Punch-Report-*.zip`): this
   is a revision. Go to `reference/revising.md`; it starts from that package
   and changes only what changed.
+- **The route** is the line `locate_inputs.py` prints; follow it.
+- **No connector, a Task Report PDF on disk:** the `plangrid` tools are not
+  loaded, the sign-in fails or the calls error. Build from the PDF
+  (`reference/build-data.md`, Step 0a): it holds every task, photo, the
+  project name and the address. No question, no "relaunch the app", no
+  "ask Victor to add the connector" before the draft. Field result
+  2026-10-22: a run did exactly that with the PDF already in the folder.
+- **No PlanGrid at all, photos and notes:** `reference/notes-report.md`.
 - **The pull:** a pull folder on disk is copied into the workspace (section
   2). Otherwise use the `plangrid` MCP: `list_projects`, take the project
   whose name matches the argument or the project folder's name. When the user
@@ -83,9 +91,12 @@ an earlier package.
   report in the htx2 folder. Ask one `AskUserQuestion`: **an empty report**
   (the cover plus three blank item pages to fill in by hand, two Word files),
   up to two PlanGrid projects whose names come closest, or **I'll add the
-  inputs** (a pull or a Task Report PDF in the folder, then tell you). A
-  project picked from the options is a normal run. An empty report is built
-  and delivered like this, and nothing else from sections 3 to 6 applies:
+  inputs** (a pull, a Task Report PDF, or photos and notes in the folder, then
+  tell you). A project picked from the options is a normal run. An empty
+  report is built and delivered like this, and nothing else from sections 3
+  to 6 applies. **A user who asks for a blank or empty report in so many
+  words** gets the same, with no question: the item pages carry Location and
+  Date Recorded and no sheet-clip column.
 
   ```bash
   bash "$S/scripts/init_workspace.sh" <workspace>
@@ -148,11 +159,17 @@ python3 scripts/prefill_config.py --project-name "<PlanGrid project name>" --ver
 ```
 
 `prefill_config.py` fills `report.config.json` from `client-profile.json`
-(the project folder's copy), the PlanGrid project name, the pin dates and the
-pin authors, sets the issuance date to TBD and the file name from the version,
-and records each value's source in `fact_sources`. Whatever no record states
-stays empty and shows as `[MISSING: ...]`. Do not fill those from memory or
-from inference; the finish list asks for them.
+(the project folder's copy, or the one inside the newest package there), the
+PlanGrid project name, the Task Report header, the pin dates and the pin
+authors, sets the issuance date to TBD and the file name from the version,
+and records each value's source in `fact_sources`. The EPLUS project name
+`<CLIENT> - <BUILDING> - <EP no>` (`STACK - POR03C - 27073`) gives the
+client, the building and the EP number, and the Task Report header gives the
+site address: **never ask for a fact these records state** (field result
+2026-10-22: a run asked for the client, building and EP number, all in the
+header). Whatever no record states stays empty and shows as
+`[MISSING: ...]`. Do not fill those from memory or from inference; the
+finish list asks for them.
 
 **Facts the user put in the request are a record too.** Apply them right after
 the prefill, in one call, and never ask for them again in section 7:
@@ -181,8 +198,9 @@ later with one command (sections 8 and 9):
 | Near-miss record-only notes | kept, listed | `--drop N` |
 | A pull spanning two walk dates | one list, every item carries its pin date | `--set visit_sections=by_date` |
 | Issuance date | TBD | `--set issuance_date=YYYY-MM-DD` |
-| Client, address, EP number, building, inspector | from the profile and PlanGrid, else `[MISSING]` | `--set <key>=...` |
-| Cover | a separate `-Cover.docx`; body page 1 blank for it | `--set cover_mode=supplied\|blank\|none` |
+| Client, address, EP number, building, inspector | from the profile, the PlanGrid project name and the Task Report header, else `[MISSING]` | `--set <key>=...` |
+| Cover | EPLUS's own coversheet filled in (`stack.docx` for STACK, `default.docx` otherwise), a separate `-Cover.docx`; body page 1 blank for it | `--set cover_template=<name>`; the user's own cover: `--set cover_mode=supplied` (SKILL.md, "The reviewer's own cover") |
+| No PlanGrid connector | built from the Task Report PDF on disk | none needed; a re-run with the connector gets full-size photos |
 | Wording | every item drafted in field-report voice; inferred items flagged with confidence and an Editor's Note | `--item N --description "..."` |
 | No Task Report PDF | exported from PlanGrid in the browser; if it does not arrive, no pin clips | `--task-report "<pdf>"` |
 | Items without photos | an empty paste grid | `--item N --photo-mode none` |
@@ -203,7 +221,8 @@ RENDER_ONLY=1 bash scripts/run_pipeline.sh
 It builds the master, renders, verifies, writes the run record and the review
 sheet, and prints the **finish list** (also in `build/finish.json` and at the
 top of `ISSUES-LIST.md`). Then look at three preview pages: the cover, one item
-with photos, one without (`scripts/render_preview.py`). Nothing more.
+with photos, one without (`scripts/render_preview.py`). Nothing more. With the
+user's own cover (`cover_mode` not `template`) there is no cover page to look at.
 
 **A worker's Open questions do not go to the user mid-run.** The main thread
 settles each one from house policy (SKILL.md) and the defaults above, writes
@@ -232,8 +251,9 @@ delivered yet.
 
 In this order, short:
 
-1. **What was built.** The body `.docx`, its `-Cover.docx` and the review
-   `.xlsx`, as links **in the workspace** (`_pipeline/build/`), and one line:
+1. **What was built.** The body `.docx` and its `-Cover.docx` (none with the
+   user's own cover), as links
+   **in the workspace** (`_pipeline/build/`), and one line:
    it goes to `<project folder>` (or, with none connected, stays in the
    session's working folder) once the questions below are answered.
 2. **The finish list**, from the pipeline's output, the blocking entries
@@ -242,7 +262,8 @@ In this order, short:
 3. **One `AskUserQuestion`**, at most four questions, for the blocking gaps
    a person can answer on the spot (identity block, issuance date, the
    project folder to deliver to, deleted pins), leaving out anything the
-   request already settled (section 3). Every question offers
+   request already settled (section 3) and anything a record already states
+   (the finish list names only what is missing or a guess). Every question offers
    "Leave it for the reviewer" (the `[MISSING]`/TBD stays), so every question
    has at least two options; a question with one option is rejected and never
    shown (field result 2026-10-06). Say that the report is delivered as soon
@@ -289,8 +310,9 @@ run, and it removes only the earlier version: its report files have copies in
 the new package, and its package is replaced by the new one. The Task Report
 PDF and `client-profile.json` always stay.
 
-**The delivery message** closes the run: the four files as links **in the
-folder they were delivered to** (if that is the session outputs folder, say
+**The delivery message** closes the run: the report and its cover as links
+**in the folder they were delivered to**, and one line that the package
+beside them holds the working files and the review sheet (if that is the session outputs folder, say
 so first: connecting a project folder and `update_report.py --deliver
 "<folder>"` moves it), what is still `[MISSING]` or TBD, and, if the PlanGrid
 export did not arrive, where it waits.
@@ -330,13 +352,15 @@ commands), then the same calls.
 | File | What it is |
 |---|---|
 | `<Project>-Punch-Report-DRAFT-vN.N.docx` | the report body, the file of record; page 1 is blank for the cover |
-| `<Project>-Punch-Report-DRAFT-vN.N-Cover.docx` | the cover, a separate Word file (cover mode `template`) |
-| `<Project>-Punch-Report[-DRAFT-vN.N]-Review.xlsx` | the review spreadsheet: bulk edits in the yellow columns, imported back |
-| `<Project>-Punch-Report-DRAFT-vN.N.zip` | the package: the workspace for this report's pins (data, drafts, their photos, clips, paperwork, scripts) to revise from, plus the earlier versions' body, cover and review sheet under `previous-versions/` (never an earlier package) |
-| `client-profile.json` | client-level facts for the next report for this client |
-| `PlanGrid Task Report ... .pdf` | the user's own input, the source of the pin clips; never moved |
+| `<Project>-Punch-Report-DRAFT-vN.N-Cover.docx` | the cover: EPLUS's coversheet with this report's facts (cover mode `template`) |
+| `<Project>-Punch-Report-DRAFT-vN.N.zip` | the package: the workspace for this report's pins (data, drafts, their photos, clips, paperwork, scripts), the review spreadsheet (`_pipeline/build/<report>-Review.xlsx`) and `client-profile.json` (the next report reads it from here), plus the earlier versions' body, cover and review sheet under `previous-versions/` (never an earlier package) |
+| `PlanGrid Task Report ... .pdf`, photos, notes | the user's own inputs; never moved |
 
-Nothing else. Files in the session outputs folder stay there; the session
+Nothing else: three files per delivery. Field result 2026-10-22: five files
+(body, cover, review sheet, package, client profile) left the user unsure
+which was the report. The review sheet goes beside the report only when the
+user asks for it (`package.py --review-sheet`). A `client-profile.json` an
+older delivery left in the folder stays there and is still read. Files in the session outputs folder stay there; the session
 discards them. The `.docx` is the file of record; a PDF is made only when
 asked (`scripts/export_pdf.py`, then `package.py --pdf`, described as a
 convenience copy).

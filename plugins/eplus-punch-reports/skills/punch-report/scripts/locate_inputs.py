@@ -23,7 +23,12 @@ What it reports:
   inputs           per connected folder and uploads/: PlanGrid pull folders
                    (a tasks.json), Task Report PDFs, client-profile.json,
                    earlier delivered packages (*Punch-Report*.zip) and the
-                   highest -DRAFT-vN.N already delivered there.
+                   highest -DRAFT-vN.N already delivered there, site photos
+                   and notes files (for a report built without PlanGrid).
+  route            which way the report is built, with no question: a pull on
+                   disk; else the plangrid MCP, and if it is missing or fails,
+                   the Task Report PDF alone (task_report_to_pull.py); else
+                   photos and notes (notes_to_items.py); else an empty report.
   next version     the version the new render must carry, from the project
                    folder's own deliveries (never from memory).
 
@@ -38,6 +43,8 @@ import re
 import sys
 
 SKIP = {"outputs", "uploads"}
+PHOTO_EXT = (".jpg", ".jpeg", ".png", ".heic", ".webp")
+NOTES_EXT = (".docx", ".txt", ".md", ".rtf")
 VERSION_RE = re.compile(r"-DRAFT-v(\d+)\.(\d+)", re.I)
 
 
@@ -55,7 +62,8 @@ def find_mnt(explicit):
 
 def scan(folder, depth=3):
     """Inputs found under one folder, a few levels deep (shares are slow)."""
-    found = {"pulls": [], "task_reports": [], "profile": None, "packages": [], "drafts": []}
+    found = {"pulls": [], "task_reports": [], "profile": None, "packages": [], "drafts": [],
+             "photos": [], "notes": []}
     base = folder.rstrip(os.sep).count(os.sep)
     for dirpath, dirnames, filenames in os.walk(folder):
         if dirpath.count(os.sep) - base >= depth:
@@ -78,6 +86,11 @@ def scan(folder, depth=3):
             elif fl.endswith(".docx") and VERSION_RE.search(f) and not fl.startswith("~$") \
                     and not fl.endswith("-cover.docx"):
                 found["drafts"].append(p)
+            elif fl.endswith(PHOTO_EXT) and not fl.startswith("~$"):
+                found["photos"].append(p)
+            elif fl.endswith(NOTES_EXT) and not fl.startswith("~$") and "punch-report" not in fl \
+                    and fl not in ("readme.md",):
+                found["notes"].append(p)
     for k in ("task_reports", "packages", "drafts"):
         found[k].sort(key=lambda p: os.path.getmtime(p), reverse=True)
     return found
@@ -167,10 +180,33 @@ def main():
             bits.append("profile " + f["profile"])
         if f["packages"]:
             bits.append(f"{len(f['packages'])} package(s)")
+        if f["photos"]:
+            bits.append(f"{len(f['photos'])} photo(s)")
+        if f["notes"]:
+            bits.append("notes " + ", ".join(os.path.basename(n) for n in f["notes"][:3]))
         print(f"  {label:<14}: " + ("; ".join(bits) if bits else "no report inputs found"))
-    if not any(f["pulls"] for f in scans.values()):
+    # the route follows the project folder (and uploads), never another connected folder
+    pool = ([scans[project]] + ([scans[uploads]] if uploads in scans else [])) if project else list(scans.values())
+    have = lambda k: any(f[k] for f in pool)
+    if have("pulls"):
+        route = "pull on disk"
+    elif have("task_reports"):
+        route = ("plangrid MCP if its tools are loaded and answer; otherwise the Task Report PDF alone, "
+                 "no question: scripts/task_report_to_pull.py (reference/build-data.md, Step 0a)")
+    elif have("photos") or have("notes"):
+        route = ("plangrid MCP if the user named a PlanGrid project and its tools answer; otherwise photos and "
+                 "notes, no PlanGrid: scripts/notes_to_items.py (reference/notes-report.md)")
+    else:
+        route = ("plangrid MCP (reference/build-data.md, Step 0b); with no connector and nothing on disk, "
+                 "the No match question (run order, section 1)")
+    print(f"route          : {route}")
+    if not have("pulls") and have("task_reports"):
+        print("pull           : none on disk; the Task Report PDF holds the tasks, photos, header and clips")
+    elif not have("pulls") and not (have("photos") or have("notes")):
         print("pull           : none on disk; pull from the plangrid MCP (reference/build-data.md, Step 0b)")
-    if not any(f["task_reports"] for f in scans.values()):
+    if not have("task_reports") and not have("pulls") and (have("photos") or have("notes")):
+        pass  # a notes report has no drawings; no Task Report is wanted
+    elif not have("task_reports"):
         print("task report    : none on disk; export it from PlanGrid in the browser while the run carries on "
               "(reference/task-report-export.md); if it does not arrive, build without pin clips")
     return 0

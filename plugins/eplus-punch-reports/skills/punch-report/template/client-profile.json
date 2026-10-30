@@ -11,7 +11,7 @@
   "_sheet_titles": "{\"T01-01\": \"TECHNOLOGY SITE PLAN\", ...}. Override only: since MCP 0.7 titles arrive on get_tasks rows and from list_sheets. Fill this for a drawing PlanGrid itself has no title for, or for pulls made through an older server; adapt_mcp_pull.py applies it last.",
   "cover_mode": "template",
   "_cover_mode": "template (generate -Cover.docx for review) | supplied (reviewer's own cover) | blank | none",
-  "client_logo": null,
-  "_client_logo": "path to a PNG of the client's logo if one is on hand; copied to build/assets/cover/client_logo.png. Usually not available; leave null.",
+  "cover_template": "",
+  "_cover_template": "Which EPLUS coversheet (_pipeline/covers/<name>.docx) this client's reports use. Empty: picked from the client name (stack.docx for STACK), else default.docx, the same sheet with no client logo.",
   "report_kind": "Technology Site Observation Report"
 }

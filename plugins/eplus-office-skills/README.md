@@ -16,14 +16,14 @@ hand-writing replacements.
 |-------|---------|
 | `eplus-branding` | EPLUS brand guidelines (colors, logos, typography) using portable system fonts — for deliverables that must survive PDF round-trips and cross-app editing |
 | `workflow-packager` | Detects document-heavy conversations and, after completing the task, offers to package the prompt and reference documents into a reusable personal skill |
-| `eplus-getting-started` | Onboarding tour ("show me what you can do"): short hands-on demos of the Claude desktop app itself: a cheat-sheet artifact, memory, making a skill, a branded Word document, building a LibreChat agent, a scheduled task, and finding a training video in the EPLUS University library (`epu-video-library` connector). The browser demo (EPLUS model viewer) runs on its own in a fresh chat, because the side panel holds either an artifact or the browser. One file per demo under `demos/`, the cheat-sheet template in `assets/` |
+| `eplus-getting-started` | Onboarding tour ("show me what you can do"): short hands-on demos of the Claude desktop app itself: connecting the user's accounts (Microsoft 365 profile, with the connectors-and-updates video shipped in `assets/videos/` for a first-time sign-in), the user's getting-started page, handed over as a file they open in their own web browser (what to ask for, a map of every connector and its tools by who built it, the / menu, and a card per demo tried), memory, making a skill, a branded Word document, the browser (EPLUS model viewer, in its own tab beside the page), building a LibreChat agent, a scheduled task, and finding a training video in the EPLUS University library (`epu-video-library` connector). One file per demo under `demos/`; the page is built by `scripts/build_page.py` from `assets/getting-started.html`, `assets/cheatsheet-content.json` (capabilities, / menu, help) and `assets/connectors.json` (connectors, their tools, which tools write, and the skills that use each one), which are updated when skills or connectors change; connector icons live in `assets/connector-icons/` |
 | `epu` | `/epu`: opens the EPLUS University video library browser at its root, with no text around it. Needs the `epu-video-library` connector. |
 
 `eplus-branding` carries its brand summary, logo assets, and
 the Brand Guidelines PDF inside the skill folder. `workflow-packager` and
 `eplus-getting-started` have no server dependency; `eplus-getting-started` uses only
-the app's built-in tools (artifacts, memory, save_skill, the browser, scheduled
-tasks) plus `eplus-branding`. `epu` and the tour's video demo call the
+the app's built-in tools (the browser, memory, save_skill, scheduled tasks)
+plus `eplus-branding`. `epu` and the tour's video demo call the
 `epu-video-library` managed connector and do nothing without it. Nothing in this
 plugin needs a local process.
 

@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Getting started with Claude</title>
+<!--
+  Filled in by scripts/build_page.py; never edit a built copy by hand.
+  The header is the EPLUS title block (logo, Arial, the brand slate and the
+  green rule). Below it the page uses its own bright, neutral palette rather
+  than the brand colors: one color per connector maker, teal for tools that
+  read and amber for tools that write. One self-contained file: logos, icons
+  and data inlined, no external scripts or fonts, no browser storage.
+-->
+<style>
+  :root {
+    --bg: #f5f6fa; --card: #fff; --ink: #0f172a; --text: #334155; --muted: #64748b; --faint: #94a3b8;
+    --line: #e2e8f0; --soft: #f1f5f9; --accent: #4f46e5; --accent-bg: #eef2ff; --accent-ink: #3730a3;
+    --eplus: #2563eb; --anthropic: #d97757; --partner: #7c3aed;
+    --read: #0d9488; --read-bg: #f0fdfa; --write: #d97706; --write-bg: #fffbeb;
+    --mono: "Cascadia Mono", Consolas, "Courier New", monospace;
+    --shadow: 0 1px 2px rgba(15,23,42,.05), 0 4px 16px rgba(15,23,42,.05);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.55 "Segoe UI", system-ui, -apple-system, Arial, sans-serif; }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 0 28px; }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- Header: the EPLUS title block ---------- */
+  .hero { color: #fff; border-bottom: 5px solid #3c7d7f; font-family: Arial, Helvetica, "Liberation Sans", sans-serif;
+          background-color: #353b4d;
+          background-image:
+            linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px),
+            linear-gradient(rgba(255,255,255,.02) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px);
+          background-size: 120px 120px, 120px 120px, 24px 24px, 24px 24px; }
+  .hero .wrap { display: grid; grid-template-columns: 1fr minmax(300px, 380px); gap: 48px; align-items: end;
+                padding-top: 30px; padding-bottom: 40px; }
+  .hero img { height: 38px; width: auto; display: block; margin-bottom: 46px; }
+  .hero h1 { margin: 0; font-size: 52px; line-height: 1.02; letter-spacing: -.02em; font-weight: bold; }
+  .hero h1 span { display: block; color: rgba(255,255,255,.62); font-weight: normal; }
+  .hero .lead { margin: 18px 0 0; font-size: 17px; max-width: 34em; color: rgba(255,255,255,.84); }
+  .tb { border: 1.5px solid rgba(255,255,255,.7); font-size: 13px; background: rgba(20,24,36,.25); }
+  .tb > div { display: grid; grid-template-columns: 116px 1fr; border-top: 1px solid rgba(255,255,255,.35); }
+  .tb > div:first-child { border-top: 0; }
+  .tb .k { padding: 8px 10px; color: rgba(255,255,255,.62); border-right: 1px solid rgba(255,255,255,.35); }
+  .tb .v { padding: 8px 12px; font-weight: bold; color: #fff; }
+  .tb .k, .tb .v { display: flex; align-items: center; }
+  .tb .big .v { font-size: 20px; padding-top: 6px; padding-bottom: 6px; }
+  /* Connectors | 16 | Tools | 157: one row, label and number side by side in both halves. */
+  .tb .pair { grid-template-columns: 116px 1fr auto 1fr; }
+  .tb .pair .k + .v + .k { border-left: 1px solid rgba(255,255,255,.35); }
+
+  /* ---------- Nav ---------- */
+  nav.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.92); backdrop-filter: blur(8px);
+            border-bottom: 1px solid var(--line); }
+  nav.top .wrap { display: flex; align-items: center; gap: 4px; height: 56px; overflow-x: auto; }
+  nav.top a { text-decoration: none; color: var(--text); font-size: 14px; font-weight: 600; padding: 7px 14px;
+              border-radius: 999px; white-space: nowrap; }
+  nav.top a:hover { background: var(--accent-bg); color: var(--accent-ink); }
+  nav.top .spacer { flex: 1; }
+  .print { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 6px 16px;
+           font-size: 13px; font-weight: 600; cursor: pointer; }
+  .print:hover { background: var(--soft); }
+
+  /* ---------- Sections ---------- */
+  section { padding: 60px 0 0; }
+  h2 { margin: 0; font-size: 30px; line-height: 1.15; color: var(--ink); letter-spacing: -.02em; font-weight: 700; }
+  .intro { margin: 8px 0 24px; color: var(--muted); max-width: 44em; font-size: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); }
+
+  /* Start here */
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; counter-reset: s; }
+  .step { padding: 22px 22px 20px; }
+  .step::before { counter-increment: s; content: counter(s); display: grid; place-items: center; width: 34px; height: 34px;
+                  border-radius: 10px; background: var(--accent); color: #fff; font-weight: 700; margin-bottom: 14px; }
+  .step h3 { margin: 0 0 6px; font-size: 17px; color: var(--ink); }
+  .step p { margin: 0; font-size: 14.5px; }
+
+  /* What to ask for */
+  .caps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .cap { display: grid; grid-template-columns: 40px 1fr; column-gap: 14px; padding: 20px; }
+  .cap .ic { width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center;
+             background: var(--accent-bg); color: var(--accent); }
+  .cap .ic svg { width: 22px; height: 22px; display: block; }
+  .cap h3 { margin: 2px 0 4px; font-size: 16.5px; color: var(--ink); }
+  .cap p { margin: 0 0 12px; font-size: 14.5px; }
+  .tried .cap { border-color: #c7d2fe; }
+  .chips { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+  .chip { display: inline-flex; align-items: center; gap: 10px; text-align: left; font-size: 13.5px; color: var(--accent-ink);
+          background: var(--accent-bg); border: 1px solid transparent; border-radius: 10px; padding: 6px 8px 6px 11px;
+          cursor: pointer; line-height: 1.35; }
+  .chip:hover { border-color: #c7d2fe; background: #e0e7ff; }
+  .chip.cmd span { font-family: var(--mono); }
+  .chip .cpi { flex: none; opacity: .55; }
+  .chip:hover .cpi { opacity: 1; }
+  .cpi { width: 15px; height: 15px; display: block; }
+
+  /* ---------- Connectors: tree + tools panel ---------- */
+  .find { display: block; position: relative; max-width: 560px; margin: 0 0 20px; }
+  .find input { width: 100%; font: inherit; font-size: 15px; padding: 13px 16px 13px 44px; border: 1px solid var(--line);
+                border-radius: 14px; background: #fff; color: var(--ink); box-shadow: var(--shadow); }
+  .find input:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+  .find svg { position: absolute; left: 15px; top: 50%; margin-top: -10px; width: 20px; height: 20px; color: var(--faint); }
+
+  .board { display: grid; grid-template-columns: minmax(0, 1fr) minmax(380px, 470px); overflow: clip; }
+  .tree { padding: 26px 24px 30px 26px; min-width: 0; }
+
+  .tile { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; flex: none;
+          background: #fff; border: 1px solid var(--line); }
+  .tile img { width: 22px; height: 22px; display: block; image-rendering: auto; }
+  .tile svg { width: 20px; height: 20px; display: block; }
+  .tile.dark { background: #111827; border-color: #111827; }
+  .tile.glyph { background: linear-gradient(135deg, #e08a69, #c9643f); border-color: transparent; color: #fff; }
+  .tile.lg { width: 56px; height: 56px; border-radius: 15px; }
+  .tile.lg img { width: 34px; height: 34px; }
+  .tile.lg svg { width: 30px; height: 30px; }
+
+  .root { display: flex; align-items: center; gap: 12px; }
+  .root .tile { width: 44px; height: 44px; border-radius: 12px; }
+  .root .tile svg { width: 26px; height: 26px; }
+  .root b { display: block; font-size: 18px; color: var(--ink); line-height: 1.2; }
+  .root small { font-size: 13px; color: var(--muted); }
+
+  /* Tree lines: each item draws a rounded elbow to its parent's trunk. */
+  .branches { list-style: none; margin: 0 0 0 21px; padding: 10px 0 0; }
+  .branch { position: relative; padding: 0 0 18px 30px; --trunk: #cbd5e1; }
+  .branch:last-child { padding-bottom: 0; }
+  .branch::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; border-left: 2px solid var(--trunk); }
+  .branch:last-child::before { display: none; }
+  .branch::after { content: ""; position: absolute; left: 0; top: -10px; width: 22px; height: 27px;
+                   border: 2px solid var(--trunk); border-top: 0; border-right: 0; border-bottom-left-radius: 12px; }
+  .bh { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; min-height: 34px; }
+  .pill { display: inline-flex; align-items: center; gap: 8px; padding: 5px 13px 5px 10px; border-radius: 999px;
+          font-weight: 700; font-size: 14px; color: var(--c);
+          background: color-mix(in srgb, var(--c) 11%, #fff); border: 1px solid color-mix(in srgb, var(--c) 28%, #fff); }
+  .pill i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); }
+  .bh .meta { font-size: 13px; color: var(--muted); }
+  .bblurb { margin: 0 0 0 14px; padding: 6px 0 6px 22px; border-left: 2px solid var(--c); font-size: 13.5px;
+            color: var(--muted); max-width: 46em; }
+  .leaves { list-style: none; margin: 0 0 0 14px; padding: 0; }
+  .leaves li { position: relative; padding: 3px 0 3px 26px; }
+  .leaves li::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; border-left: 2px solid var(--c); }
+  .leaves li:last-child::before { display: none; }
+  .leaves li::after { content: ""; position: absolute; left: 0; top: 0; width: 20px; height: 26px;
+                      border: 2px solid var(--c); border-top: 0; border-right: 0; border-bottom-left-radius: 11px; }
+  .leaf { width: 100%; display: grid; grid-template-columns: 36px minmax(0, 1fr) 16px; align-items: center; gap: 12px;
+          background: #fff; border: 1px solid transparent; border-radius: 12px; padding: 5px 12px 5px 5px;
+          cursor: pointer; text-align: left; transition: background .12s, border-color .12s, box-shadow .12s; }
+  /* Top-aligned so the tree elbow meets the icon even when a long name wraps. */
+  .leaf { align-items: start; }
+  .leaf .chev { margin-top: 10px; }
+  .leaf .nm { min-width: 0; font-weight: 600; color: var(--ink); font-size: 15px; line-height: 1.45; padding-top: 7px; }
+  .leaf .nm > span { display: inline-block; margin-left: 7px; vertical-align: 1px; line-height: 1.5; }
+  .leaf .ct { font-size: 12px; font-weight: 700; min-width: 24px; text-align: center; padding: 0 7px; border-radius: 999px;
+              color: var(--c); background: color-mix(in srgb, var(--c) 10%, #fff); }
+  .leaf .tag { font-size: 11.5px; font-weight: 600; color: var(--eplus); background: #eff6ff; border-radius: 6px; padding: 0 7px; }
+  .leaf .hits { font-size: 11.5px; font-weight: 700; color: #92400e; background: #fef3c7; border-radius: 6px; padding: 0 7px; }
+  .leaf .chev { width: 16px; height: 16px; color: var(--faint); opacity: 0; transition: opacity .12s; }
+  .leaf:hover { background: var(--soft); }
+  .leaf:hover .chev { opacity: 1; }
+  .leaf[aria-pressed="true"] { background: color-mix(in srgb, var(--c) 8%, #fff); border-color: color-mix(in srgb, var(--c) 45%, #fff);
+                               box-shadow: 0 2px 10px color-mix(in srgb, var(--c) 18%, transparent); }
+  .leaf[aria-pressed="true"] .chev { opacity: 1; color: var(--c); }
+  .off { opacity: .3; }
+
+  .detail { border-left: 1px solid var(--line); min-width: 0; background: #fcfcfe; }
+  .detail .stick { position: sticky; top: 56px; max-height: calc(100vh - 56px); overflow: auto; padding-bottom: 24px; }
+  .dh { display: flex; align-items: center; gap: 16px; padding: 24px 24px 0; }
+  .dh h3 { margin: 0; font-size: 23px; line-height: 1.2; color: var(--ink); letter-spacing: -.01em; }
+  .dh .ct { display: inline-block; margin-top: 4px; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .what { margin: 14px 24px 0; font-size: 15px; color: var(--text); }
+  .note { margin: 14px 24px 0; display: grid; grid-template-columns: 20px 1fr; gap: 10px; padding: 12px 14px;
+          background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; font-size: 13.5px; color: #1e3a8a; }
+  .note svg { width: 18px; height: 18px; color: var(--eplus); margin-top: 1px; }
+  .filtered { margin: 14px 24px 0; font-size: 13px; color: #92400e; background: #fef3c7; border-radius: 10px; padding: 7px 12px; }
+
+  .grp { margin: 22px 24px 0; }
+  .grp h4 { margin: 0 0 10px; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; font-size: 13px; font-weight: 400; color: var(--muted); }
+  .kind { display: inline-flex; align-items: center; gap: 6px; padding: 3px 11px 3px 8px; border-radius: 999px;
+          font-size: 13px; font-weight: 700; color: var(--k); background: var(--kb); border: 1px solid color-mix(in srgb, var(--k) 30%, #fff); }
+  .kind svg { width: 15px; height: 15px; }
+  .grp.r { --k: var(--read); --kb: var(--read-bg); }
+  .grp.w { --k: var(--write); --kb: var(--write-bg); }
+  .tools { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .tool { background: #fff; border: 1px solid var(--line); border-left: 3px solid var(--k); border-radius: 10px; overflow: hidden; }
+  .tool .tn { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+              padding: 4px 4px 4px 12px; background: var(--soft); border-bottom: 1px solid var(--line); }
+  .tool code { font: 600 13px var(--mono); color: var(--ink); overflow-wrap: anywhere; }
+  .tool .td { padding: 9px 12px 10px; color: var(--text); font-size: 14px; line-height: 1.4; }
+  .cp { flex: none; display: grid; place-items: center; width: 30px; height: 28px; border: 0; border-radius: 7px;
+        background: transparent; color: var(--faint); cursor: pointer; }
+  .cp:hover { background: #e2e8f0; color: var(--ink); }
+  .empty { margin: 0; padding: 10px 12px; border: 1px dashed #cbd5e1; border-radius: 10px; font-size: 13.5px; color: var(--muted); }
+
+  .sk { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .sk li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px;
+           background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 8px 4px 8px 10px; }
+  .sk .cmd { font: 600 13px var(--mono); color: var(--accent-ink); background: var(--accent-bg); border-radius: 7px; padding: 3px 8px; white-space: nowrap; }
+  .sk .bgname { font-size: 13px; font-weight: 700; color: var(--ink); white-space: nowrap; }
+  .sk .does { font-size: 13.5px; color: var(--text); line-height: 1.4; }
+  .sk .auto { font-size: 11.5px; font-weight: 600; color: var(--muted); background: var(--soft); border-radius: 6px; padding: 2px 7px; margin-right: 6px; white-space: nowrap; }
+  .grp.s h4 .kind { --k: var(--accent); --kb: var(--accent-bg); }
+  .grp.t h4 .kind { --k: #475569; --kb: var(--soft); }
+  mark { background: #fde68a; color: inherit; border-radius: 3px; padding: 0 1px; }
+  .none { padding: 26px; color: var(--muted); }
+
+  /* ---------- Skills & commands ---------- */
+  .cols { display: grid; gap: 16px; grid-template-columns: 1fr 1fr; align-items: start; }
+  .cols > div { padding: 22px 22px 10px; }
+  .cols h3 { margin: 0 0 2px; font-size: 17px; color: var(--ink); }
+  .cols .sub { margin: 0 0 10px; font-size: 14px; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  td { padding: 11px 12px 11px 0; border-top: 1px solid var(--line); vertical-align: top; }
+  td.cmd { white-space: nowrap; width: 1%; padding-right: 16px; }
+  td.cmd span { font: 600 13px var(--mono); color: var(--accent-ink); background: var(--accent-bg); border-radius: 7px; padding: 3px 8px; }
+  td.name { font-weight: 700; color: var(--ink); width: 34%; }
+  td .ask { display: block; color: var(--muted); font-size: 13.5px; margin-top: 2px; }
+  td .from { display: block; color: var(--faint); font-size: 12.5px; margin-top: 2px; }
+  .slash { grid-template-columns: 1.45fr 1fr; }
+  .bg { margin-top: 16px; }
+
+  /* ---------- Help ---------- */
+  .help { display: grid; grid-template-columns: 1fr 1.2fr; gap: 40px; padding: 26px; }
+  .help p { margin: 0; font-size: 16px; color: var(--ink); }
+  .help ol { margin: 0; padding-left: 22px; }
+  .help li { margin: 0 0 8px; padding-left: 4px; }
+  .help li::marker { color: var(--accent); font-weight: 700; }
+
+  footer { margin: 64px 0 0; background: #fff; border-top: 1px solid var(--line); }
+  footer .wrap { display: flex; align-items: center; gap: 14px; font-size: 14.5px; padding-top: 22px; padding-bottom: 28px; }
+  footer img { height: 28px; }
+
+  .toast { position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 16px); opacity: 0; pointer-events: none;
+           background: var(--ink); color: #fff; padding: 10px 18px; border-radius: 12px; font-size: 14px;
+           transition: opacity .18s, transform .18s; z-index: 20; }
+  .toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+  @media (max-width: 1000px) {
+    .board { grid-template-columns: 1fr; }
+    .detail { border-left: 0; border-top: 1px solid var(--line); }
+    .detail .stick { position: static; max-height: none; overflow: visible; }
+    .caps { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 760px) {
+    .hero .wrap { grid-template-columns: 1fr; gap: 28px; }
+    .hero h1 { font-size: 38px; }
+    .hero img { margin-bottom: 30px; }
+    .steps, .caps, .cols, .help { grid-template-columns: 1fr; }
+    .tree { padding: 20px 12px 24px 14px; }
+    .leaf { grid-template-columns: 36px minmax(0, 1fr); gap: 10px; padding-right: 8px; }
+    .leaf .nm { font-size: 14.5px; }
+    .leaf .chev { display: none; }
+    .branch { padding-left: 22px; }
+    .branch::after { width: 16px; }
+    .leaves li { padding-left: 20px; }
+    .leaves li::after { width: 15px; }
+    .bblurb { padding-left: 16px; }
+    .dh, .grp { margin-left: 0; margin-right: 0; }
+    .dh { padding: 20px 16px 0; }
+    .what, .note, .filtered, .grp { margin-left: 16px; margin-right: 16px; }
+    .sk li { grid-template-columns: minmax(0, 1fr) auto; }
+    .sk li .does { grid-column: 1; }
+  }
+  @media (max-width: 560px) {
+    .wrap { padding: 0 16px; }
+    .tb > div { grid-template-columns: 96px 1fr; }
+    .tb > .pair { grid-template-columns: 96px 1fr auto 1fr; }
+    td.cmd { white-space: normal; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+  @media print {
+    @page { size: letter; margin: 0.45in; }
+    body { background: #fff; font-size: 12px; }
+    nav.top, .find, .toast, .print, .cp, .chev { display: none !important; }
+    .hero, .hero *, .tile, .pill, .kind, .tool, .leaf, .step::before { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .card { box-shadow: none; }
+    section { padding-top: 26px; }
+    .board { grid-template-columns: 1fr; }
+    .detail { border-left: 0; border-top: 1px solid var(--line); }
+    .detail .stick { position: static; max-height: none; overflow: visible; }
+  }
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <div>
+      <img src="{{LOGO_WHITE}}" alt="Engineering Plus">
+      <h1>Getting started <span>with Claude</span></h1>
+      <p class="lead">Claude works beside you in the desktop app. It writes, researches, builds documents and pages, and reaches into the systems EPLUS runs on. This page shows what to ask for and what it's connected to.</p>
+    </div>
+    <div class="tb" id="tb" aria-label="About this page"></div>
+  </div>
+</header>
+
+<nav class="top" aria-label="Sections">
+  <div class="wrap">
+    <a href="#start">Start here</a>
+    <a href="#tried" id="nav-tried" hidden>What we tried</a>
+    <a href="#ask">What to ask for</a>
+    <a href="#connectors">Connectors</a>
+    <a href="#skills">Your / menu</a>
+    <a href="#help">When something goes wrong</a>
+    <span class="spacer"></span>
+    <button class="print" type="button" onclick="window.print()">Print</button>
+  </div>
+</nav>
+
+<main class="wrap">
+  <section id="start">
+    <h2>Start here</h2>
+    <p class="intro">Three things to do on day one.</p>
+    <div class="steps">
+      <div class="step card"><h3>Connect your accounts</h3><p>Open <b>Settings, Connectors</b> and click <b>Connect</b> on Microsoft 365 and the EPLUS connectors. After an app update, click <b>Reconnect</b> on anything that asks.</p></div>
+      <div class="step card"><h3>Ask in plain words</h3><p>Ask the way you'd ask a colleague: "Find the spec section for firestopping and draft the RFI response." Claude works out which tools to use.</p></div>
+      <div class="step card"><h3>Type / for shortcuts</h3><p>The <b>/</b> menu lists your skills and commands, like <b>/punch-report</b> and <b>/export</b>. Say "show me what you can do" any time for the tour.</p></div>
+    </div>
+  </section>
+
+  <section id="tried" class="tried" hidden>
+    <h2>What we tried together</h2>
+    <p class="intro">From your tour. Click a prompt to copy it.</p>
+    <div class="caps" id="tried-list"></div>
+  </section>
+
+  <section id="ask">
+    <h2>Things you can ask for</h2>
+    <p class="intro">Click a prompt to copy it, paste it into the chat and fill in the blanks.</p>
+    <div class="caps" id="caps"></div>
+  </section>
+
+  <section id="connectors">
+    <h2>What Claude is connected to</h2>
+    <p class="intro" id="conn-intro"></p>
+    <label class="find">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="Find a tool: calendar, photos, schedule, PDF" aria-label="Find a connector or tool">
+    </label>
+    <div class="board card">
+      <div class="tree" id="tree"></div>
+      <aside class="detail" id="detail" aria-live="polite"></aside>
+    </div>
+  </section>
+
+  <section id="skills">
+    <h2>Your / menu</h2>
+    <p class="intro">Type <b>/</b> in the message box to see these. Each one is a skill: instructions Claude follows for one kind of task. Pick one from the menu, or just ask in plain words and Claude uses the right one.</p>
+    <div class="cols slash">
+      <div class="card">
+        <h3>EPLUS skills</h3>
+        <p class="sub">Built by EPLUS for our projects.</p>
+        <table id="eplus-skills"></table>
+      </div>
+      <div class="card">
+        <h3>From Claude</h3>
+        <p class="sub">Part of the desktop app.</p>
+        <table id="commands"></table>
+      </div>
+    </div>
+    <div class="cols bg">
+      <div class="card">
+        <h3>Working in the background</h3>
+        <p class="sub">EPLUS skills you never type. Claude uses them on its own.</p>
+        <table id="background"></table>
+      </div>
+      <div class="card">
+        <h3>Documents</h3>
+        <p class="sub">Built into Claude. Ask in plain words.</p>
+        <table id="builtin"></table>
+      </div>
+    </div>
+  </section>
+
+  <section id="help">
+    <h2>When something goes wrong</h2>
+    <p class="intro">Errors, a tool that won't work, or Claude getting stuck.</p>
+    <div class="help card" id="help-body"></div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <img src="{{ICON}}" alt="">
+    <span>To see more of what Claude can do, ask it: <b>"Show me what you can do."</b></span>
+  </div>
+</footer>
+<div class="toast" id="toast" role="status"></div>
+
+<script id="data" type="application/json">{{DATA}}</script>
+<script>
+(function () {
+  "use strict";
+  var D = JSON.parse(document.getElementById("data").textContent);
+  var C = D.connectors, M = C.makers;
+  var ORDER = ["eplus", "anthropic", "partner"];
+  var COLOR = { eplus: "var(--eplus)", anthropic: "var(--anthropic)", partner: "var(--partner)" };
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; });
+  }
+  function arr(x) { return Array.isArray(x) ? x : (x ? [x] : []); }
+  function plural(n, one, many) { return n + " " + (n === 1 ? one : (many || one + "s")); }
+  function svg(paths, sw) {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (sw || 2) +
+      '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + paths + "</svg>";
+  }
+  var COPY_ICON = '<svg class="cpi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
+
+  // ---------- Copy ----------
+  var toast = $("toast"), tt;
+  function say(msg) {
+    toast.textContent = msg; toast.classList.add("on");
+    clearTimeout(tt); tt = setTimeout(function () { toast.classList.remove("on"); }, 1700);
+  }
+  function copy(text, msg) {
+    msg = msg || "Copied. Paste it into the chat.";
+    function fallback() {
+      var t = document.createElement("textarea");
+      t.value = text; t.style.position = "fixed"; t.style.opacity = "0";
+      document.body.appendChild(t); t.select();
+      try { document.execCommand("copy"); say(msg); } catch (e) { say("Select the text to copy it."); }
+      t.remove();
+    }
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(function () { say(msg); }, fallback);
+    } else fallback();
+  }
+  function chips(tries) {
+    return '<div class="chips">' + arr(tries).map(function (t) {
+      return '<button type="button" class="chip' + (/^\//.test(t) ? " cmd" : "") + '" data-copy="' + esc(t) +
+        '" aria-label="Copy: ' + esc(t) + '"><span>' + esc(t) + "</span>" + COPY_ICON + "</button>";
+    }).join("") + "</div>";
+  }
+  function copyBtn(text) {
+    return '<button type="button" class="cp" data-copy="' + esc(text) + '" data-msg="Copied ' + esc(text) +
+      '" aria-label="Copy ' + esc(text) + '" title="Copy">' + COPY_ICON + "</button>";
+  }
+  document.addEventListener("click", function (e) {
+    var c = e.target.closest && e.target.closest("[data-copy]");
+    if (c) copy(c.getAttribute("data-copy"), c.getAttribute("data-msg"));
+  });
+
+  // ---------- Capability list ----------
+  var ICONS = {
+    doc: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
+    page: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/>',
+    skill: '<path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 17v4M17 19h4"/>',
+    memory: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    web: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+    agent: '<rect x="4" y="7" width="16" height="12" rx="3"/><path d="M12 3v4M9 13h.01M15 13h.01"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+    search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+    plug: '<path d="M9 2v6M15 2v6M7 8h10v4a5 5 0 0 1-10 0zM12 17v5"/>',
+    video: '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3"/>'
+  };
+  function iconFor(title) {
+    var t = title.toLowerCase();
+    var pick = /document|word|brand/.test(t) ? "doc" : /page|dashboard/.test(t) ? "page" : /skill/.test(t) ? "skill" :
+      /memory|about you/.test(t) ? "memory" : /web|browser/.test(t) ? "web" : /agent|librechat/.test(t) ? "agent" :
+      /schedul/.test(t) ? "clock" : /file|folder/.test(t) ? "folder" : /research/.test(t) ? "search" :
+      /account|connect/.test(t) ? "plug" : /video|training/.test(t) ? "video" : "skill";
+    return svg(ICONS[pick], 1.8);
+  }
+  function cap(c) {
+    return '<div class="cap card"><div class="ic">' + iconFor(c.title) + "</div><div><h3>" + esc(c.title) + "</h3><p>" +
+      esc(c.what) + "</p>" + chips(c.try) + "</div></div>";
+  }
+
+  // ---------- Header ----------
+  var name = (D.name || "").trim();
+  var nTools = 0, byMaker = { eplus: 0, anthropic: 0, partner: 0 };
+  C.connectors.forEach(function (c) { c.n = Object.keys(c.tools).length; nTools += c.n; byMaker[c.maker]++; });
+  if (name) document.title = name + "'s guide to Claude";
+  $("tb").innerHTML =
+    '<div><span class="k">Prepared for</span><span class="v">' + esc(name || "EPLUS engineers") + "</span></div>" +
+    '<div><span class="k">Date</span><span class="v">' + esc(D.date || "") + "</span></div>" +
+    '<div class="pair big"><span class="k">Connectors</span><span class="v">' + C.connectors.length +
+    '</span><span class="k">Tools</span><span class="v">' + nTools + "</span></div>" +
+    '<div><span class="k">Built by EPLUS</span><span class="v">' + plural(byMaker.eplus, "connector") + "</span></div>";
+
+  if (D.cards && D.cards.length) {
+    $("tried").hidden = false; $("nav-tried").hidden = false;
+    $("tried-list").innerHTML = D.cards.map(cap).join("");
+  }
+  $("caps").innerHTML = D.content.capabilities.map(cap).join("");
+
+  // ---------- The / menu, background skills, help ----------
+  var SLASH = {}, BACKGROUND = {};
+  function slashRows(rows) {
+    return "<tbody>" + rows.map(function (c) {
+      SLASH[c.command] = c;
+      return '<tr><td class="cmd"><span>' + esc(c.command) + "</span></td><td>" + esc(c.does) +
+        (c.plugin ? '<span class="from">' + esc(c.plugin) + " plugin</span>" : "") + "</td></tr>";
+    }).join("") + "</tbody>";
+  }
+  $("eplus-skills").innerHTML = slashRows(D.content.eplus_skills || []);
+  $("commands").innerHTML = slashRows(D.content.commands);
+  $("background").innerHTML = "<tbody>" + (D.content.background_skills || []).map(function (b) {
+    BACKGROUND[b.skill] = b;
+    return '<tr><td class="name">' + esc(b.skill) + "</td><td>" + esc(b.does) + "</td></tr>";
+  }).join("") + "</tbody>";
+  $("builtin").innerHTML = "<tbody>" + D.content.builtin_skills.map(function (b) {
+    return '<tr><td class="name">' + esc(b.skill) + "</td><td>" + esc(b.does) + '<span class="ask">"' + esc(b.ask) + '"</span></td></tr>';
+  }).join("") + "</tbody>";
+  var h = D.content.help;
+  $("help-body").innerHTML = "<p>" + esc(h.intro) + "</p><ol>" + h.steps.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ol>";
+
+  // ---------- Connectors: tree ----------
+  var GLYPHS = {
+    browser: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M6.5 6.5h.01M9 6.5h.01"/>',
+    cowork: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M14 4v16M17 8.5h1M17 12h1"/>',
+    terminal: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M13 15h4"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    spark: '<path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 16v4M17 18h4"/>',
+    plug: '<path d="M9 2v6M15 2v6M7 8h10v4a5 5 0 0 1-10 0zM12 17v5"/>',
+    history: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/>',
+    claude: '<path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6 5.6 18.4"/>'
+  };
+  function tile(c, big) {
+    var cls = "tile" + (big ? " lg" : "");
+    if (c.icon) return '<span class="' + cls + (c.tile === "dark" ? " dark" : "") + '"><img src="' + c.icon + '" alt=""></span>';
+    return '<span class="' + cls + ' glyph">' + svg(GLYPHS[c.glyph] || GLYPHS.plug, 2) + "</span>";
+  }
+  var CHEV = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
+
+  $("conn-intro").textContent = "Each connector gives Claude a set of tools for one system, and the number beside it is how many. " +
+    "You never pick the tools yourself: ask for what you need and Claude uses the right ones. Pick a connector to see its tools.";
+  var list = [];
+  $("tree").innerHTML =
+    '<div class="root"><span class="tile glyph">' + svg(GLYPHS.claude, 2.4) + "</span><div><b>Claude</b><small>" +
+    plural(C.connectors.length, "connector") + " &middot; " + plural(nTools, "tool") + "</small></div></div>" +
+    '<ul class="branches">' + ORDER.map(function (m) {
+      var items = C.connectors.filter(function (c) { return c.maker === m; });
+      if (!items.length) return "";
+      return '<li class="branch" style="--c:' + COLOR[m] + '"><div class="bh"><span class="pill"><i></i>' + esc(M[m].label) +
+        '</span><span class="meta">' + plural(items.length, "connector") + "</span></div>" +
+        '<p class="bblurb">' + esc(M[m].blurb) + '</p><ul class="leaves">' +
+        items.map(function (c) {
+          c.i = list.length; list.push(c);
+          return '<li><button type="button" class="leaf" data-i="' + c.i + '" aria-pressed="false" aria-controls="detail">' +
+            tile(c) + '<span class="nm">' + esc(c.name) + '<span class="ct">' + c.n + "</span>" +
+            (c.note ? '<span class="tag">Managed by EPLUS</span>' : "") + "</span>" + CHEV + "</button></li>";
+        }).join("") + "</ul></li>";
+    }).join("") + "</ul>";
+
+  var narrow = window.matchMedia("(max-width: 1000px)");
+  [].slice.call(document.querySelectorAll(".leaf")).forEach(function (b) {
+    var c = list[+b.getAttribute("data-i")];
+    c.btn = b;
+    b.setAttribute("aria-label", c.name + ", " + plural(c.n, "tool") + (c.note ? ", managed by EPLUS" : ""));
+    b.addEventListener("click", function () {
+      state.sel = c; render();
+      if (narrow.matches) detail.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+
+  // ---------- Tools panel ----------
+  var state = { sel: list[0], q: "" };
+  var qEl = $("q");
+  qEl.addEventListener("input", function () {
+    state.q = qEl.value.trim().toLowerCase();
+    if (state.q) {
+      var first = list.filter(function (c) { return match(c).tools.length; })[0];
+      if (first && !match(state.sel).tools.length) state.sel = first;
+    }
+    render();
+  });
+  function has(text) { return !!state.q && String(text).toLowerCase().indexOf(state.q) >= 0; }
+  function hl(text) {
+    var t = String(text);
+    if (!state.q) return esc(t);
+    var i = t.toLowerCase().indexOf(state.q);
+    if (i < 0) return esc(t);
+    return esc(t.slice(0, i)) + "<mark>" + esc(t.slice(i, i + state.q.length)) + "</mark>" + esc(t.slice(i + state.q.length));
+  }
+  function match(c) {
+    var all = Object.keys(c.tools);
+    if (!state.q) return { tools: all, whole: true };
+    var whole = has(c.name) || has(c.what);
+    var tools = all.filter(function (t) { return has(t) || has(c.tools[t]); });
+    // Matching tools win; a match on the connector alone shows all its tools.
+    return { tools: tools.length ? tools : (whole ? all : []), whole: !tools.length && whole, hits: tools.length };
+  }
+
+  var KIND = {
+    r: { label: "Reads", say: "Looks things up. Changes nothing.", none: "",
+         icon: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>' },
+    w: { label: "Writes", say: "Creates, changes, sends or acts on something.", none: "",
+         icon: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>' }
+  };
+  function group(k, c, tools, filtered) {
+    var K = KIND[k];
+    if (!tools.length && (filtered || !K.none)) return "";
+    return '<div class="grp ' + k + '"><h4><span class="kind">' + svg(K.icon, 2.2) + K.label + "</span>" + K.say + "</h4>" +
+      (tools.length ? '<ul class="tools">' + tools.map(function (t) {
+        return '<li class="tool"><div class="tn"><code>' + hl(t) + "</code>" + copyBtn(t) + '</div><div class="td">' + hl(c.tools[t]) + "</div></li>";
+      }).join("") + "</ul>" : '<p class="empty">' + K.none + "</p>") + "</div>";
+  }
+  function skills(c) {
+    var rows = arr(c.skills).map(function (s) {
+      var sl = SLASH[s], bg = BACKGROUND[s];
+      if (sl) return '<li><span class="cmd">' + esc(s) + '</span><span class="does">' + esc(sl.does) + "</span>" + copyBtn(s) + "</li>";
+      if (bg) return '<li><span class="bgname">' + esc(s) + '</span><span class="does">' + esc(bg.does) + '</span><span class="auto">Runs on its own</span></li>';
+      return "";
+    }).join("");
+    if (!rows) return "";
+    return '<div class="grp s"><h4><span class="kind">' + svg(GLYPHS.spark, 2.2) + "Skills</span>Shortcuts in your / menu that use it.</h4><ul class=\"sk\">" + rows + "</ul></div>";
+  }
+
+  var detail = $("detail");
+  function render() {
+    list.forEach(function (c) {
+      var m = match(c);
+      c.btn.setAttribute("aria-pressed", String(state.sel === c));
+      c.btn.classList.toggle("off", !!state.q && !m.tools.length);
+      var old = c.btn.querySelector(".hits");
+      if (old) old.remove();
+      if (state.q && m.hits) c.btn.querySelector(".nm").insertAdjacentHTML("beforeend", '<span class="hits">' + plural(m.hits, "match", "matches") + "</span>");
+    });
+    if (state.q && !list.some(function (x) { return match(x).tools.length; })) {
+      detail.innerHTML = '<div class="none">Nothing matches "' + esc(state.q) + '". Try a plainer word, like email, photos or report.</div>';
+      return;
+    }
+    var c = state.sel, m = match(c);
+    var filtered = !!state.q && !m.whole;
+    var writes = arr(c.writes);
+    var shown = m.tools;
+    detail.innerHTML = '<div class="stick" style="--c:' + COLOR[c.maker] + '">' +
+      '<div class="dh">' + tile(c, true) + "<div><h3>" + hl(c.name) + '</h3><span class="ct">' + plural(c.n, "tool") + "</span></div></div>" +
+      '<p class="what">' + hl(c.what) + "</p>" +
+      (c.note ? '<div class="note">' + svg('<path d="M12 3 4 6v6c0 4.5 3.4 8.2 8 9 4.6-.8 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/>', 2) +
+        "<span>" + esc(c.note) + "</span></div>" : "") +
+      (filtered ? '<div class="filtered">Showing the tools that match "' + esc(state.q) + '".</div>' : "") +
+      group("r", c, shown.filter(function (t) { return writes.indexOf(t) < 0; }), filtered) +
+      group("w", c, shown.filter(function (t) { return writes.indexOf(t) >= 0; }), filtered) +
+      skills(c) +
+      '<div class="grp t"><h4><span class="kind">' + svg('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>', 2.2) +
+      "Try saying</span>Click to copy.</h4>" + chips(c.try) + "</div></div>";
+  }
+  render();
+})();
+</script>
+</body>
+</html>

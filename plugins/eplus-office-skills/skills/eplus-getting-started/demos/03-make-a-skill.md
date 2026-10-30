@@ -29,7 +29,7 @@ up in their `/` menu.
    describe the task and I'll pick it up." Mention that a skill can also carry
    reference files (a style guide, a template) and that you can build one of
    those whenever they ask.
-6. Add the card to the cheat sheet: title "Your own skills", what "Describe a
+6. Add the card to their page: title "Your own skills", what "Describe a
    task you repeat and I'll save it as a skill in your / menu.", try "Make a
    skill that ..." / "Change my <skill name> skill so it ..."
 

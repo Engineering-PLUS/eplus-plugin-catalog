@@ -9,12 +9,9 @@
  * What it renders:
  *   - Page 1 of the body is BLANK (own section, no header or footer) in every
  *     cover_mode but "none", so the reviewer can swap in a coversheet and the
- *     page numbers stay right. In "template" mode the cover itself is written
- *     to a SEPARATE file, <output>-Cover.docx: the EPLUS coversheet artwork as
- *     page-anchored floating images with native, config-driven text blocks
- *     measured from the issued coversheet (EP logo and address, eyebrow and
- *     building on the band, client name and address, EP project number and
- *     dates, optional client logo).
+ *     page numbers stay right. In "template" mode scripts/fill_cover.py writes
+ *     the cover to a SEPARATE file, <output>-Cover.docx, from EPLUS's own
+ *     coversheet; nothing about the cover is drawn here.
  *   - Contents section: a heading, a red delete-before-printing note, and a REAL
  *     Word TOC field (TOC \o "1-1" \h \z \u) whose cached result is one styled
  *     entry per item, each entry a PAGEREF field on the item heading's bookmark
@@ -67,8 +64,7 @@ const {
   WidthType, BorderStyle, ShadingType, ImageRun, AlignmentType,
   Header, Footer, PageNumber, VerticalAlign, LevelFormat, HeadingLevel,
   TabStopType, LeaderType, Tab, Bookmark, InternalHyperlink, PageReference,
-  HorizontalPositionRelativeFrom, VerticalPositionRelativeFrom, TextWrappingType,
-  TableAnchorType, OverlapType, ImportedXmlComponent,
+  ImportedXmlComponent,
 } = require('docx');
 
 const BUILD = process.argv[2] || path.join(__dirname, '..');
@@ -167,8 +163,12 @@ const CONT_HEADER_H = 620;
 // the only thing on the page that says where this item is, so it earns the space.
 const META_LABEL_W = 1650;
 const CLIP_COL_W = 4800;
-const META_VALUE_W = USABLE_W - META_LABEL_W - CLIP_COL_W;
 const CLIP_IMG_W = CLIP_COL_W - 240;
+// A report with no PlanGrid drawings (built from notes and photos, or an empty
+// fill-in report) has no pin clips at all: report.config.json "sheet_clips":
+// false drops the clip column and the meta table runs the full width.
+const NO_CLIPS = CFG.sheet_clips === false;
+const META_VALUE_W = USABLE_W - META_LABEL_W - (NO_CLIPS ? 0 : CLIP_COL_W);
 
 const dxaToPx = (dxa) => Math.floor((dxa / 1440) * 96);
 
@@ -216,13 +216,15 @@ function metaRowsData(item) {
   // master built without it: on 2026-09-14 the photo-only rule printed N/A on
   // 27 of 38 items and forced a second delivery.
   // A blank fill-in page (blank_template.py) leaves both values for the engineer.
-  if (item.blank) return [['Drawing Sheet', ''], ['Date Recorded', '']];
+  // With no clips there is no drawing either: the first row is the location
+  // (a notes report's own words), unless the item does carry a sheet.
+  if (item.blank) return [[NO_CLIPS ? 'Location' : 'Drawing Sheet', ''], ['Date Recorded', '']];
   const shots = (item.photo_titles || []).map(fmtTimestamp).filter(Boolean).sort();
   const recorded = item.date_recorded || (shots.length ? shots[0].split(' ')[0] : 'N/A');
-  return [
-    ['Drawing Sheet', item.sheet_display || 'N/A'],
-    ['Date Recorded', recorded],
-  ];
+  const first = NO_CLIPS && !item.sheet_name
+    ? ['Location', item.location || '']
+    : ['Drawing Sheet', item.sheet_display || 'N/A'];
+  return [first, ['Date Recorded', recorded]];
 }
 
 function metaTable(item) {
@@ -230,7 +232,9 @@ function metaTable(item) {
   const clipPath = sheetClipPathFor(item);
 
   let clipCellChildren;
-  if (fs.existsSync(clipPath)) {
+  if (NO_CLIPS) {
+    clipCellChildren = null;
+  } else if (fs.existsSync(clipPath)) {
     const clipBase = path.basename(clipPath);
     const [cw, ch] = clipDims[clipBase] || [800, 800];
     const clipH = Math.round(CLIP_IMG_W * (ch / cw));
@@ -267,7 +271,7 @@ function metaTable(item) {
         children: [new Paragraph({ children: [run(String(value), { size: 19, color: DARKGREY })] })],
       }),
     ];
-    if (i === 0) {
+    if (i === 0 && clipCellChildren) {
       cells.push(new TableCell({
         width: { size: CLIP_COL_W, type: WidthType.DXA },
         rowSpan: rowsData.length,
@@ -282,7 +286,7 @@ function metaTable(item) {
 
   return new Table({
     width: { size: USABLE_W, type: WidthType.DXA },
-    columnWidths: [META_LABEL_W, META_VALUE_W, CLIP_COL_W],
+    columnWidths: NO_CLIPS ? [META_LABEL_W, META_VALUE_W] : [META_LABEL_W, META_VALUE_W, CLIP_COL_W],
     rows,
   });
 }
@@ -387,7 +391,7 @@ function estimateOverheadDXA(item, opts = {}) {
     .reduce((s, [, v]) => s + estimateTextHeightDXA(String(v), 19, META_VALUE_W) + 100, 0);
   const clipBase = path.basename(sheetClipPathFor(item));
   const [cw, ch] = clipDims[clipBase] || [800, 800];
-  const clipH = Math.round(CLIP_IMG_W * (ch / cw)) + 280;
+  const clipH = NO_CLIPS ? 0 : Math.round(CLIP_IMG_W * (ch / cw)) + 280;
   h += Math.max(textRows, clipH) + 100;
 
   h += 300 + estimateTextHeightDXA(item.description, 20, USABLE_W) + 80;
@@ -608,259 +612,25 @@ const editorNoted = master.filter(m => m.editor_note).length;
 const totalPhotos = master.reduce((s, m) => s + m.photo_paths.length, 0);
 
 // ------------------------------------------------------------------------------- cover
-// Rebuilt from a previously issued EPLUS coversheet, which is the design EPLUS has been
-// putting on these reports. The two raster pieces ARE the artwork and are reused as
-// shipped: cover_hero.jpg is stock brand imagery and cover_bands.png is the EP diagonal
-// band graphic, a full-page transparent overlay. Everything else, all the text and all
-// the geometry, is native, so it tracks page size and is editable in Word.
+// The cover is not drawn here. scripts/fill_cover.py writes <output>-Cover.docx
+// from one of EPLUS's own coversheets (_pipeline/covers/), filling only the
+// text fields, so the artwork and the client logo are the designer's. This
+// renderer only leaves page 1 of the body blank for it.
 //
-// Geometry is taken from the reference document's own anchors, converted to page
-// relative offsets:
-//     bands   8.49 x 10.98in at (0.00, 0.01)   full bleed, drawn OVER the hero
-//     hero    8.53 x  6.37in at (0.00, 1.01)   leaves a white band at top for the logos
-// The reference gives bands a higher relativeHeight than the hero, so the bands sit on
-// top. docx derives z order from document order, so the hero must be emitted FIRST.
-//
-// The client logo is deliberately NOT bundled with this skill: it is the end client's
-// trademark and it changes per project. Supply it per project as
-// build/assets/cover/client_logo.png and it renders bottom right; omit it and the cover
-// simply renders without it.
-const EMU_PER_IN = 914400;
-const inEMU = (n) => Math.round(n * EMU_PER_IN);
 // cover_mode in report.config.json:
-//   template  write <output>-Cover.docx (this file's layout) and leave page 1 of the body blank
+//   template  fill_cover.py writes <output>-Cover.docx; page 1 of the body is blank
 //   supplied  the reviewer has a coversheet; body page 1 blank, no cover written
 //   blank     body page 1 blank only, no cover written
 //   none      no cover page at all; the Table of Contents is page 1
 // include_cover: false (legacy) means none.
 const COVER_MODE = CFG.cover_mode || (CFG.include_cover === false ? 'none' : 'template');
 const BLANK_FIRST_PAGE = COVER_MODE !== 'none';
-const WRITE_COVER = COVER_MODE === 'template';
-const COVER_OUT = OUT.replace(/\.docx$/i, '') + '-Cover.docx';
-const COVER_DIR = path.join(BUILD, 'assets/cover');
-// 0.25in from the paper edge, the same inset as the body pages' letterhead
-// (HEADER_MARGIN), so the cover logos and the interior letterhead line up.
-const COVER_LOGO_Y = HEADER_MARGIN;
 
-function coverBackgroundRuns() {
-  const runs = [];
-  const layers = [
-    { file: 'cover_hero.jpg', type: 'jpg', w: 8.53, h: 6.37, x: 0.0, y: 1.01 },
-    { file: 'cover_bands.png', type: 'png', w: 8.49, h: 10.98, x: 0.0, y: 0.01 },
-  ];
-  for (const l of layers) {
-    const p = path.join(COVER_DIR, l.file);
-    if (!fs.existsSync(p)) continue;
-    runs.push(imageRun({
-      type: l.type,
-      data: fs.readFileSync(p),
-      transformation: { width: Math.round(l.w * 96), height: Math.round(l.h * 96) },
-      floating: {
-        horizontalPosition: { relative: HorizontalPositionRelativeFrom.PAGE, offset: inEMU(l.x) },
-        verticalPosition: { relative: VerticalPositionRelativeFrom.PAGE, offset: inEMU(l.y) },
-        behindDocument: true,
-        allowOverlap: true,
-        wrap: { type: TextWrappingType.NONE },
-      },
-    }));
-  }
-  return runs;
-}
-
-// ------------------------------------------------------------------ cover layout
-// Measured from the coversheet EPLUS issues (2026-09-10 field reference, US Letter):
-//
-//   EP logo                     top left, in the white band above the artwork
-//   address line                x 0.75in  y 1.09in  10.5pt   (constant, below)
-//   eplusadvisors.com           x 0.75in  y 1.28in  14pt
-//   eyebrow                     x 0.75in  y 3.56in  16pt     white, on the dark band
-//   building (title)            x 0.75in  y 4.04in  22pt     white, bold
-//   client name                 right-aligned to x 7.75in, y 8.38in, 20pt bold
-//   client address lines        right-aligned to x 7.75in, from y 8.71in, 14pt
-//   EP Project No / Inspection Date / Issuance Date / Inspector
-//                               x 1.43in  y 9.25in  12pt, one line each, label bold
-//   client logo (optional)      x 4.96in  y 9.36in  3.19 x 0.73in box, bottom right
-//
-// The reference is set in Montserrat; the seats do not carry that font, so this
-// uses the document font (Arial) at the same sizes. When the fleet standardises
-// a brand font, FONT is the one constant to change.
-//
-// Every block is a page-anchored floating table (see floatingBlock), never a
-// pasted bitmap: the text tracks the page and stays editable in Word.
-const EPLUS_ADDRESS = '9018 Heritage Parkway  •  Suite 1000  •  Woodridge, IL 60517  •  P: 630.786.4200  •  F: 630-786-4201';
-const EPLUS_URL = 'eplusadvisors.com';
-const inDxa = (n) => Math.round(n * 1440);
-
-function fmtDate(v) {
-  // MM/DD/YYYY on the cover. Accepts ISO (YYYY-MM-DD), the legacy "Site walk:
-  // Month D, YYYY" strings, or anything Date can parse; passes through otherwise.
-  // A LIST renders every date joined by " & " (a walk that spanned two days;
-  // field result 2026-09-14: the single-date field dropped the second day).
-  if (Array.isArray(v)) return v.map(fmtDate).filter(Boolean).join(' & ');
-  if (!v) return '';
-  const s = String(v).replace(/^Site walk:\s*/i, '').trim();
-  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (m) return `${m[2]}/${m[3]}/${m[1]}`;
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
-  const d = new Date(s);
-  if (!isNaN(d)) {
-    const p = (n) => String(n).padStart(2, '0');
-    return `${p(d.getMonth() + 1)}/${p(d.getDate())}/${d.getFullYear()}`;
-  }
-  return s;
-}
-
-function floatingBlock(x, y, w, children, fill) {
-  return new Table({
-    float: {
-      horizontalAnchor: TableAnchorType.PAGE,
-      verticalAnchor: TableAnchorType.PAGE,
-      absoluteHorizontalPosition: x,
-      absoluteVerticalPosition: y,
-      overlap: OverlapType.OVERLAP,
-    },
-    width: { size: w, type: WidthType.DXA },
-    columnWidths: [w],
-    borders: noBorders(),
-    rows: [new TableRow({
-      cantSplit: true,
-      children: [new TableCell({
-        width: { size: w, type: WidthType.DXA },
-        borders: noBorders(),
-        margins: { top: 0, bottom: 0, left: 0, right: 0 },
-        ...(fill ? { shading: { type: ShadingType.CLEAR, color: 'auto', fill } } : {}),
-        children,
-      })],
-    })],
-  });
-}
-
-// A cover fact nobody has supplied yet. The report is built first and finished
-// later (0.9.0), so a draft may go out before the client name, address, EP
-// number or inspector are known. Such a field renders as a visible red
-// "[MISSING: ...]" marker rather than the template's "<...>" hint text or a
-// silent gap, and finish_list.py names the command that fills it.
+// A cover fact nobody has supplied yet: the footer leaves it out (the cover
+// carries the red [MISSING: ...] marker).
 const isMissing = (v) => v == null
   || (typeof v === 'string' && (v.trim() === '' || v.trim().startsWith('<')))
   || (Array.isArray(v) && (v.length === 0 || v.every(isMissing)));
-const MISSING = (label) => `[MISSING: ${label}]`;
-const valueRun = (value, opts) => run(value, String(value).startsWith('[MISSING:')
-  ? { ...opts, color: ALERT_RED, bold: true } : opts);
-
-const metaLine = (label, value) => new Paragraph({
-  spacing: { before: 0, after: 40, line: 276, lineRule: 'auto' },
-  children: [
-    run(`${label}: `, { bold: true, size: 24, color: DARKGREY }),
-    valueRun(value, { size: 24, color: DARKGREY }),
-  ],
-});
-
-// Top left: EP logo, the address line, the URL. Native text under the brand mark.
-const coverBrandBlock = floatingBlock(inDxa(0.75), inDxa(0.35), inDxa(7.0), [
-  new Paragraph({
-    spacing: { before: 0, after: 80 },
-    children: [imageRun({
-      type: 'jpg', data: EP_LOGO,
-      transformation: { width: dxaToPx(LH_LOGO_W), height: dxaToPx(LH_LOGO_H) },
-    })],
-  }),
-  new Paragraph({ spacing: { before: 0, after: 20 }, children: [run(EPLUS_ADDRESS, { size: 17, color: DARKGREY })] }),
-  new Paragraph({ spacing: { before: 0, after: 0 }, children: [run(EPLUS_URL, { size: 24, color: DARKGREY })] }),
-]);
-
-// Left, on the dark band: eyebrow, short white rule, building name.
-const coverTitleBlock = floatingBlock(inDxa(0.75), inDxa(3.50), inDxa(3.4), [
-  new Paragraph({
-    spacing: { before: 0, after: 60 },
-    children: [run(CFG.cover_eyebrow || 'Technology Site Inspection', { size: 32, color: 'FFFFFF' })],
-  }),
-  new Paragraph({
-    spacing: { before: 0, after: 120 },
-    border: { bottom: { style: BorderStyle.SINGLE, size: 12, color: 'FFFFFF', space: 1 } },
-    indent: { right: inDxa(1.0) },
-    children: [run('', { size: 2 })],
-  }),
-  new Paragraph({
-    spacing: { before: 0, after: 0 },
-    children: [valueRun(isMissing(CFG.cover_subtitle) ? MISSING('building or area') : CFG.cover_subtitle,
-      { bold: true, size: 44, color: 'FFFFFF' })],
-  }),
-]);
-
-// Bottom right: client display name and address, right-aligned to the text edge.
-// The internal PlanGrid project name (cover_title) used to stand in for a blank
-// client name. A config written by prefill_config.py (it carries fact_sources)
-// shows the gap instead, so an internal project code never reads as the client.
-const clientName = !isMissing(CFG.client_display_name) ? CFG.client_display_name
-  : (!CFG.fact_sources && !isMissing(CFG.cover_title) ? CFG.cover_title : MISSING('client name'));
-const addressLines = isMissing(CFG.site_address) ? [MISSING('site address')]
-  : (Array.isArray(CFG.site_address) ? CFG.site_address : [String(CFG.site_address)]).filter((l) => !isMissing(l));
-const coverClientBlock = floatingBlock(inDxa(4.25), inDxa(8.32), inDxa(3.5), [
-  new Paragraph({
-    alignment: AlignmentType.RIGHT,
-    spacing: { before: 0, after: 60 },
-    children: [valueRun(clientName, { bold: true, size: 40, color: BLUE })],
-  }),
-  ...addressLines.map((line) => new Paragraph({
-    alignment: AlignmentType.RIGHT,
-    spacing: { before: 0, after: 20 },
-    children: [valueRun(line, { size: 28, color: DARKGREY })],
-  })),
-]);
-
-// Bottom left: the four meta lines. EP project number first, as on the issued sheet.
-// A missing fact shows as a red [MISSING: ...] marker instead of disappearing.
-const issuance = isMissing(CFG.issuance_date) ? 'TBD' : CFG.issuance_date;
-const coverMetaBlock = floatingBlock(inDxa(1.43), inDxa(9.20), inDxa(3.3), [
-  metaLine('EP Project No', isMissing(CFG.ep_project_no) ? MISSING('EP project number') : String(CFG.ep_project_no)),
-  metaLine('Inspection Date', isMissing(CFG.inspection_date || CFG.walk_date)
-    ? MISSING('walk date') : fmtDate(CFG.inspection_date || CFG.walk_date)),
-  metaLine('Issuance Date', fmtDate(issuance)),
-  metaLine('Inspector', isMissing(CFG.inspector) ? MISSING('inspector') : String(CFG.inspector)),
-]);
-
-// Bottom right: the client's logo, only when a file is present. It is the end
-// client's trademark and changes per project, so it is never bundled. Fitted
-// inside a 3.19 x 0.73in box, aspect preserved.
-function coverClientLogo() {
-  const p = path.join(COVER_DIR, 'client_logo.png');
-  if (!fs.existsSync(p)) return [];
-  let w = 3.19, h = 0.73;
-  try {
-    const buf = fs.readFileSync(p);
-    // PNG IHDR: width at byte 16, height at byte 20 (big-endian)
-    const pw = buf.readUInt32BE(16), ph = buf.readUInt32BE(20);
-    if (pw > 0 && ph > 0) {
-      const scale = Math.min(3.19 / pw, 0.73 / ph);
-      w = pw * scale; h = ph * scale;
-    }
-  } catch (e) { /* keep the box size */ }
-  return [new Paragraph({
-    spacing: { before: 0, after: 0 },
-    children: [imageRun({
-      type: 'png', data: fs.readFileSync(p),
-      transformation: { width: Math.round(w * 96), height: Math.round(h * 96) },
-      floating: {
-        horizontalPosition: { relative: HorizontalPositionRelativeFrom.PAGE, offset: inEMU(8.15 - w) },
-        verticalPosition: { relative: VerticalPositionRelativeFrom.PAGE, offset: inEMU(9.36) },
-        allowOverlap: true,
-        wrap: { type: TextWrappingType.NONE },
-      },
-    })],
-  })];
-}
-
-const coverPage = [
-  new Paragraph({ children: coverBackgroundRuns(), spacing: { before: 0, after: 0 } }),
-  coverBrandBlock,
-  coverTitleBlock,
-  coverClientBlock,
-  coverMetaBlock,
-  ...coverClientLogo(),
-  // A floating table must be followed by an anchor paragraph in the flow, or Word has
-  // nothing to hang the section's final properties on.
-  new Paragraph({ spacing: { before: 0, after: 0 }, children: [run('', { size: 2 })] }),
-];
 
 const cover = [
   // ----- Table of Contents -----
@@ -1168,30 +938,9 @@ const doc = new Document({
   ],
 });
 
-// The cover is a SEPARATE document: one page, its own branding, no letterhead
-// header and no page footer. Written only in "template" mode; in "supplied"
-// mode the reviewer already has a cover, and in "blank" mode they will add one.
-const coverDoc = WRITE_COVER ? new Document({
-  styles: { default: { document: { run: { font: FONT, color: DARKGREY, size: 21 } } } },
-  sections: [{
-    properties: {
-      page: {
-        size: { width: PAGE_W, height: PAGE_H },
-        margin: { top: 720, bottom: 720, left: MARGIN_LR, right: MARGIN_LR, header: 0, footer: 0 },
-      },
-    },
-    children: coverPage,
-  }],
-}) : null;
-
 Packer.toBuffer(doc).then(async (buf) => {
   fs.writeFileSync(OUT, buf);
   console.log('wrote', OUT, (buf.length / 1048576).toFixed(1), 'MB', `(cover_mode=${COVER_MODE}${BLANK_FIRST_PAGE ? ', page 1 blank' : ''})`);
-  if (coverDoc) {
-    const cbuf = await Packer.toBuffer(coverDoc);
-    fs.writeFileSync(COVER_OUT, cbuf);
-    console.log('wrote', COVER_OUT, (cbuf.length / 1048576).toFixed(1), 'MB', '(cover, separate file)');
-  }
   const undetermined = master.filter(m => m.corrective_action.startsWith('N/A')).length;
   const deleted = master.filter(m => m.deleted_in_plangrid).length;
   const undated = master.filter(m => !m.date_recorded && !m.blank).length;

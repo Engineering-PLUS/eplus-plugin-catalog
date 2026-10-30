@@ -19,12 +19,13 @@ every week) without being asked each time.
    ("Getting started test" or "Monday check-in") and a prompt that is
    self-contained (it runs later with no memory of this chat).
 4. Show them the list of their scheduled tasks (`list_scheduled_tasks`) and
-   where to find it, and tell them `/schedule` is the shortcut for setting one
-   up or changing it later. For the one-time test, tell them to look for the result in
-   about five minutes.
+   where to find it, and tell them they can set one up or change it later just
+   by asking ("every Friday at 3, ...", "move my Monday check-in to 9"). Never
+   mention `/schedule`: it does not work on EPLUS seats. For the one-time test,
+   tell them to look for the result in about five minutes.
 5. Offer to delete it now or keep it. Delete only on a clear yes
    (`delete_scheduled_task`).
-6. Add the card to the cheat sheet: title "Scheduled tasks", what "Ask me to
+6. Add the card to their page: title "Scheduled tasks", what "Ask me to
    do something every day, every week, or at a set time.", try "Every Monday
    at 8, ..." / "Remind me on Friday to ..."
 

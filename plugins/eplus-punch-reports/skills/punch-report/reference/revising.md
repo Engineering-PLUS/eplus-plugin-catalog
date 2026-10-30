@@ -33,8 +33,9 @@ change is now a single command.
 
 Supplied cover facts are recorded as `fact_sources: user` and client-level ones
 (client name, address, EP number, inspector, reviewer, cover mode) are written
-to `client-profile.json`, which `package.py` delivers into the project folder
-so the next report for this client starts with them.
+to `client-profile.json`, which travels inside the package (`prefill_config.py`
+reads it from the newest package in the project folder), so the next report
+for this client starts with them.
 
 ## In a new session: rebuild the workspace from the package, then the same commands
 

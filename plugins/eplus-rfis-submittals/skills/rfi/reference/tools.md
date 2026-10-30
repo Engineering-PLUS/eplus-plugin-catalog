@@ -5,8 +5,8 @@ delivered as a managed connector; tools appear as
 `mcp__rfi-knowledge-hub__<tool>` (or
 `mcp__plugin_eplus-rfis-submittals_rfi-knowledge-hub__<tool>` if the plugin
 is ever bundled again). The four read tools are called only by the
-`rfi-researcher` agent; `commit_approved_rfi` is called only from the main
-thread after the Step 4 gate.
+`rfi-researcher` agent; `show_rfi_graph` and `commit_approved_rfi` are called
+only from the main thread, the commit only after the Step 4 gate.
 
 ## Read tools (researcher only)
 
@@ -56,6 +56,26 @@ authoritative 2025-08 update. All three direct tools accept `spec_version`:
 determinations), `"baseline"` (the current issue), `"all"` (both — use
 when the user asks what changed between versions). `read_source` reports
 the file's `version` so citations can name it.
+
+## Map tool (main thread only)
+
+- `show_rfi_graph(query, project_id=None)` — opens an interactive graph of
+  the documents that mention a topic inline in the chat (needs a host with
+  MCP Apps support; other hosts show only the text summary). The model never
+  sees the graph. Read-only.
+  - `query`: 1–3 distinctive domain words ("card reader", "ductbank",
+    "grounding bonding"), each matched separately as a substring of node
+    labels. Filler words and "rfi" are dropped server-side. Max 200 chars.
+  - `project_id`: case-insensitive substring of a project name ("NVA05D",
+    "POR03B", "Miner"). Direct topic matches from other projects are kept.
+  - Returns `{status: success|empty|error, message, query, project_id,
+    counts: {rfi, submittal, codebook, spec, concept, other},
+    top_documents: [≤5 labels], themes: [...]}`.
+  - Selecting a node sends the model a context line:
+    `In the RFI knowledge graph for "<query>", the user selected <type> "<label>" (<project>).`
+    No file path.
+- `rfi_graph_data`, `rfi_graph_expand` — the widget's own helpers
+  (`visibility: ["app"]`), hidden from the model. Never call them.
 
 ## Write tool (main thread only, gated)
 

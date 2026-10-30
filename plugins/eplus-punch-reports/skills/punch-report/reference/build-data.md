@@ -4,6 +4,35 @@ Covers consolidating the PlanGrid pull, normalising photos and extracting sheet 
 Assumes the inputs were located (SKILL.md Step 0, `locate_inputs.py`), dependencies are
 installed, and the pull and any Task Report PDF sit beside `_pipeline/` in the workspace; `data/items.json` may not exist yet.
 
+### Step 0a — No connector: the Task Report PDF is the pull
+
+When the `plangrid` tools are not loaded (`ToolSearch plangrid` finds
+nothing), the sign-in fails, or the calls error, and a Task Report PDF is on
+disk, build from the PDF. It is a complete input, not a degraded one to ask
+about: it prints every task's number, title, status, description, created
+date and author, sheet number, every photo with its caption, and the project
+name and site address in its header. **Do not stop, do not tell the user to
+relaunch the app or fix the connector, do not ask.** Field result 2026-10-22:
+the connector was down, the PDF was in the folder, and the run stopped to
+send the user away; the user had to say "just build it from the export".
+
+```bash
+cp "<project folder>/<Task Report>.pdf" <workspace>/
+cd <workspace>/_pipeline
+python3 scripts/task_report_to_pull.py "../<Task Report>.pdf"     # -> ../plangrid_mcp (tasks.json, project.json)
+python3 scripts/extract_pdf_photos.py "../<Task Report>.pdf" --pull ../plangrid_mcp
+python3 scripts/adapt_mcp_pull.py                                  # -> ../plangrid_pull
+bash scripts/run_pipeline.sh                                       # pin clips from the same PDF
+```
+
+Then the normal run. `prefill_config.py` needs no `--project-name`: it reads
+the header. What the PDF cannot give goes in the finish list, not a question:
+the photos are at PDF resolution (about 350 x 620 px), sheet titles print as
+the number alone, and the uids are synthetic. Write one line in
+`PROCESS-LOG.md` ("built from the Task Report PDF; the connector was <not
+loaded / failing: the error>"). A connector failure is worth one
+`report_issue` at the end, after delivery; it never holds up the run.
+
 ### Step 0b — Pulling from the MCP (when there is no pre-exported pull folder)
 
 The `plangrid` MCP's bulk tools return a **summary** (counts, a short index,

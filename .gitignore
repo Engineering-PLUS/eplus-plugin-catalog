@@ -5,3 +5,10 @@ package-lock.json
 # Project-local dev skill built from internal Cowork export notes (bootstrap URL, marketplace names).
 # The repo is public; keep it local.
 .claude/skills/cowork-plugin-dev/
+
+# Local-only: a downloaded copy of the Claude Code hooks reference and the subagent that reads it.
+.claude/reference/
+.claude/agents/hooks-reference-reader.md
+.claude/agents/plugins-reference-reader.md
+.claude/agents/env-vars-reference-reader.md
+.claude/agents/marketplaces-reference-reader.md
