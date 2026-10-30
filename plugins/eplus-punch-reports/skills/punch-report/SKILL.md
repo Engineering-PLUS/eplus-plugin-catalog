@@ -115,10 +115,14 @@ PlanGrid projects `<CLIENT> - <BUILDING> - <EP no>` (`STACK - POR03C - 27073`),
 and the Task Report header prints that name and the site address.
 `prefill_config.py` takes the client, building, EP number and address from
 them (source `plangrid project name` / `task report header`). Field result
-2026-10-22: a run asked the user for all four. On the MCP route
-`run_pipeline.sh` reads the header too (`task_report_to_pull.py --header-only`),
-since the connector carries no address. A project with no address in PlanGrid
-prints "Prepared by <name>" there instead, and the address stays [MISSING].
+2026-10-22: a run asked the user for all four. On the MCP route PlanGrid's
+own project record comes first: the connector puts it in the tasks packet
+(`coverage.project`: address lines, `custom_id`), and the project code is
+the EP number when it is 4 to 6 digits. The Task Report header is the fallback
+(`run_pipeline.sh` reads it with `task_report_to_pull.py --header-only`). A
+project with no address in PlanGrid prints "Prepared by <name>" there instead,
+and the address stays [MISSING]; the fix is to enter it in PlanGrid's project
+settings, not to ask.
 The EP project number renders
 on the cover only; `verify_report.py` asserts it is absent from the body.
 
