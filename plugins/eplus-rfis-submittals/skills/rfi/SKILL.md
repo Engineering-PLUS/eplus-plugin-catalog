@@ -1,7 +1,7 @@
 ---
 name: rfi
-description: Draft a spec-backed RFI or submittal response, and save approved responses to the EPLUS knowledge base.
-when_to_use: Use this skill whenever a task involves RFIs (Requests for Information), submittals, submittal review, RFI response drafting, spec clause lookups, CSI division/section questions, logging or committing a finalized/issued RFI response to the knowledge base, or the rfi-knowledge-hub MCP tools (query_hermes_rfi, commit_approved_rfi, list_sources, read_source, grep_corpus). Encodes the EPLUS RFI workflow — settle the memory question up front, deconstruct the request, delegate the lookup to the rfi-researcher agent, draft the response to the house format, then gate the knowledge-base write-back behind an explicit AskUserQuestion approval — plus the return path for logging a final RFI that was edited and issued outside the chat. Always load it before calling any rfi-knowledge-hub tool. When the RFIs or submittals are to be reviewed against the project's own drawings, bulletins, and specifications in a connected folder, load contract-document-review as well; it carries that workflow.
+description: Draft a spec-backed RFI or submittal response, map how a topic connects across the EPLUS knowledge base, and save approved responses to it.
+when_to_use: Use this skill whenever a task involves RFIs (Requests for Information), submittals, submittal review, RFI response drafting, spec clause lookups, CSI division/section questions, seeing, mapping, visualizing or exploring how a topic connects across projects and documents, logging or committing a finalized/issued RFI response to the knowledge base, or the rfi-knowledge-hub MCP tools (query_hermes_rfi, show_rfi_graph, commit_approved_rfi, list_sources, read_source, grep_corpus). Encodes the EPLUS RFI workflow — deconstruct the request, delegate the lookup to the rfi-researcher agent, draft the response to the house format, then gate the knowledge-base write-back behind an explicit AskUserQuestion approval — plus the interactive knowledge-base map and the return path for logging a final RFI that was edited and issued outside the chat. Always load it before calling any rfi-knowledge-hub tool. When the RFIs or submittals are to be reviewed against the project's own drawings, bulletins, and specifications in a connected folder, load contract-document-review as well; it carries that workflow.
 argument-hint: <RFI text, attached document reference, or instructions — e.g. "review this request and draft a response">
 ---
 
@@ -25,14 +25,17 @@ workflow to the RFI/submittal request in the conversation.
 ## Which workflow
 
 - **Questions answered from the EPLUS knowledge base** (one RFI, a few RFIs,
-  a spec lookup, logging an issued response): this skill, Steps 0–4.
+  a spec lookup, logging an issued response): this skill, Steps 1–4.
+- **Seeing how a topic connects** (show, map, visualize or explore it across
+  projects and documents): the knowledge-base map below. No research, no
+  draft, unless the user also wants a written answer.
 - **A review against the project's own Contract Documents in a folder** (IFC
   drawing sets, drawing bulletins, a specification set; often many RFIs and
   submittals across several buildings, with stamped PDFs and a summary as
-  deliverables): load the `contract-document-review` skill and follow it. Step 0
-  (memory), the house response format, and the user-facing language rules
-  below still apply there; Steps 2 and 4 do not, because the evidence is the
-  folder, not the knowledge base, and a batch of drafts is not approved content.
+  deliverables): load the `contract-document-review` skill and follow it. The
+  house response format and the user-facing language rules below still apply
+  there; Steps 2 and 4 do not, because the evidence is the folder, not the
+  knowledge base, and a batch of drafts is not approved content.
 
 ## User-facing language
 
@@ -62,12 +65,14 @@ query text seed the search on the wrong nodes and poison retrieval.
 
 ## Available tools
 
-Five tools on `rfi-knowledge-hub`; exact signatures and parameter rules
+Six tools on `rfi-knowledge-hub`; exact signatures and parameter rules
 live in [`reference/tools.md`](reference/tools.md). Four are read-only
 — `query_hermes_rfi` (discovery search with a synthesized report),
 `list_sources`, `read_source` (verbatim text, the only citable source),
 `grep_corpus` (exact/regex search) — and **only the `rfi-researcher`
-agent calls them** (Step 2). The fifth,
+agent calls them** (Step 2). `show_rfi_graph` opens the interactive
+knowledge-base map for the user; the main thread calls it (see "The
+knowledge-base map" below). The sixth,
 `commit_approved_rfi(rfi_id, markdown_content, metadata, project_id="default")`,
 writes a human-approved final response to the knowledge base. **Main
 thread only, and never without explicit user approval through the Step 4
@@ -77,56 +82,6 @@ empty metadata. The plugin's PreToolUse hook makes the harness prompt
 before every call as a second line of defense.
 
 ## The workflow
-
-### Step 0 — Memory decision (once per session, before anything else)
-
-Before the first lookup — and before writing any memory file — call
-`AskUserQuestion` with exactly one question:
-
-- header: "Memory"
-- question: "Should I save anything from this session to memory?"
-- options:
-  1. label: "Don't save anything"
-     description: "Nothing is written to memory this session. Safest while
-     this workflow is still changing."
-  2. label: "Ask me before each save"
-     description: "I'll show you the exact note before writing it."
-  3. label: "Save freely"
-     description: "I'll save context as it comes up and tell you what I
-     wrote."
-
-Then hold to it for the whole session:
-
-- **Don't save anything** → write no memory files at all, and do not raise it
-  again. Do not offer a summary "just in case."
-- **Ask me before each save** → show the full proposed note and get an explicit
-  yes before each write.
-- **Save freely** → write as you go and report what you wrote.
-
-Ask once. If the question is skipped, dismissed, or answered ambiguously,
-treat it as **Don't save anything**. If the user has already said in this
-session what they want, honour that and skip the question.
-
-**What must never go into memory, under any option:**
-
-- **Project-specific technical values** — mounting heights, note numbers,
-  clause values, dimensions, part numbers, equipment schedules. These vary
-  between drawing sets on the same program, and a remembered value invites a
-  future session to apply one project's number to another. The governing value
-  is read from the project's own sheet or the knowledge base every time.
-- Anything the knowledge base already holds. Committed RFIs are retrievable —
-  memory is not a second copy of them.
-
-**What is worth saving** (subject to the choice above): who the user is and how
-they work, standing feedback on drafting and tone, project identifiers, the
-governing drawing set, open items, and where in the corpus a recurring answer
-lives. Reasoning that travels between projects is fine; the numbers are not.
-
-Every memory file this skill writes ends with a provenance line — the date and
-`eplus-rfis-submittals` version it was written under — so a later session can
-see it predates a workflow change. Memories are advisory context, never a
-citation: nothing recalled from memory may appear in a draft as a technical
-claim without being re-verified against the corpus.
 
 ### Step 1 — Request deconstruction & context analysis
 
@@ -361,6 +316,75 @@ marked PENDING VERIFICATION.
 environment, state that, ask for approval in prose, and require the
 literal word "Approve" before committing. Silence or anything
 ambiguous is not approval.
+
+## The knowledge-base map
+
+`show_rfi_graph(query, project_id=None)` opens an interactive map of the
+knowledge base inline in the chat: the RFIs, submittals, code books and spec
+sections that mention a topic, how they connect, and the concepts they share.
+The user explores it. **You never see the map, only a short summary.** Call it
+from the main thread, never through the researcher.
+
+**When.** The user wants to see, map, visualize or explore how a topic
+connects across projects and documents: "show me how card reader RFIs connect
+across our projects", "map everything we have on ductbanks", "what's connected
+to grounding and bonding?" when they want the picture rather than an answer.
+A written answer, a citation or a spec requirement is Step 2, not the map. An
+answer plus "show me" gets both: the map, and the researcher for the answer.
+
+**Parameters.**
+
+- `query`: the topic in one to three distinctive domain words — "card
+  reader", "ductbank", "access control", "grounding bonding", "fiber
+  backbone". Each word is matched separately as a substring of node labels,
+  so short common words match far too much: never pass the user's sentence.
+  Filler words and "rfi" are dropped by the server. 200 characters at most.
+- `project_id` (optional): narrows the map to one project, as a
+  case-insensitive substring of the project name ("NVA05D", "NVA06A",
+  "POR03B", "SVY01D", "Miner", "CTX2"). Documents that match the topic
+  directly stay in, even from other projects.
+
+**After the call.** The result carries `status`, `counts` (rfi, submittal,
+codebook, spec, concept, other), up to five `top_documents`, and `themes`.
+
+- `success`: one to three sentences to orient the user — how many RFIs and
+  submittals, the top documents, the themes — then let them explore. Do not
+  describe nodes or links you cannot see, and name no connection beyond
+  `top_documents` and `themes`.
+- `empty`: say nothing matched and suggest a shorter or different wording.
+  If they want a written search of the topic instead, that is Step 2.
+- `error`: follow the failure protocol below.
+- One call per topic. Every call opens a new map, so never call again just to
+  "refresh" one.
+
+**What the user does in it, without you.** Clicking a document shows its
+project, what it mentions, and "Read the source" with the passages that
+mention the topic; "Expand neighbours" grows the map in place; there is a
+search box, type filters, fit to view and fullscreen. Nothing in the map posts
+to the chat or asks you anything.
+
+**Selections.** When the user clicks a node you silently receive one line:
+`In the RFI knowledge graph for "<query>", the user selected <type> "<label>" (<project>).`
+There is nothing to answer. It matters only if the user later refers to it
+("that one", "what's this RFI about?"). Then spawn `rfi-researcher` with
+`model: haiku` on the direct path: the RFI number or the label's key words as
+the named authority, the project from the note as project_id, mode
+`precedent`. Answer from its brief. The note carries no file path; the
+researcher finds the document. If the haiku override is refused, spawn it on
+its default model. A question about that document that needs a determination
+or a draft is a normal Step 2.
+
+**Never call `rfi_graph_data` or `rfi_graph_expand`.** They are the map's own
+helpers, hidden from the model; if either shows up in your tool list, leave it
+alone.
+
+**Limits.** The map is built from a snapshot of the knowledge graph, so an RFI
+logged through `commit_approved_rfi` does not appear until the graph is
+rebuilt (the server picks up a rebuild on its own). It shows at most 140
+nodes, starting from the 12 best label matches and going one step out, and
+leaves out generic hubs such as company names and umbrella spec sections.
+Documents are merged and renamed, e.g. "RFI 119 · Card Biometric Reader
+Location Confirmation". Say so if the user asks why a document is missing.
 
 ## Handing off to the stamp
 

@@ -18,8 +18,8 @@ $ARGUMENTS
 | One RFI or a few, answered from the EPLUS knowledge base | the `rfi` skill |
 | The project's own drawings, bulletins and specs in a folder, often many items across several buildings | this skill |
 
-Everything in the `rfi` skill about memory (Step 0), the house response format,
-client-safe wording, and never citing from pre-training memory still applies
+Everything in the `rfi` skill about the house response format, client-safe
+wording, and never citing from pre-training memory still applies
 here. What changes:
 
 - **Citations trace to files in the folder.** The knowledge base may be used
@@ -38,15 +38,14 @@ analysis starts. Ask everything in a single round before any analysis (up to
 two `AskUserQuestion` calls back to back), skipping anything the user already
 stated:
 
-1. **Memory** — the `rfi` skill's Step 0 question, verbatim.
-2. **Reviewer name and review date** for the stamp's reviewer cell.
-3. **Prior EPLUS review copies** in the folder: fresh review with prior copies
+1. **Reviewer name and review date** for the stamp's reviewer cell.
+2. **Prior EPLUS review copies** in the folder: fresh review with prior copies
    as reference, fresh review ignoring them, or only unreviewed items.
-4. **Knowledge base**: not used, cross-check only, or allowed as a source.
-5. **Stamped-copy naming** (house default `EPLUS RESPONSE - <file>.pdf`) and
+3. **Knowledge base**: not used, cross-check only, or allowed as a source.
+4. **Stamped-copy naming** (house default `EPLUS RESPONSE - <file>.pdf`) and
    **comment colour** (house red unless named).
-6. **Stamp decision basis**, if the user did not give one (see Review rules).
-7. **Placement when no clean spot exists**: ask per file, or a standing choice
+5. **Stamp decision basis**, if the user did not give one (see Review rules).
+6. **Placement when no clean spot exists**: ask per file, or a standing choice
    (smaller scale first, then least-ink corner).
 
 After that round, do not ask again unless the user is plainly still present.
