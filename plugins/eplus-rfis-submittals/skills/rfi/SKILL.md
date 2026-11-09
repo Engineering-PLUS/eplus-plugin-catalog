@@ -1,7 +1,7 @@
 ---
 name: rfi
 description: Draft a spec-backed RFI or submittal response, map how a topic connects across the EPLUS knowledge base, and log accepted responses to it.
-when_to_use: Use this skill whenever a task involves RFIs (Requests for Information), submittals, submittal review, RFI response drafting, spec clause lookups, CSI division/section questions, seeing, mapping, visualizing or exploring how a topic connects across projects and documents, logging or committing a finalized/issued RFI response to the knowledge base, or the rfi-knowledge-hub MCP tools (query_hermes_rfi, show_rfi_graph, commit_approved_rfi, list_sources, read_source, grep_corpus). Encodes the EPLUS RFI workflow — deconstruct the request, delegate the lookup to the rfi-researcher agent, draft the response to the house format, show it in the chat, then log it to the knowledge base silently once the user accepts it or moves on, adapting to how each user works through memory — plus the interactive knowledge-base map and the return path for logging a final RFI that was edited and issued outside the chat. Always load it before calling any rfi-knowledge-hub tool. When the RFIs or submittals are to be reviewed against the project's own drawings, bulletins, and specifications in a connected folder, load contract-document-review as well; it carries that workflow.
+when_to_use: Use this skill whenever a task involves RFIs (Requests for Information), submittals, submittal review, RFI response drafting, spec clause lookups, CSI division/section questions, seeing, mapping, visualizing or exploring how a topic connects across projects and documents, logging or committing a finalized/issued RFI response to the knowledge base, or the rfi-knowledge-hub MCP tools (query_hermes_rfi, show_rfi_graph, commit_approved_rfi, list_sources, read_source, grep_corpus). Encodes the EPLUS RFI workflow — deconstruct the request, delegate the lookup to the rfi-researcher agent, draft the response to the house format, show it in the chat, then log it for EPLUS internal model alignment without asking once the user accepts it or moves on, adapting to how each user works through memory — plus the interactive knowledge-base map and the return path for logging a final RFI that was edited and issued outside the chat. Always load it before calling any rfi-knowledge-hub tool. When the RFIs or submittals are to be reviewed against the project's own drawings, bulletins, and specifications in a connected folder, load contract-document-review as well; it carries that workflow.
 argument-hint: <RFI text, attached document reference, or instructions — e.g. "review this request and draft a response">
 ---
 
@@ -260,7 +260,8 @@ reconstruction from a generated document.
 
 **The response always appears in the chat.** Write the full response as
 ordinary message text, never only in thinking and never only in a file. Do
-not follow it with an approval question or anything about logging.
+not follow it with an approval question, and say nothing about logging a
+response that has not been logged.
 
 Then, depending on what you know about this user:
 
@@ -281,13 +282,18 @@ question, the determination, and a numbered citations section referencing
 the exact clauses the lookup returned. Change or drop sections the user
 does not want.
 
-### Step 4 — Log accepted responses silently
+### Step 4 — Log accepted responses without asking
 
-EPLUS users do not know how logging works, and being asked puts them off
-it, so logging happens in the background and never interrupts the work. Do
-not ask whether to log, offer to log, remind them about it, or mention that
-a response was logged. Never call `AskUserQuestion` about it. If the user
-asks whether something was logged, tell them truthfully.
+Logging is for EPLUS internal model alignment. It is not Procore or any
+official project record, and nothing is issued to anyone. EPLUS users do not
+know how logging works, and being asked puts them off it, so it happens in
+the background and never interrupts the work. Do not ask whether to log,
+offer to log, or remind them about it. Never call `AskUserQuestion` about it.
+
+Whenever you mention it to the user, call it "logged for EPLUS internal
+model alignment", never just "logged" or "committed". If they ask what that
+means, say it is an internal EPLUS record and does not go to Procore or any
+official record.
 
 **Log the latest version of the response when the user:**
 
@@ -323,9 +329,10 @@ first if it is deferred:
 - `metadata`: `csi_section`, `subject`, `date`, and
   `source: "auto-logged from chat"`
 
-Make the call alongside your normal reply, with no narration. If the user
-changes a response after it was logged, log it again under the same
-`rfi_id`.
+Make the call alongside your normal reply. Once it succeeds, include one
+short line and nothing more about it: "RFI 1514 logged for EPLUS internal
+model alignment." If the user changes a response after it was logged, log
+it again under the same `rfi_id`.
 
 **If a save fails, keep trying, quietly.** Retry as needed and try different
 approaches: fix the arguments the error points to, reload the tool, try the
@@ -433,7 +440,8 @@ text or attached document) and asks to log, commit, or save it:
    (`DFW02A-000555`), so the issued text replaces any version logged from
    the chat, and `source: "issued response"` in the metadata. If it fails,
    keep trying as Step 4 describes.
-4. Tell the user in one line that it is logged, since they asked for it.
+4. Tell the user in one line: "RFI 1514 logged for EPLUS internal model
+   alignment."
 
 ## Failure protocol
 

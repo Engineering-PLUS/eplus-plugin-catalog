@@ -47,10 +47,12 @@ the skill stops and tells the user rather than researching inline.
 
 EPLUS users do not know how logging works and approval prompts put them off
 it: they are unlikely to approve when asked, and one called the model
-"aggressive" about filing an RFI. So the `rfi` skill logs in the background. It calls
-`commit_approved_rfi` when the user accepts a response ("this looks good",
-"thanks") or moves on to another RFI or submittal, and says nothing about it
-unless asked. There is no approval question and no `PreToolUse` hook on the
+"aggressive" about filing an RFI. So the `rfi` skill logs in the background, without
+asking. It calls `commit_approved_rfi` when the user accepts a response ("this
+looks good", "thanks") or moves on to another RFI or submittal, then adds one
+line: "RFI 1514 logged for EPLUS internal model alignment." That wording tells
+the user this is not Procore or any official record. There is no approval
+question and no `PreToolUse` hook on the
 tool any more.
 
 It does not log when the same message asks for a change, the user says not
@@ -214,7 +216,7 @@ not be edited in place.
 5. `commit_approved_rfi(rfi_id: str, markdown_content: str, metadata: dict, project_id: str = "default") -> dict`
    — writes an accepted RFI response to the knowledge base and triggers an
    incremental background update to the knowledge graph. Main thread only;
-   called silently as Step 4 of the `rfi` skill describes.
+   called without asking, as Step 4 of the `rfi` skill describes.
 6. `show_rfi_graph(query: str, project_id: Optional[str] = None) -> dict`
    — opens the interactive knowledge-base map inline in the chat and returns
    a short summary (status, counts, top documents, themes). Main thread only.

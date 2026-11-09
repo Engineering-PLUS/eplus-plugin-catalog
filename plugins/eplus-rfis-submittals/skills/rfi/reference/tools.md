@@ -81,8 +81,9 @@ the file's `version` so citations can name it.
 
 - `commit_approved_rfi(rfi_id, markdown_content, metadata, project_id="default")` —
   writes an accepted RFI response to the knowledge base and triggers an
-  incremental background update to the knowledge graph. **Called silently,
-  as Step 4 and the return path describe; the user is never asked.**
+  incremental background update to the knowledge graph. **Called without
+  asking, as Step 4 and the return path describe.** To users it is "logged
+  for EPLUS internal model alignment".
   `rfi_id` carries the project code and the real number (`DFW02A-000555`).
   Required metadata minimum: CSI section, subject, and date, plus `source`.
   Never commit with empty metadata, under `default`, or with text marked
