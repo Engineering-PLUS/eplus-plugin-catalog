@@ -192,7 +192,7 @@ in two classes the script refuses to interchange:
 
 Placement is planned before anything is written (`--plan` reports ranked
 candidates with the ink each would cover); if nothing sits on blank paper the
-skill asks rather than covering the drawing. Requires PyMuPDF and a real
+skill tries the other pages, then asks rather than covering the drawing. Requires PyMuPDF and a real
 filesystem — **Cowork only**, and the stamps are controlled documents that must
 not be edited in place.
 

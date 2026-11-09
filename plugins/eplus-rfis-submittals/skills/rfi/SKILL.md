@@ -272,10 +272,15 @@ Then, depending on what you know about this user:
   and reopened in Bluebeam). Present the file when done (`present_files`
   where that tool exists, otherwise by path). If no docx skill or
   file-creation tools are available, say so.
+- **They want it stamped** (said so here, or memory says so): follow
+  "Handing off to the stamp" below.
 - **They want it in the chat** (said so here, or memory says so): stop there.
-- **You don't know yet:** end with one plain line such as "Want this as a
-  Word document?" Do not use `AskUserQuestion` for it. Save the answer to
+- **You don't know yet and the RFI or submittal came as a PDF:** end with one
+  plain line such as "Want me to stamp the PDF with this response? If so,
+  which stamp?" Do not use `AskUserQuestion` for it. Save the answer to
   memory and do not ask again.
+- **You don't know yet and there is no PDF:** stop there. Make a Word
+  document only if they ask for one.
 
 By default the response has the RFI ID and project header, the restated
 question, the determination, and a numbered citations section referencing
@@ -416,8 +421,8 @@ Location Confirmation". Say so if the user asks why a document is missing.
 
 ## Handing off to the stamp
 
-When the response is going onto a submittal rather than into an RFI field —
-the user asks to stamp the submittal, mark it reviewed, or produce an
+When the response is going onto the RFI or submittal PDF — the user asks to
+stamp it, mark it reviewed, or produce an
 "EPLUS RESPONSE" copy — load the `pdf-stamping` skill in this plugin and
 follow it. The accepted response text becomes the ENGINEERING PLUS COMMENTS
 block; the disposition stamp is the user's call, never inferred from the
