@@ -19,15 +19,17 @@ $ARGUMENTS
 | The project's own drawings, bulletins and specs in a folder, often many items across several buildings | this skill |
 
 Everything in the `rfi` skill about the house response format, client-safe
-wording, and never citing from pre-training memory still applies
+wording, keeping notes on how this user works, and never citing from
+pre-training memory still applies
 here. What changes:
 
 - **Citations trace to files in the folder.** The knowledge base may be used
   to find a lead, if the user allows it, but a citation names a sheet or spec
   paragraph the review actually read in the project's own documents.
 - **No knowledge-base commit during the review.** A batch of draft responses
-  is not approved content. When the user later issues responses and wants
-  them logged, use the `rfi` skill's return path, one RFI at a time.
+  is not approved content, and "thanks" or "looks good" logs nothing here.
+  When the user later issues responses and wants them logged, use the `rfi`
+  skill's return path, one RFI at a time.
 - **The research is not delegated to `rfi-researcher`.** That agent only
   reaches the knowledge base. Analysis workers read the folder (Step 3).
 
@@ -36,7 +38,7 @@ here. What changes:
 Users running a batch review often say they will not be available once
 analysis starts. Ask everything in a single round before any analysis (up to
 two `AskUserQuestion` calls back to back), skipping anything the user already
-stated:
+stated or memory already records:
 
 1. **Reviewer name and review date** for the stamp's reviewer cell.
 2. **Prior EPLUS review copies** in the folder: fresh review with prior copies

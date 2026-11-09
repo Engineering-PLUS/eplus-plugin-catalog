@@ -1,7 +1,7 @@
 ---
 name: pdf-stamping
-description: Stamp submittal PDFs with the EPLUS Bluebeam review stamps and comment block, editable in Bluebeam.
-when_to_use: Use whenever the user asks to stamp a submittal, add a DRAFT or FOR REFERENCE ONLY watermark, apply "Exceptions As Noted" / "No Exception" / "Rejected (Resubmit)" / "Review Required" / "For Record" / "For Information Only", add the ENGINEERING PLUS COMMENTS box to a drawing, change the comment colour or add a general note on already-stamped copies, stamp a batch of submittals, or mark a submittal reviewed. Produces an "EPLUS RESPONSE - " copy with live, Bluebeam-editable annotations. Desktop app only — it needs PyMuPDF and a real filesystem. Handles Bluebeam annotation stamps, which a plain PDF merge silently fails to render.
+description: Stamp submittal and RFI PDFs with the EPLUS Bluebeam review stamps and comment block, editable in Bluebeam.
+when_to_use: Use whenever the user asks to stamp a submittal or an RFI, add a DRAFT or FOR REFERENCE ONLY watermark, apply "Exceptions As Noted" / "No Exception" / "Rejected (Resubmit)" / "Review Required" / "For Record" / "For Information Only", add the ENGINEERING PLUS COMMENTS box to a drawing, change the comment colour or add a general note on already-stamped copies, stamp a batch of submittals, or mark a submittal reviewed. Produces an "EPLUS RESPONSE - " copy with live, Bluebeam-editable annotations. Desktop app only — it needs PyMuPDF and a real filesystem. Handles Bluebeam annotation stamps, which a plain PDF merge silently fails to render.
 ---
 
 # EPLUS submittal stamping
@@ -56,7 +56,7 @@ that basis and write it into the comment block, so the engineer can see why.
 
 ## Inputs to establish first
 
-- **Source PDF** — the submittal.
+- **Source PDF** — the submittal or RFI.
 - **Review stamp** — ask if not stated.
 - **Comments** — the ENGINEERING PLUS COMMENTS list, if there is one.
 - **Comment colour** — house red (`FF0000`) unless the user names another.
@@ -69,10 +69,13 @@ that basis and write it into the comment block, so the engineer can see why.
   compounds with it. Leave it at the default 1.0 unless the user wants it
   lighter than the stamp as authored.
 - **Reviewer name** — fills the `&[User]` cell. **Required**; the script aborts
-  rather than shipping a raw `&[User]` token. Ask; do not assume it is the stamp owner.
+  rather than shipping a raw `&[User]` token. Use the name the user gave or
+  memory records. If neither has it, ask once and save it to memory. Do not
+  assume it is the stamp owner or derive it from a login.
 - **Date** — fills `&[Date]`, defaults to today, `MM/DD/YYYY`.
 - **Which page** the review stamp goes on. Usually the first sheet of actual
-  content, which is often not page 1.
+  content, which is often not page 1. Work it out yourself from the document
+  and the plan in step 2. Ask only if you cannot tell.
 
 ## Procedure
 
@@ -116,17 +119,19 @@ Prefer the house placement — `auto-blank:top`, which reproduces the top-left
 position of the issued example — unless a different clean candidate is
 obviously better for the sheet.
 
-**If no candidate is clean, stop and ask the user.** Do not pick for them and
-do not quietly cover their drawing. Present the real options with
+**If no candidate is clean, run the plan on the other pages first** and take
+the best page with a clean placement, usually the cover sheet or a following
+sheet. Say in the report where it landed.
+
+**If no page has a clean placement, stop and ask the user.** Do not pick for
+them and do not quietly cover their drawing. Present the real options with
 `AskUserQuestion`, using the numbers from the plan:
 
-1. **A different page** — often the cleanest fix; the block may fit on the
-   cover sheet or a following sheet.
-2. **A smaller block** — `--stamp-scale 0.85` or `0.7`; say what the plan
+1. **A smaller block** — `--stamp-scale 0.85` or `0.7`; say what the plan
    reports for coverage at that scale.
-3. **Cover content at the least-damaging spot** — name the corner and the
+2. **Cover content at the least-damaging spot** — name the corner and the
    `covers_ink_pct` from the plan. This needs `--allow-overlap`.
-4. **White background over content** — `--comment-fill white` with
+3. **White background over content** — `--comment-fill white` with
    `--allow-overlap`. This *hides* whatever is underneath the comment box.
    **Last resort.** Say plainly what it will obscure.
 

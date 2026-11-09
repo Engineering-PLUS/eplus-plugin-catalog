@@ -2,8 +2,8 @@
 
 Teaches Claude the EPLUS RFI & Submittal processing workflow: deconstruct
 the request, delegate the spec lookup to a research subagent, draft the
-response to the house format, and gate the knowledge-base write-back behind
-the user's explicit sign-off. It also opens an interactive map of how a topic
+response to the house format, and log accepted responses to the knowledge
+base in the background. It also opens an interactive map of how a topic
 connects across the knowledge base. The knowledge
 base holds 82,000+ pages of extracted AEC technical documents (Core & Shell
 specs, program-specific documentation, product submittals, historical RFIs,
@@ -16,13 +16,13 @@ connector** — this plugin ships no server definition and no credential.
 | Component | Path | Purpose |
 |-----------|------|---------|
 | Manifest  | [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) | Plugin identity and metadata |
-| Skill     | [`skills/rfi/SKILL.md`](skills/rfi/SKILL.md) | Doctrine: deconstruct → delegate research → draft → HITL write-back gate, plus the knowledge-base map and the return path for logging final RFI responses issued outside the chat |
+| Skill     | [`skills/rfi/SKILL.md`](skills/rfi/SKILL.md) | Doctrine: deconstruct → delegate research → draft in the chat → silent logging, adapted to each user through memory, plus the knowledge-base map and the return path for logging final RFI responses issued outside the chat |
 | Reference | [`skills/rfi/reference/tools.md`](skills/rfi/reference/tools.md) | Exact signatures and parameter rules for the six connector tools |
 | Skill     | [`skills/contract-document-review/SKILL.md`](skills/contract-document-review/SKILL.md) | Folder-based review of RFIs and submittals against the project's own drawings, bulletins and specs: one round of questions, governing-sheet register, delegation by building, citation cross-check, packaging (Cowork only) |
 | Skill     | [`skills/pdf-stamping/SKILL.md`](skills/pdf-stamping/SKILL.md) | Apply the firm's Bluebeam review stamps and the ENGINEERING PLUS COMMENTS box to a submittal, as live annotations (Cowork only) |
 | Agent     | [`agents/rfi-researcher.md`](agents/rfi-researcher.md) | Sonnet research subagent: runs every spec-database lookup in its own isolated context under a hard budget and returns a compact evidence brief |
-| Hooks     | [`hooks/hooks.json`](hooks/hooks.json) | Sign-off gate on `commit_approved_rfi` and an export-log echo of the researcher's brief; single PowerShell commands, each with an `EPLUS_NO_*` escape hatch |
-| Scripts   | [`scripts/gate-commit.ps1`](scripts/gate-commit.ps1), [`scripts/show-researcher-final.ps1`](scripts/show-researcher-final.ps1) | The two hook bodies (Windows host, PowerShell 5.1, ASCII, always exit 0) |
+| Hooks     | [`hooks/hooks.json`](hooks/hooks.json) | Export-log echo of the researcher's brief; a single PowerShell command with an `EPLUS_NO_*` escape hatch |
+| Scripts   | [`scripts/show-researcher-final.ps1`](scripts/show-researcher-final.ps1) | The hook body (Windows host, PowerShell 5.1, ASCII, always exit 0) |
 
 ## Research delegation
 
@@ -40,23 +40,41 @@ subagent. The agent never drafts, never proposes a disposition, and cannot
 call `commit_approved_rfi` (it is in its `disallowedTools`).
 
 One RFI = one agent. Batches run one agent per RFI, at most three at a time,
-with drafting and approval sequential in the main thread. If the spawn fails,
+with drafting sequential in the main thread. If the spawn fails,
 the skill stops and tells the user rather than researching inline.
 
-## Sign-off hook
+## Logging
 
-The marketplace promises nothing is saved without the user's sign-off. The
-skill enforces that with an `AskUserQuestion` gate; `hooks/hooks.json` adds a
-runtime enforcement: a `PreToolUse` hook on `commit_approved_rfi` (both tool
-name forms) returns `permissionDecision: "ask"`, so the harness itself
-prompts before any write to the knowledge base, whatever the model decided.
-Disable with `EPLUS_NO_RFI_COMMIT_GATE=1`. Since the desktop app release of
-2026-09-11 organization-plugin hooks also run in Chat-tab sessions, so the
-gate holds wherever the connector is reachable; on older builds the skill's
-`AskUserQuestion` gate was the only enforcement in Chat. Not yet confirmed
-from a Chat export.
+EPLUS users do not know how logging works and approval prompts put them off
+it: they are unlikely to approve when asked, and one called the model
+"aggressive" about filing an RFI. So the `rfi` skill logs in the background, without
+asking. It calls `commit_approved_rfi` when the user accepts a response ("this
+looks good", "thanks") or moves on to another RFI or submittal, then adds one
+line: "RFI 1514 logged for EPLUS internal model alignment." That wording tells
+the user this is not Procore or any official record. There is no approval
+question and no `PreToolUse` hook on the
+tool any more.
 
-The second hook, `SubagentStop` scoped to `^eplus-rfis-submittals:rfi-researcher$`,
+It does not log when the same message asks for a change, the user says not
+to, the user has not seen the response, any part is PENDING VERIFICATION,
+the RFI number, project or required metadata is missing, or the work is a
+`contract-document-review` batch. A response the user never reacts to is not
+logged.
+
+`rfi_id` carries the project code (`DFW02A-000555`) because a save on
+2026-08-31 went to `rfis_approved/RFI_044.md`, with no project in the file
+name, so the same number on two projects could overwrite each other. Each
+save carries `source` in its metadata: `auto-logged from chat` or `issued
+response`.
+
+A failed save is retried as needed, with the model free to try different
+approaches. If it still fails, the model files one `report_issue` with the
+full response text, or writes `RFI-UNLOGGED-<rfi_id>.md` to the session
+outputs folder if that cannot be filed.
+
+## Researcher hook
+
+A `SubagentStop` hook scoped to `^eplus-rfis-submittals:rfi-researcher$`,
 appends the researcher's full brief (with a 220-character excerpt header) to
 `<session project dir>/<session_id>/subagent-final-messages.log`, the
 directory the session exporter zips. On Cowork the brief travels in the
@@ -67,8 +85,7 @@ stub such as "Report delivered.", so the hook takes the message of the last
 (`source=handback` or `source=last_message`). Disable with
 `EPLUS_NO_RFI_SUBAGENT_ECHO=1`. There is no `SessionStart` hook and no
 per-message banner: the fleet is Windows-only, each hook is one
-`powershell -File` call costing up to a second, so only the two that matter
-are wired.
+`powershell -File` call costing up to a second, so only this one is wired.
 
 ### Hook wiring notes
 
@@ -76,31 +93,22 @@ The prose that used to sit in a top-level `description` field of
 `hooks/hooks.json` lives here: the plugins reference documents no such field,
 so it is kept out of the file the app parses.
 
-- **Two single-PowerShell hooks** (the EPLUS fleet is Windows-only and the app
+- **One single-PowerShell hook** (the EPLUS fleet is Windows-only and the app
   runs hooks on the Windows host, in Cowork and, since the desktop release of
   2026-09-11, in Chat-tab sessions too; no sh half, no SessionStart).
-  (1) `PreToolUse` on `commit_approved_rfi` under both tool-name forms
-  (managed connector `mcp__rfi-knowledge-hub__*` and bundled
-  `mcp__plugin_eplus-rfis-submittals_rfi-knowledge-hub__*`):
-  `scripts/gate-commit.ps1` returns `permissionDecision: "ask"` so the harness
-  itself prompts before any write to the EPLUS knowledge base; the marketplace
-  promise that nothing is saved without sign-off is enforced by the runtime,
-  not only by the skill's `AskUserQuestion` gate. Disable with
-  `EPLUS_NO_RFI_COMMIT_GATE=1`. (2) `SubagentStop` scoped to
-  `^eplus-rfis-submittals:rfi-researcher$` (plugin agents report the
-  plugin-scoped `agent_type`, so the matcher is anchored):
+  `SubagentStop` scoped to `^eplus-rfis-submittals:rfi-researcher$` (plugin
+  agents report the plugin-scoped `agent_type`, so the matcher is anchored):
   `scripts/show-researcher-final.ps1` appends the researcher's full evidence
   brief, with a 220-character excerpt header, to
   `<session project dir>/<session_id>/subagent-final-messages.log`, the
   directory the session exporter zips. No `displayContent` banner: that needs
   a `MessageDisplay` drain firing on every message, which this plugin does not
   wire. Disable with `EPLUS_NO_RFI_SUBAGENT_ECHO=1`.
-- **Form.** `gate-commit.ps1` reads stdin with `[Console]::In.ReadToEnd()`;
-  `show-researcher-final.ps1` reads it as UTF-8 bytes, because the hook
-  console code page on the seats (IBM437) mangles non-ASCII text in a brief,
-  and appends the log as UTF-8 without a BOM. Both never
-  emit `additionalContext` or `decision` on `SubagentStop`, and always exit 0
-  with the decision in the JSON body. Every entry uses `"shell": "powershell"`
+- **Form.** `show-researcher-final.ps1` reads stdin as UTF-8 bytes, because
+  the hook console code page on the seats (IBM437) mangles non-ASCII text in
+  a brief, and appends the log as UTF-8 without a BOM. It never
+  emits `additionalContext` or `decision` on `SubagentStop`, and always exits 0.
+  The entry uses `"shell": "powershell"`
   with a direct `& "${CLAUDE_PLUGIN_ROOT}\scripts\<name>.ps1"` call, adopted
   2026-09-03 after a field A/B in the same export: the app's own PowerShell
   runs the script in one process (540 ms measured) instead of launching a
@@ -154,6 +162,14 @@ through `commit_approved_rfi` appear only after a rebuild (the server reloads
 it without a restart). Claude Desktop caches the widget: after a widget update,
 testers need a full quit and relaunch.
 
+## Memory
+
+The skills keep notes on how each user works: how they hand over work, where
+their files live, how they edit responses, chat or Word, and how they signal
+they are done. Notes are saved without asking. Technical values are not saved,
+because they differ between drawing sets, and memory never replaces a lookup
+or appears in a citation.
+
 ## Stamping submittals
 
 `skills/pdf-stamping` produces an `EPLUS RESPONSE - <file>.pdf` reference copy
@@ -176,7 +192,7 @@ in two classes the script refuses to interchange:
 
 Placement is planned before anything is written (`--plan` reports ranked
 candidates with the ink each would cover); if nothing sits on blank paper the
-skill asks rather than covering the drawing. Requires PyMuPDF and a real
+skill tries the other pages, then asks rather than covering the drawing. Requires PyMuPDF and a real
 filesystem — **Cowork only**, and the stamps are controlled documents that must
 not be edited in place.
 
@@ -198,10 +214,9 @@ not be edited in place.
    context lines, for locating a part number, spec clause, or RFI
    number across all projects. Researcher only.
 5. `commit_approved_rfi(rfi_id: str, markdown_content: str, metadata: dict, project_id: str = "default") -> dict`
-   — writes back a human-approved final RFI response to the knowledge base
-   and triggers an incremental background update to the knowledge graph.
-   Main thread only; gated by the skill's approval question and by the
-   PreToolUse hook.
+   — writes an accepted RFI response to the knowledge base and triggers an
+   incremental background update to the knowledge graph. Main thread only;
+   called without asking, as Step 4 of the `rfi` skill describes.
 6. `show_rfi_graph(query: str, project_id: Optional[str] = None) -> dict`
    — opens the interactive knowledge-base map inline in the chat and returns
    a short summary (status, counts, top documents, themes). Main thread only.
