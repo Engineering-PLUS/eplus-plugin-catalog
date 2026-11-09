@@ -68,13 +68,13 @@
       "maker": "eplus",
       "by": "EPLUS",
       "icon": "rfi-knowledge-hub.png",
-      "what": "Specifications and past RFI responses, so drafts cite the spec section. Nothing is saved without your sign-off.",
+      "what": "Specifications and past RFI responses, so drafts cite the spec section. Responses you accept are logged to the knowledge base.",
       "try": [
         "Draft a response to this RFI with the spec section",
         "Have we answered an RFI like this before?"
       ],
       "tools": {
-        "commit_approved_rfi": "Save an approved RFI response to the knowledge base (after your OK)",
+        "commit_approved_rfi": "Save an accepted RFI response to the knowledge base",
         "grep_corpus": "Exact-word search across specs and past RFIs",
         "list_sources": "List the documents in the knowledge base",
         "query_hermes_rfi": "Ask a question across specs and past RFIs",

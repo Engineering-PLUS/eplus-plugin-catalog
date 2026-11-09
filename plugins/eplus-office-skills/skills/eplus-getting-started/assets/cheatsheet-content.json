@@ -143,7 +143,7 @@
     },
     {
       "command": "/rfi",
-      "does": "Draft a spec-backed RFI or submittal response, and save approved ones to the knowledge base",
+      "does": "Draft a spec-backed RFI or submittal response, and log accepted ones to the knowledge base",
       "plugin": "RFIs and submittals"
     },
     {
